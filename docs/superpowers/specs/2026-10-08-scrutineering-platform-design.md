@@ -27,7 +27,7 @@ leaderboards, Development/Entry classes, India-specific rule variants, Competiti
 ## 2. Architecture
 
 Static PWA, no backend: TypeScript + Vite, service worker for offline use, IndexedDB for storage.
-Deployable to any static host or runnable from local files.
+Deployable to any static host over https (or served from localhost); service workers do not run on `file://` or plain-http LAN addresses.
 
 Units (each testable on its own):
 - `rules/` : typed WF26 rule data (one record per article).
@@ -44,7 +44,7 @@ Check kinds:
 - **range**: min and/or max, flat or proportional (PP+). Covers T3.4-T3.7, T5.2, T5.6, T7.2-T7.5, T7.11, T8.6.x, T9.5.x.
 - **pass/fail**: gauge, tool or visual checks (e.g. T4.4.1, T7.10, T9.7), flat penalty.
 - **per-wheel / per-axle**: T7.4-T7.8, T7.13 multiply by the number of wheels/axles failing.
-- **tiered**: T7.9.1-T7.9.4, each zone with its own penalty.
+- T7.9.1-T7.9.4 clear zones are four separate pass/fail checks, each with its own penalty.
 - **composite**: span rules (T8.6.1, T9.5.1) take the shortest of leading edge, trailing edge, top and bottom measurements.
 
 Behaviour:
@@ -83,7 +83,7 @@ so a rules fix recomputes everything. JSON export/import allows backup and manua
 
 ## 6. PDF result sheet
 
-Generated client-side (works offline). Contents: event, team, car, scrutineer, date; table of every article checked
+Generated client-side with jsPDF (works offline). Uses built-in Helvetica with brand colours and the official logo, because the brand web fonts cannot be embedded. Contents: event, team, car, scrutineer, date; table of every article checked
 (value, limit, pass/fail, class, penalty); totals; PERF/SAF sections; award-ineligibility note; at-risk margins;
 signature line.
 
@@ -104,3 +104,7 @@ signature line.
   a rules-data review against the PDF before release.
 - Amendments are published on stemracing.com; the rules file carries a version and issue date shown in the UI and on the PDF.
 - Safety half-points handling depends on the Competition Regulations (not bundled); deferred.
+
+## 9. Brand
+
+The UI follows the published STEM Racing design system (Secondary division theme, Brand Identity Guidelines v1.3): dark carbon-shadow ground, Magistral Bold Italic headings, MachoModular text, brand tokens only. Status is shown in words, never colour alone, because the brand has no green or red.
