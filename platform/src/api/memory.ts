@@ -219,7 +219,7 @@ export class MemoryApi implements Api {
     this.cards.push(card);
     return copy(card);
   }
-  async saveScore(cardId: string, criterionId: string, score: number, comment = '') {
+  async saveScore(cardId: string, criterionId: string, score: number, comment?: string) {
     const card = this.myCard(cardId);
     this.frozen(card.eventId, 'scorecards');
     if (card.status === 'submitted') throw new ApiError('locked', 'This scorecard has been submitted');
@@ -227,9 +227,11 @@ export class MemoryApi implements Api {
     const area = this.area(card.eventId, card.areaId)!;
     const problems = validateScores(area, { [criterionId]: score }, { complete: false });
     if (problems.length > 0) throw new ApiError('invalid', problems[0].message);
-    if (typeof comment !== 'string' || comment.length > 1000) throw new ApiError('invalid', 'Comments must be 1000 characters or fewer');
+    if (comment !== undefined && (typeof comment !== 'string' || comment.length > 1000)) throw new ApiError('invalid', 'Comments must be 1000 characters or fewer');
     card.scores[criterionId] = score;
-    card.comments[criterionId] = comment;
+    // undefined leaves an existing comment alone (a new score row starts with ''); any string, including '', sets it.
+    if (comment !== undefined) card.comments[criterionId] = comment;
+    else if (!(criterionId in card.comments)) card.comments[criterionId] = '';
   }
   async submitCard(cardId: string) {
     const card = this.myCard(cardId);

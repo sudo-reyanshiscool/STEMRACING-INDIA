@@ -43,6 +43,10 @@ export interface Api {
   declareConflict(eventId: string, teamId: string): Promise<void>;
   myConflicts(eventId: string): Promise<string[]>;
   openCard(eventId: string, teamId: string, areaId: string): Promise<CardRow>;
+  /**
+   * Upserts one criterion's score. `comment` undefined leaves any existing comment unchanged (a brand-new score row
+   * starts with ''); a string, including '', replaces it.
+   */
   saveScore(cardId: string, criterionId: string, score: number, comment?: string): Promise<void>;
   submitCard(cardId: string): Promise<void>;
   reopenCard(cardId: string, reason: string): Promise<void>;

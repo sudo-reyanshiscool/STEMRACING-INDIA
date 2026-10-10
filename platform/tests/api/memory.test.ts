@@ -401,3 +401,18 @@ describe('events', () => {
   });
 });
 
+
+describe('score comments', () => {
+  it('keeps an existing comment on a score-only save, and clears it only when a string is passed', async () => {
+    const { api, ev, t1 } = await world();
+    await api.signIn(JUDGE);
+    const card = await api.openCard(ev.id, t1.id, 'verbal-technique');
+    await api.saveScore(card.id, 'team-contribution', 12, 'Clear roles');
+    await api.saveScore(card.id, 'team-contribution', 15);
+    expect((await api.listCards(ev.id))[0]).toMatchObject({ scores: { 'team-contribution': 15 }, comments: { 'team-contribution': 'Clear roles' } });
+    await api.saveScore(card.id, 'engagement-presentation-dynamics', 10);
+    expect((await api.listCards(ev.id))[0].comments['engagement-presentation-dynamics'] ?? '').toBe('');
+    await api.saveScore(card.id, 'team-contribution', 15, '');
+    expect((await api.listCards(ev.id))[0].comments['team-contribution']).toBe('');
+  });
+});
