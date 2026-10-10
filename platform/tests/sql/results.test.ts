@@ -223,10 +223,16 @@ describe('privileges of the new objects', () => {
     expect(tables).toEqual(expect.arrayContaining(NEW_TABLES));
     for (const t of tables) {
       for (const p of ['insert', 'update', 'delete', 'truncate', 'references', 'trigger']) expect(await priv('anon', t, p), `anon ${p} ${t}`).toBe(false);
-      expect(await priv('anon', t, 'select'), `anon select ${t}`).toBe(['events', 'teams', 'ranking_snapshots'].includes(t));
+      expect(await priv('anon', t, 'select'), `anon select ${t}`).toBe(['events', 'teams'].includes(t));
       for (const p of ['truncate', 'references', 'trigger']) expect(await priv('authenticated', t, p), `authenticated ${p} ${t}`).toBe(false);
     }
     for (const p of ['update', 'delete', 'truncate']) expect(await priv('authenticated', 'ranking_snapshots', p), p).toBe(false);
+    const col = async (role: string, c: string) =>
+      (await w.db.query<{ ok: boolean }>(`select has_column_privilege($1, 'ranking_snapshots', $2, 'select') as ok`, [role, c])).rows[0].ok;
+    for (const role of ['anon', 'authenticated']) {
+      expect(await col(role, 'rows'), `${role} rows`).toBe(true);
+      expect(await col(role, 'inputs'), `${role} inputs`).toBe(false);
+    }
     expect(await priv('authenticated', 'penalties', 'update')).toBe(false);
   });
 
@@ -256,5 +262,55 @@ describe('privileges of the new objects', () => {
        order by 1`);
     expect(exposed.rows.map((x) => x.proname)).toEqual(
       ['event_released', 'has_role', 'is_chair_or_organiser', 'is_member', 'judges_panel', 'leads_panel', 'manages_team', 'sees_all_teams']);
+  });
+});
+
+describe('snapshot inputs are not public', () => {
+  const COLS = 'id, event_id, created_by, created_at, ruleset_id, input_hash, rows, released';
+  it('denies the inputs column to every API role and allows the rest', async () => {
+    const id = (await snapshot('chair', true)).rows[0].id;
+    await release(true);
+    try {
+      for (const who of [null, 'judgeV', 'mgr1', 'outsider', 'organiser', 'chair'] as const) {
+        await expect(as(w.db, who, (q) => q('select inputs from ranking_snapshots where id = $1', [id])), String(who)).rejects.toThrow(/permission denied/);
+        await expect(as(w.db, who, (q) => q('select * from ranking_snapshots')), `* ${who}`).rejects.toThrow(/permission denied/);
+      }
+      const open = await as(w.db, null, async (q) => (await q(`select rows, input_hash from ranking_snapshots where id = $1`, [id])).rows);
+      expect(open).toHaveLength(1);
+      expect(open[0].input_hash).toBe(HASH);
+      const cols = await as(w.db, 'mgr1', async (q) => (await q(`select ${COLS} from ranking_snapshots where id = $1`, [id])).rows);
+      expect(cols).toHaveLength(1);
+    } finally {
+      await release(false);
+    }
+  });
+
+  it('serves inputs only to the Chair and Organiser through snapshot_inputs()', async () => {
+    const id = (await snapshot('chair', true)).rows[0].id;
+    const get = (who: Who | null) => as(w.db, who, async (q) => (await q('select snapshot_inputs($1) as i', [id])).rows[0].i);
+    expect(await get('chair')).toEqual({ cards: [] });
+    expect(await get('organiser')).toEqual({ cards: [] });
+    for (const who of ['judgeV', 'leadV', 'mgr1', 'outsider'] as const) await expect(get(who), who).rejects.toThrow(/restricted|permission/);
+    await expect(get(null)).rejects.toThrow(/permission denied/);
+    await release(true);
+    try {
+      await expect(get('mgr1')).rejects.toThrow(/restricted/);
+    } finally {
+      await release(false);
+    }
+    const f = await w.db.query<{ anon: boolean; pub: boolean; def: boolean; cfg: string[] }>(
+      `select has_function_privilege('anon', p.oid, 'execute') as anon, prosecdef as def, proconfig as cfg,
+              exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a where a.grantee = 0 and a.privilege_type = 'EXECUTE') as pub
+       from pg_proc p where proname = 'snapshot_inputs'`);
+    expect(f.rows[0]).toMatchObject({ anon: false, pub: false, def: true });
+    expect(f.rows[0].cfg).toContain('search_path=public, pg_temp');
+  });
+});
+
+describe('override NaN', () => {
+  it('rejects NaN values', async () => {
+    await expect(setOverride('chair', w.team1, 'pit-display', NaN)).rejects.toThrow();
+    expect((await w.db.query(`select 1 from pg_constraint where conrelid = 'score_overrides'::regclass and contype = 'c' and pg_get_constraintdef(oid) like '%NaN%'`)).rows).toHaveLength(1);
+    await expect(w.db.query(`insert into score_overrides(event_id, team_id, area_id, value, reason, set_by) values ($1, $2, 'pit-display', 'NaN', 'abc', $3)`, [w.eventId, w.team2, ids.chair])).rejects.toThrow(/check|NaN|violates/);
   });
 });

@@ -4,7 +4,7 @@ create table score_overrides (
   event_id uuid not null references events on delete cascade,
   team_id uuid not null,
   area_id text not null,
-  value numeric(5, 1) not null check (value >= 0),
+  value numeric(5, 1) not null check (value >= 0 and value <> 'NaN'),
   reason text not null check (char_length(btrim(reason)) >= 3),
   set_by uuid not null default auth.uid(),
   updated_at timestamptz not null default now(),
@@ -114,10 +114,25 @@ revoke all on score_overrides, penalties, ranking_snapshots from public, anon, a
 grant select, insert, delete on score_overrides to authenticated;
 grant update (value, reason) on score_overrides to authenticated;
 grant select, insert, delete on penalties to authenticated;
-grant select, insert on ranking_snapshots to authenticated;
+-- `inputs` holds every judge's cards (with judge ids), overrides and penalties: nobody reads it through the table,
+-- not even the Chair. Staff get it through snapshot_inputs(). Hence `select *` fails for the API roles; list columns.
+grant insert on ranking_snapshots to authenticated;
 -- The public reads released events, teams and ranking snapshots, and nothing else.
 revoke all on all tables in schema public from anon;
-grant select on events, teams, ranking_snapshots to anon;
+grant select on events, teams to anon;
+grant select (id, event_id, created_by, created_at, ruleset_id, input_hash, rows, released) on ranking_snapshots to anon, authenticated;
+
+create function snapshot_inputs(p_snapshot uuid) returns jsonb language plpgsql stable security definer set search_path = public, pg_temp as $$
+declare s ranking_snapshots;
+begin
+  select * into s from ranking_snapshots where id = p_snapshot;
+  if not found or not is_chair_or_organiser(s.event_id) then
+    raise exception 'snapshot inputs are restricted to the Chair and Organiser' using errcode = '42501';
+  end if;
+  return s.inputs;
+end $$;
+revoke execute on function snapshot_inputs(uuid) from public, anon;
+grant execute on function snapshot_inputs(uuid) to authenticated;
 
 revoke execute on function overrides_guard(), penalties_guard(), snapshots_guard(), snapshots_immutable() from public, anon, authenticated;
 
