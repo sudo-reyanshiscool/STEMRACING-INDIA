@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it } from 'vitest';
 import { ApiError, createSupabaseApi, type Api } from '../../src/api';
 import { canonicalJson, rank, sha256Hex } from '../../src/engine';
+import { isLocalUrl } from './local-url';
 
 /**
  * End to end against a LOCAL Supabase (supabase start): real Postgres, PostgREST, Auth and row-level security.
@@ -12,7 +13,7 @@ import { canonicalJson, rank, sha256Hex } from '../../src/engine';
 const URL_ = process.env.SMOKE_SUPABASE_URL;
 const ANON = process.env.SMOKE_ANON_KEY;
 const SERVICE = process.env.SMOKE_SERVICE_ROLE_KEY;
-const run = !!(URL_ && ANON && SERVICE) && /^https?:\/\/(localhost|127\.0\.0\.1)[:/]/.test(URL_ ?? '');
+const run = !!(ANON && SERVICE) && isLocalUrl(URL_);
 
 /** Test setup only: the Chair clears a declared conflict, so the rest of the flow can score that team. */
 async function as_chair_clear_conflict(admin: SupabaseClient, eventId: string, teamId: string) {
