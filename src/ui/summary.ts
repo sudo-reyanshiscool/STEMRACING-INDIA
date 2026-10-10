@@ -1,3 +1,4 @@
+import { downloadSheet } from '../pdf/resultSheet';
 import { summarise, type CarSummary, type Result } from '../engine';
 import { WF26 } from '../rules';
 import type { Ctx } from './ctx';
@@ -53,7 +54,19 @@ export async function summaryScreen(ctx: Ctx, carId: string): Promise<HTMLElemen
   const insp = await ctx.store.getInspection(carId);
   const s = summarise(WF26.rules, insp?.measurements ?? {});
 
-  const pdf = h('button', { class: 'btn btn--primary', type: 'button', 'data-action': 'download-pdf', disabled: true }, 'Download PDF');
+  const pdf = h('button', { class: 'btn btn--primary', type: 'button', 'data-action': 'download-pdf' }, 'Download PDF');
+  pdf.addEventListener('click', async () => {
+    pdf.setAttribute('disabled', '');
+    try {
+      await downloadSheet({
+        eventName: event.name, teamNumber: team.number, teamName: team.name, school: team.school, carLabel: car.label,
+        scrutineer: insp?.scrutineer ?? '', date: new Date().toISOString().slice(0, 10),
+        rulesetName: WF26.name, rulesetIssued: WF26.issued, summary: s,
+      });
+    } finally {
+      pdf.removeAttribute('disabled');
+    }
+  });
   return h('div', { class: 'stack stack--lg' },
     h('div', { class: 'stack' },
       h('a', { class: 'back', href: routeHref({ name: 'car', carId }) }, 'Back to checklist'),
