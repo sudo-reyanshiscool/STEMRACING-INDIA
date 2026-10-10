@@ -231,12 +231,13 @@ describe('snapshots are append-only for everybody', () => {
 });
 
 describe('privileges of the new objects', () => {
-  it('grants anon read on events, teams and ranking_snapshots only, and no table-level extras to anyone', async () => {
+  it('grants anon read on events (by column), teams and ranking_snapshots (by column) only, and no table-level extras to anyone', async () => {
     const tables = (await w.db.query<{ t: string }>(`select tablename as t from pg_tables where schemaname = 'public'`)).rows.map((r) => r.t);
     expect(tables).toEqual(expect.arrayContaining(NEW_TABLES));
     for (const t of tables) {
       for (const p of ['insert', 'update', 'delete', 'truncate', 'references', 'trigger']) expect(await priv('anon', t, p), `anon ${p} ${t}`).toBe(false);
-      expect(await priv('anon', t, 'select'), `anon select ${t}`).toBe(['events', 'teams'].includes(t));
+      // events is readable by column since 0004 (created_by is not public), so only teams has a table-level grant.
+      expect(await priv('anon', t, 'select'), `anon select ${t}`).toBe(t === 'teams');
       for (const p of ['truncate', 'references', 'trigger']) expect(await priv('authenticated', t, p), `authenticated ${p} ${t}`).toBe(false);
     }
     for (const p of ['update', 'delete', 'truncate']) expect(await priv('authenticated', 'ranking_snapshots', p), p).toBe(false);

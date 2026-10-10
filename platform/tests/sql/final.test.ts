@@ -214,3 +214,34 @@ describe('M2: a snapshot is always a released-capable record', () => {
     await expect(w.db.query(`insert into ranking_snapshots(event_id, ruleset_id, input_hash, inputs, rows, released) values ($1, 'india-national-finals-2026', $2, '{}', '[]', false)`, [w.eventId, 'e'.repeat(64)])).rejects.toThrow(/released/);
   });
 });
+
+describe('M3: anon cannot read who created an event or a snapshot', () => {
+  const col = async (role: string, table: string, c: string) =>
+    (await w.db.query<{ ok: boolean }>(`select has_column_privilege($1, $2, $3, 'select') as ok`, [role, table, c])).rows[0].ok;
+
+  it('hides created_by from anon on events and ranking_snapshots, and keeps every other public column', async () => {
+    expect(await col('anon', 'events', 'created_by')).toBe(false);
+    expect(await col('anon', 'ranking_snapshots', 'created_by')).toBe(false);
+    expect(await col('anon', 'ranking_snapshots', 'inputs')).toBe(false);
+    for (const c of ['id', 'name', 'starts_on', 'ruleset', 'results_released', 'created_at']) expect(await col('anon', 'events', c), `events.${c}`).toBe(true);
+    for (const c of ['id', 'event_id', 'created_at', 'ruleset_id', 'input_hash', 'rows', 'released']) expect(await col('anon', 'ranking_snapshots', c), `snapshots.${c}`).toBe(true);
+    // The signed-in roles are unchanged.
+    expect(await col('authenticated', 'events', 'created_by')).toBe(true);
+    expect(await col('authenticated', 'ranking_snapshots', 'created_by')).toBe(true);
+  });
+
+  it('refuses a select of created_by or * as anon, and serves the named columns', async () => {
+    await setReleasedRaw(true);
+    try {
+      await expect(as(w.db, null, (q) => q('select created_by from events'))).rejects.toThrow(/permission denied/);
+      await expect(as(w.db, null, (q) => q('select * from events'))).rejects.toThrow(/permission denied/);
+      await expect(as(w.db, null, (q) => q('select created_by from ranking_snapshots'))).rejects.toThrow(/permission denied/);
+      const rows = await as(w.db, null, async (q) => (await q('select id, name, starts_on, ruleset, results_released, created_at from events')).rows);
+      expect(rows).toHaveLength(1);
+      expect(rows[0].ruleset).toBeDefined();
+      await as(w.db, 'mgr1', async (q) => (await q('select * from events where id = $1', [w.eventId])).rows);
+    } finally {
+      await setReleasedRaw(false);
+    }
+  });
+});

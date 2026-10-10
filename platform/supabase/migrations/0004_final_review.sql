@@ -240,3 +240,8 @@ begin
   new.created_at := now();
   return new;
 end $$;
+
+-- The public reads released events and rankings, not who created them: named columns only for anon.
+revoke select on events from anon;
+grant select (id, name, starts_on, ruleset, results_released, created_at) on events to anon;
+revoke select (created_by) on ranking_snapshots from anon;
