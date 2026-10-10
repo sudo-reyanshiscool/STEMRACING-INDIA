@@ -45,6 +45,9 @@ const SNAPSHOT_COLS = 'id,event_id,created_at,ruleset_id,input_hash,rows,release
 /** PostgREST caps every response at `max_rows` (1000 by default) and says nothing when it cuts a list off. */
 export const PAGE_SIZE = 1000;
 
+/** What a Postgres uuid looks like in text. Used only to answer "no such event" without asking the server. */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const EMAIL = /^[^@\s]+@[^@\s]+$/;
 /** Fixed text for the server's refusal to release a ranking that no longer matches what is counted. */
 export const OUT_OF_DATE = 'The published ranking is out of date. Publish it again before releasing.';
@@ -143,6 +146,8 @@ export function createApiFromClient(sb: SupabaseClient, options: SupabaseApiOpti
       return toEventRow(firstRow(data));
     },
     async getEvent(id) {
+      // A hand-typed or stale link can carry anything; Postgres would answer 22P02 for a non-UUID. Not a UUID, not found.
+      if (!UUID.test(id)) return null;
       const row = ok(await guard(() => sb.from('events').select(EVENT_COLS).eq('id', id).maybeSingle()));
       return row ? toEventRow(row) : null;
     },

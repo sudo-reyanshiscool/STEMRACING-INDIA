@@ -325,3 +325,17 @@ describe('removeOverride', () => {
     expect(await fail(locked.api.removeOverride('e', 't', 'pit-display'))).toBe('locked');
   });
 });
+
+describe('getEvent with ids that are not UUIDs', () => {
+  const ID = '123e4567-e89b-42d3-a456-426614174000';
+  it('answers null without a request for a link that is not a UUID', async () => {
+    const { api, calls } = fake(() => ({ data: { id: 'x' } }));
+    for (const bad of ['', 'event-1', 'nope', '123', "' or 1=1 --", ID + 'x', '../etc']) expect(await api.getEvent(bad), bad).toBeNull();
+    expect(calls).toHaveLength(0);
+  });
+  it('still asks for a real UUID', async () => {
+    const { api, calls } = fake(() => ({ data: { id: ID, name: 'N', starts_on: null, ruleset: { id: 'r' }, results_released: false } }));
+    expect((await api.getEvent(ID.toUpperCase()))?.id).toBe(ID);
+    expect(calls).toHaveLength(1);
+  });
+});
