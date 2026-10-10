@@ -207,3 +207,24 @@ describe('QueueHost', () => {
     expect(host.status().signedOut).toBe(false);
   });
 });
+
+describe('QueueHost cross-tab sending', () => {
+  it('sends under a per-user lock when a lock manager exists', async () => {
+    const names: string[] = [];
+    const locks = { request: (async (name: string, fn: () => Promise<unknown>) => { names.push(name); return fn(); }) as unknown as LockManager['request'] };
+    const saved: string[] = [];
+    const api = {
+      async getSession() { return { userId: 'u1', email: 'a@x.test' }; },
+      async saveScore(_c: string, crit: string) { saved.push(crit); },
+      onAuthChange: () => () => {},
+    };
+    const store = new Map<string, { get(): string | null; set(v: string): void }>();
+    const kv = (n: string) => store.get(n) ?? (store.set(n, memoryKV()), store.get(n)!);
+    const host = new QueueHost({ api, storage: (u) => ({ queue: kv(`q${u}`), rejected: kv(`r${u}`) }), locks });
+    await host.track();
+    await host.enqueueScore({ cardId: 'c', criterionId: 'x', score: 3 });
+    expect(saved).toEqual(['x']);
+    expect(names.length).toBeGreaterThan(0);
+    expect(new Set(names)).toEqual(new Set(['stem-racing-score-queue:u1']));
+  });
+});

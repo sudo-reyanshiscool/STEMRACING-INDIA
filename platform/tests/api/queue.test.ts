@@ -778,3 +778,105 @@ describe('ScoreQueue edits during a flush, and stale ledger entries', () => {
     expect(q.status().signedOut).toBe(false);
   });
 });
+
+describe('two tabs sharing one store', () => {
+  /** A server that keeps the last value written per criterion, like the database does. */
+  const server = () => {
+    const state = new Map<string, number>();
+    const sent: string[] = [];
+    return {
+      state, sent,
+      api: { async saveScore(card: string, crit: string, score: number) { sent.push(`${crit}=${score}`); state.set(`${card}/${crit}`, score); } },
+    };
+  };
+  const shared = () => { const q = memoryKV(); const l = memoryKV(); return { q, l }; };
+  const mk = (api: { saveScore(...a: never[]): Promise<void> }, s: { q: KV; l: KV }, clock: () => number, canSend = () => true) =>
+    new ScoreQueue(api as never, s.q, clock, { rejectedKv: s.l, canSend });
+
+  it('does not let a stale tab overwrite a newer value: A queues X=5, B loads then X=7, both flush, server ends at 7', async () => {
+    const srv = server();
+    const store = shared();
+    let t = 0;
+    let online = false;
+    const gate = () => online;
+    const a = mk(srv.api, store, () => ++t, gate);
+    a.enqueue({ cardId: 'c', criterionId: 'x', score: 5 });
+    const b = mk(srv.api, store, () => ++t, gate);
+    expect(b.pending()).toBe(1);
+    b.enqueue({ cardId: 'c', criterionId: 'x', score: 7 });
+    online = true;
+    await b.flush();
+    await a.flush();
+    expect(srv.state.get('c/x')).toBe(7);
+    expect(srv.sent).not.toContain('x=5');
+    expect(a.pending()).toBe(0);
+    expect(b.pending()).toBe(0);
+  });
+
+  it('does not lose a score queued in another tab: A queues c1, B queues c2, A reloads and both are present', async () => {
+    const srv = server();
+    const store = shared();
+    let t = 0;
+    const offline = () => false;
+    const a = mk(srv.api, store, () => ++t, offline);
+    const b = mk(srv.api, store, () => ++t, offline);
+    a.enqueue({ cardId: 'c', criterionId: 'c1', score: 1 });
+    b.enqueue({ cardId: 'c', criterionId: 'c2', score: 2 });
+    a.enqueue({ cardId: 'c', criterionId: 'c3', score: 3 });
+    const reloaded = mk(srv.api, store, () => ++t, offline);
+    expect(reloaded.pendingFor('c').map((i) => i.criterionId).sort()).toEqual(['c1', 'c2', 'c3']);
+    // And the tabs themselves converge once they look at the store again.
+    a.refresh();
+    expect(a.pendingFor('c').map((i) => i.criterionId).sort()).toEqual(['c1', 'c2', 'c3']);
+  });
+
+  it('does not resurrect a score another tab already sent and removed', async () => {
+    const srv = server();
+    const store = shared();
+    let t = 0;
+    const a = mk(srv.api, store, () => ++t);
+    const b = mk(srv.api, store, () => ++t);
+    a.enqueue({ cardId: 'c', criterionId: 'x', score: 4 });
+    b.refresh();
+    await a.flush();
+    expect(a.pending()).toBe(0);
+    b.enqueue({ cardId: 'c', criterionId: 'y', score: 9 }); // B persists: must not bring X back
+    const fresh = mk(srv.api, store, () => ++t);
+    expect(fresh.pendingFor('c').map((i) => i.criterionId)).toEqual(['y']);
+  });
+
+  it('merges the rejected ledger by id across tabs and keeps a dismissal dismissed', async () => {
+    const store = shared();
+    let t = 0;
+    const refuse = { async saveScore() { throw new ApiError('locked', 'locked'); } };
+    const a = mk(refuse, store, () => ++t);
+    const b = mk(refuse, store, () => ++t);
+    a.enqueue({ cardId: 'c', criterionId: 'x', score: 1 });
+    await a.flush();
+    b.enqueue({ cardId: 'c', criterionId: 'y', score: 2 });
+    await b.flush();
+    const ids = [...a.rejected(), ...b.rejected()].map((r) => r.id);
+    a.refresh();
+    expect(a.rejected()).toHaveLength(2);
+    expect(new Set(ids).size).toBe(2);
+    a.clearRejected(a.rejected()[0].id);
+    b.refresh();
+    expect(b.rejected()).toHaveLength(1);
+  });
+
+  it('serialises sending through the lock and re-reads the store before each send', async () => {
+    const srv = server();
+    const store = shared();
+    let t = 0;
+    const order: string[] = [];
+    let chain: Promise<unknown> = Promise.resolve();
+    const lock = <T,>(fn: () => Promise<T>) => { const r = chain.then(async () => { order.push('in'); const v = await fn(); order.push('out'); return v; }); chain = r.catch(() => {}); return r; };
+    const mkLocked = () => new ScoreQueue(srv.api as never, store.q, () => ++t, { rejectedKv: store.l, withLock: lock });
+    const a = mkLocked();
+    const b = mkLocked();
+    a.enqueue({ cardId: 'c', criterionId: 'x', score: 1 });
+    await Promise.all([a.flush(), b.flush()]);
+    expect(order).toEqual(['in', 'out', 'in', 'out']);
+    expect(srv.sent).toEqual(['x=1']); // B found it already sent and removed
+  });
+});

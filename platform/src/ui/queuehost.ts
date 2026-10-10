@@ -11,6 +11,8 @@ export interface QueueHostOptions {
   clock?: () => number;
   /** Remembers the last signed-in user id (not a secret) so a reload while signed out still knows whose scores wait. */
   lastUser?: KV;
+  /** Lock manager for electing one sender per user across tabs. Defaults to navigator.locks where it exists. */
+  locks?: Pick<LockManager, 'request'> | null;
 }
 
 const EMPTY: QueueStatus = { pending: 0, signedOut: false, headStuck: false, persistFailed: false };
@@ -67,7 +69,11 @@ export class QueueHost {
           return this.opts.api.saveScore(...a);
         },
       };
-      q = new ScoreQueue(guarded, st.queue, this.opts.clock ?? Date.now, { canSend: owns, rejectedKv: st.rejected });
+      // One sender per user across tabs. Where there are no locks (old browsers, tests) the queue still re-reads the
+      // store before every send, so two tabs cannot overwrite each other with stale values.
+      const locks = this.opts.locks === undefined ? (typeof navigator === 'undefined' ? null : (navigator.locks ?? null)) : this.opts.locks;
+      const withLock = locks ? <T,>(fn: () => Promise<T>) => locks.request(`stem-racing-score-queue:${userId}`, fn) as Promise<T> : undefined;
+      q = new ScoreQueue(guarded, st.queue, this.opts.clock ?? Date.now, { canSend: owns, rejectedKv: st.rejected, withLock });
       this.queues.set(userId, q);
     }
     return q;

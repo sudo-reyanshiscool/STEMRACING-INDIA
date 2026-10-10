@@ -1,7 +1,12 @@
 import { ApiError, type Api, type ApiErrorCode } from './types';
 
 /** `set` must throw if the value could not be stored: the queue turns that into a visible 'persist-failed'. */
-export interface KV { get(): string | null; set(v: string): void }
+export interface KV {
+  get(): string | null;
+  set(v: string): void;
+  /** Calls back when another tab changed the stored value. Returns the unsubscribe. Absent where there is no such thing. */
+  watch?(cb: () => void): () => void;
+}
 
 export function memoryKV(): KV {
   let value: string | null = null;
@@ -12,6 +17,12 @@ export function localStorageKV(key: string): KV {
   return {
     get: () => { try { return localStorage.getItem(key); } catch { return null; } },
     set: (v) => { localStorage.setItem(key, v); }, // throws when storage is full or blocked; the queue reports it
+    watch: (cb) => {
+      if (typeof window === 'undefined') return () => {};
+      const on = (e: StorageEvent) => { if (e.key === key || e.key === null) cb(); }; // null: storage was cleared
+      window.addEventListener('storage', on);
+      return () => window.removeEventListener('storage', on);
+    },
   };
 }
 
@@ -48,6 +59,11 @@ export interface QueueOptions {
   canSend?: () => boolean | Promise<boolean>;
   /** Where the rejected ledger lives (a different key from the queue). Defaults to memory only. */
   rejectedKv?: KV;
+  /**
+   * Runs a flush while holding a lock shared by every tab of this user (navigator.locks), so two tabs never send at the
+   * same moment. Absent where locks do not exist: the queue then re-reads the store before every send instead.
+   */
+  withLock?: <T>(fn: () => Promise<T>) => Promise<T>;
 }
 
 /** Only these mean the server has definitively refused the write. Everything else is retried: a score is never dropped on a guess. */
@@ -79,6 +95,9 @@ function parseArray(raw: string | null): unknown[] {
   }
 }
 
+const keyOf = (x: { cardId: string; criterionId: string }) => `${x.cardId}\u0000${x.criterionId}`;
+const sig = (x: QueuedScore) => `${keyOf(x)}@${x.at}`;
+
 const load = (raw: string | null): QueuedScore[] => parseArray(raw).filter(validItem);
 
 function loadRejected(raw: string | null): Rejected[] {
@@ -107,12 +126,86 @@ export class ScoreQueue {
   private seq = 0;
   private canSend?: () => boolean | Promise<boolean>;
   private rejectedKv: KV;
+  private withLock?: <T>(fn: () => Promise<T>) => Promise<T>;
+  /** Newest `at` per (card, criterion) that this instance has finished with (sent or refused): older stored copies are obsolete. */
+  private done = new Map<string, number>();
+  /** Entries last seen in storage (key@at). One that later vanishes from storage was sent by another tab. */
+  private synced = new Set<string>();
+  private ledgerSynced = new Set<string>();
+  private cleared = new Set<string>();
 
   constructor(private api: Pick<Api, 'saveScore'>, private kv: KV, private clock: () => number = Date.now, opts: QueueOptions = {}) {
     this.canSend = opts.canSend;
     this.rejectedKv = opts.rejectedKv ?? memoryKV();
+    this.withLock = opts.withLock;
     this.items = load(kv.get());
     this.ledger = loadRejected(this.rejectedKv.get());
+    this.synced = new Set(this.items.map(sig));
+    this.ledgerSynced = new Set(this.ledger.map((r) => r.id));
+    const again = () => { this.refresh(); };
+    kv.watch?.(again);
+    this.rejectedKv.watch?.(again);
+  }
+
+  /**
+   * Re-reads both stores and merges them into memory: per (card, criterion) the newest value wins, a score another
+   * tab sent is dropped, one it queued is picked up, and the rejected ledger is merged by id. Called before every send,
+   * before every write and when another tab's storage event arrives.
+   */
+  refresh() {
+    const before = `${this.items.length}|${this.ledger.length}`;
+    this.syncItems();
+    this.syncLedger();
+    if (before !== `${this.items.length}|${this.ledger.length}`) this.emit({ kind: 'ledger' });
+  }
+
+  private syncItems() {
+    const stored = new Map<string, QueuedScore>();
+    for (const s of load(this.kv.get())) {
+      const k = keyOf(s);
+      const have = stored.get(k);
+      if (!have || s.at > have.at) stored.set(k, s);
+    }
+    const next: QueuedScore[] = [];
+    const seen = new Set<string>();
+    for (const x of this.items) {
+      const k = keyOf(x);
+      const s = stored.get(k);
+      seen.add(k);
+      if (x === this.inFlight) {
+        next.push(x);
+        if (s && s.at > x.at) next.push(s);
+      } else if (s && s.at > x.at) {
+        next.push(s);
+        this.attempts.delete(x); this.struggling.delete(x);
+      } else if (!s && this.synced.has(sig(x))) {
+        // Another tab sent it and removed it from storage.
+        this.attempts.delete(x); this.struggling.delete(x);
+      } else {
+        next.push(x);
+      }
+    }
+    for (const [k, s] of stored) {
+      if (seen.has(k)) continue;
+      if ((this.done.get(k) ?? -Infinity) >= s.at) continue;
+      next.push(s);
+    }
+    this.items = next;
+    this.synced = new Set([...stored.values()].map(sig));
+  }
+
+  private syncLedger() {
+    const stored = loadRejected(this.rejectedKv.get());
+    const storedIds = new Set(stored.map((r) => r.id));
+    const byId = new Map<string, Rejected>();
+    for (const r of this.ledger) {
+      // In storage before, gone now: another tab dismissed or requeued it.
+      if (this.ledgerSynced.has(r.id) && !storedIds.has(r.id)) continue;
+      byId.set(r.id, r);
+    }
+    for (const r of stored) if (!this.cleared.has(r.id) && !byId.has(r.id)) byId.set(r.id, r);
+    this.ledger = [...byId.values()].sort((a, b) => a.at - b.at);
+    this.ledgerSynced = new Set(storedIds);
   }
 
   subscribe(cb: (e: QueueEvent) => void) {
@@ -138,6 +231,8 @@ export class ScoreQueue {
   rejected(): Rejected[] { return this.ledger.map((r) => ({ ...r, item: { ...r.item } })); }
 
   clearRejected(id?: string) {
+    this.syncLedger();
+    for (const r of id === undefined ? this.ledger : this.ledger.filter((x) => x.id === id)) this.cleared.add(r.id);
     this.ledger = id === undefined ? [] : this.ledger.filter((r) => r.id !== id);
     this.persistLedger();
     this.emit({ kind: 'ledger' });
@@ -149,11 +244,13 @@ export class ScoreQueue {
    * the caller must call flush() afterwards.
    */
   requeueRejected(id: string): boolean {
+    this.refresh();
     const r = this.ledger.find((x) => x.id === id);
     if (!r) return false;
     if (this.items.some((x) => x.cardId === r.item.cardId && x.criterionId === r.item.criterionId)) return false;
     this.items.push({ ...r.item });
     this.persist(); // queue first: a crash between the two writes leaves a duplicate, never a loss
+    this.cleared.add(id);
     this.ledger = this.ledger.filter((x) => x.id !== id);
     this.persistLedger();
     this.emit({ kind: 'ledger' });
@@ -181,7 +278,7 @@ export class ScoreQueue {
   flush(): Promise<void> {
     if (this.running && this.flushing) return this.flushing;
     this.running = true;
-    this.flushing = this.run();
+    this.flushing = this.withLock ? this.withLock(() => this.run()) : this.run();
     return this.flushing;
   }
 
@@ -198,6 +295,7 @@ export class ScoreQueue {
   }
 
   private async drain(dropped: QueueEvent[]): Promise<QueueEvent> {
+    this.refresh();
     if (this.canSend) {
       let ok = true;
       try { ok = await this.canSend(); } catch { ok = true; } // a broken check must not strand scores: let the server decide
@@ -211,6 +309,7 @@ export class ScoreQueue {
     const skipped = new Set<QueuedScore>(); // failed with a server error this flush; try the rest
     let succeeded = 0;
     for (;;) {
+      this.syncItems(); // another tab may have sent or replaced values since the last send
       const item = this.items.find((x) => !skipped.has(x));
       if (!item) break;
       this.inFlight = item;
@@ -279,6 +378,7 @@ export class ScoreQueue {
   private supersedeRejected(saved: QueuedScore) {
     const keep = this.ledger.filter((r) => !(r.item.cardId === saved.cardId && r.item.criterionId === saved.criterionId && r.item.at <= saved.at));
     if (keep.length === this.ledger.length) return;
+    for (const r of this.ledger) if (!keep.includes(r)) this.cleared.add(r.id);
     this.ledger = keep;
     this.persistLedger();
   }
@@ -292,6 +392,8 @@ export class ScoreQueue {
   }
 
   private remove(item: QueuedScore) {
+    const k = keyOf(item);
+    this.done.set(k, Math.max(this.done.get(k) ?? -Infinity, item.at));
     const i = this.items.indexOf(item);
     if (i >= 0) this.items.splice(i, 1);
     this.attempts.delete(item);
@@ -299,8 +401,20 @@ export class ScoreQueue {
     this.persist();
   }
 
-  private persist() { this.store('queue', () => this.kv.set(JSON.stringify(this.items))); }
-  private persistLedger() { this.store('ledger', () => this.rejectedKv.set(JSON.stringify(this.ledger))); }
+  private persist() {
+    this.store('queue', () => {
+      this.syncItems(); // never write over what another tab stored since we last looked
+      this.kv.set(JSON.stringify(this.items));
+      this.synced = new Set(this.items.map(sig));
+    });
+  }
+  private persistLedger() {
+    this.store('ledger', () => {
+      this.syncLedger();
+      this.rejectedKv.set(JSON.stringify(this.ledger));
+      this.ledgerSynced = new Set(this.ledger.map((r) => r.id));
+    });
+  }
 
   /** Storage trouble never throws into the caller and never loses the in-memory state; it is reported instead. */
   private store(which: 'queue' | 'ledger', write: () => void) {
