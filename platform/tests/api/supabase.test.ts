@@ -294,3 +294,17 @@ describe('paging (PostgREST max_rows cuts a list off silently)', () => {
     expect(await fail(api.listTeams('e'))).toBe('unknown');
   });
 });
+
+describe('removeOverride', () => {
+  it('deletes by the override key and reports nothing deleted as forbidden', async () => {
+    const ok = fake(() => ({ data: [{ team_id: 't' }] }));
+    await ok.api.removeOverride('e', 't', 'pit-display');
+    expect(ok.calls[0].name).toBe('score_overrides');
+    expect(has(ok.calls[0], 'delete')).toBe(true);
+    expect(ok.calls[0].steps.filter((s) => s[0] === 'eq').map((s) => [s[1], s[2]])).toEqual([['event_id', 'e'], ['team_id', 't'], ['area_id', 'pit-display']]);
+    const none = fake(() => ({ data: [] }));
+    expect(await fail(none.api.removeOverride('e', 't', 'pit-display'))).toBe('forbidden');
+    const locked = fake(() => ({ error: { message: 'results are released', code: '55000' } }));
+    expect(await fail(locked.api.removeOverride('e', 't', 'pit-display'))).toBe('locked');
+  });
+});

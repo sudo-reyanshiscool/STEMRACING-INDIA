@@ -299,6 +299,13 @@ export class MemoryApi implements Api {
     if (existing) { existing.value = v; existing.reason = why; }
     else this.overrides.push({ eventId, teamId, areaId, value: v, reason: why });
   }
+  async removeOverride(eventId: string, teamId: string, areaId: string) {
+    const o = this.overrides.find((x) => x.eventId === eventId && x.teamId === teamId && x.areaId === areaId);
+    // As row-level security: a missing row and a row you may not delete look the same.
+    if (!o || !this.has(eventId, 'chair')) throw new ApiError('forbidden', 'You do not have permission to do that');
+    this.frozen(eventId, 'overrides');
+    this.overrides = this.overrides.filter((x) => x !== o);
+  }
   async listPenalties(eventId: string) {
     if (this.has(eventId, 'chair', 'organiser')) return copy(this.penalties.filter((p) => p.eventId === eventId));
     if (!this.released(eventId)) return [];

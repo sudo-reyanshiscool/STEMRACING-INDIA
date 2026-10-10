@@ -83,6 +83,26 @@ export async function moderationScreen(ctx: Ctx, eventId: string): Promise<HTMLE
     const conflicted = (judgeId: string, teamId: string) => data.conflicts.some((c) => c.judgeId === judgeId && c.teamId === teamId);
     const canChange = isChair && !released;
     const drafts = (r: ModerationRow) => r.judges.filter((j) => j.status === 'draft').length;
+    let armedRemove: HTMLButtonElement | null = null;
+    /** Removing an override restores the judges' mean, so it takes a deliberate second click. */
+    const removeOverrideButton = (row: ModerationRow) => {
+      const button = h('button', { class: 'btn btn--ghost btn--small', type: 'button', 'data-remove-override': row.teamId }, 'Remove override');
+      button.setAttribute('aria-label', `Remove the override for ${row.teamLabel}`);
+      button.addEventListener('click', () => {
+        if (busy) return;
+        error.hidden = true;
+        status.hidden = true;
+        if (armedRemove !== button) {
+          if (armedRemove) armedRemove.textContent = 'Remove override';
+          armedRemove = button;
+          button.textContent = 'Confirm: remove this override';
+          return;
+        }
+        armedRemove = null;
+        void act(button, () => ctx.api.removeOverride(eventId, row.teamId, row.areaId), `Override removed: ${row.teamLabel}, ${area.name}. The judges' mean counts again.`, false);
+      });
+      return button;
+    };
     const rows = buildModeration(area, [...data.teams].sort((a, b) => a.number.localeCompare(b.number, 'en', { numeric: true })), data.cards, data.overrides);
 
     const reopenForm = (cardId: string, judge: string, teamLabel: string) => {
@@ -158,6 +178,7 @@ export async function moderationScreen(ctx: Ctx, eventId: string): Promise<HTMLE
           r.override ? h('p', { class: 'small muted' },
             r.mean === null ? "Override replaces the judges' scores: no submitted judge scores yet."
               : `Override replaces the judges' mean of ${r.mean}.`) : null,
+          canChange && r.override ? removeOverrideButton(r) : null,
           canChange ? overrideForm(r) : null))))));
   };
 

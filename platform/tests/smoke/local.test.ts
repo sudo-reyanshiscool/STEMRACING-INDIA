@@ -194,6 +194,7 @@ describe.skipIf(!run)('local Supabase smoke test', () => {
     expect(await code(chair.addPenalty(ev.id, t2.id, 5, 'Frozen'))).toBe('locked');
     const penalty = (await chair.listPenalties(ev.id))[0];
     expect(await code(chair.removePenalty(penalty.id))).toBe('locked');
+    expect(await code(chair.removeOverride(ev.id, t2.id, 'pit-display'))).toBe('locked');
     expect(await code(judge.setReleased(ev.id, false))).toBe('forbidden');
 
     // Withdraw, then the penalty can go; a new snapshot supersedes the old and the old one stays as the record.
@@ -202,6 +203,10 @@ describe.skipIf(!run)('local Supabase smoke test', () => {
     expect(await code(judge.removePenalty(penalty.id))).toBe('forbidden');
     await chair.removePenalty(penalty.id);
     expect(await chair.listPenalties(ev.id)).toEqual([]);
+    expect(await code(judge.removeOverride(ev.id, t2.id, 'pit-display'))).toBe('forbidden');
+    await chair.removeOverride(ev.id, t2.id, 'pit-display');
+    expect(await chair.listOverrides(ev.id)).toEqual([]);
+    expect(await code(chair.removeOverride(ev.id, t2.id, 'pit-display'))).toBe('forbidden');
     expect(await code(chair.removePenalty(penalty.id))).toBe('forbidden');
     const second = await publish(true);
     expect(second.ranking.rows.find((r) => r.teamId === t1.id)!.total).toBe(27);

@@ -55,3 +55,26 @@ describe('I2: a conflict cannot be declared after the judge submitted for that t
     expect(await seen('mgr1')).toEqual([]);
   });
 });
+
+describe('I3: removing an override', () => {
+  const put = () => as(w.db, 'chair', (q) => q(`insert into score_overrides(event_id, team_id, area_id, value, reason) values ($1, $2, 'pit-display', 30, 'Cross-moderated') on conflict (event_id, team_id, area_id) do update set value = 30`, [w.eventId, w.team1]));
+  const count = async () => (await w.db.query<{ n: number }>('select count(*)::int as n from score_overrides where team_id = $1', [w.team1])).rows[0].n;
+
+  it('lets only the Chair delete one, audits it, and freezes it while released', async () => {
+    await put();
+    for (const who of ['organiser', 'judgeV', 'leadV', 'mgr1', 'outsider', null] as const) {
+      await denied(as(w.db, who, (q) => q('delete from score_overrides where team_id = $1', [w.team1])));
+    }
+    expect(await count()).toBe(1);
+    await setReleasedRaw(true);
+    try {
+      await expect(as(w.db, 'chair', (q) => q('delete from score_overrides where team_id = $1', [w.team1]))).rejects.toThrow(/released/);
+    } finally {
+      await setReleasedRaw(false);
+    }
+    await as(w.db, 'chair', (q) => q('delete from score_overrides where team_id = $1', [w.team1]));
+    expect(await count()).toBe(0);
+    const audit = await w.db.query(`select action from audit_log where entity = 'score_overrides' and action = 'delete'`);
+    expect(audit.rows.length).toBeGreaterThanOrEqual(1);
+  });
+});

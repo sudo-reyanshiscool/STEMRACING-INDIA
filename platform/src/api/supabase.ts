@@ -265,6 +265,11 @@ export function createApiFromClient(sb: SupabaseClient, options: SupabaseApiOpti
         .eq('event_id', eventId).eq('team_id', teamId).eq('area_id', areaId).select('team_id'))) as unknown[];
       if (again.length === 0) throw new ApiError('forbidden', FORBIDDEN);
     },
+    async removeOverride(eventId, teamId, areaId) {
+      const rows = ok(await guard(() => sb.from('score_overrides').delete()
+        .eq('event_id', eventId).eq('team_id', teamId).eq('area_id', areaId).select('team_id'))) as unknown[];
+      if (rows.length === 0) throw new ApiError('forbidden', `${FORBIDDEN}, or it no longer exists`);
+    },
     async listPenalties(eventId) {
       if (!(await session())) return [];
       return (await pages<never>((a, b) => sb.from('penalties').select(PENALTY_COLS).eq('event_id', eventId).order('id').range(a, b))).map(toPenaltyRow);

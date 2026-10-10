@@ -292,6 +292,23 @@ describe('judging details', () => {
     expect(await api.listConflicts(ev.id)).toEqual([]);
   });
 
+  it('lets the Chair remove an override, locks it while released, and refuses everyone else', async () => {
+    const { api, ev, t1 } = await world();
+    await api.signIn(CHAIR);
+    await api.setOverride(ev.id, t1.id, 'pit-display', 30, 'Cross-moderated');
+    await api.signIn(JUDGE);
+    expect(await code(api.removeOverride(ev.id, t1.id, 'pit-display'))).toBe('forbidden');
+    await api.signIn(ORG);
+    expect(await code(api.removeOverride(ev.id, t1.id, 'pit-display'))).toBe('forbidden');
+    await api.signIn(CHAIR);
+    await api.setReleased(ev.id, true);
+    expect(await code(api.removeOverride(ev.id, t1.id, 'pit-display'))).toBe('locked');
+    await api.setReleased(ev.id, false);
+    await api.removeOverride(ev.id, t1.id, 'pit-display');
+    expect(await api.listOverrides(ev.id)).toEqual([]);
+    expect(await code(api.removeOverride(ev.id, t1.id, 'pit-display'))).toBe('forbidden');
+  });
+
   it('refuses a conflict for a team outside the event', async () => {
     const { api, ev } = await world();
     await api.signIn(JUDGE);

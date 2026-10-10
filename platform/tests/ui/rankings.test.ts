@@ -411,3 +411,23 @@ describe('rankingsScreen conflicted cards', () => {
     expect(await api.latestSnapshot(ev.id)).not.toBeNull();
   });
 });
+
+describe('rankingsScreen after an override is removed', () => {
+  it('shows the published ranking as out of date, because the fingerprint covers overrides', async () => {
+    const { api, ev, t1, t2 } = await world();
+    await scoreTeam(api, ev.id, t1.id, 14, 12);
+    await scoreTeam(api, ev.id, t2.id, 5, 5);
+    await api.signIn(EMAILS.chair);
+    await api.setOverride(ev.id, t2.id, 'verbal-technique', 39, 'Cross-moderated');
+    const { ctx } = makeCtx(api);
+    let el = await rankingsScreen(ctx, ev.id);
+    button(el, 'Publish ranking').click();
+    await wait(); await wait();
+    el = await rankingsScreen(makeCtx(api).ctx, ev.id);
+    expect(text(el)).toContain('matches the ranking above');
+    await api.removeOverride(ev.id, t2.id, 'verbal-technique');
+    el = await rankingsScreen(makeCtx(api).ctx, ev.id);
+    expect(text(el)).not.toContain('matches the ranking above');
+    expect(text(el)).toContain('out of date');
+  });
+});

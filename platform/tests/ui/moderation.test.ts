@@ -309,3 +309,43 @@ describe('moderation flags conflicted cards', () => {
     expect(text(flag as HTMLElement)).toContain('still counts');
   });
 });
+
+describe('removing an override', () => {
+  const setup = async () => {
+    const { api, ev, t1 } = await world();
+    await api.signIn(EMAILS.chair);
+    await api.setOverride(ev.id, t1.id, 'verbal-technique', 30, 'Cross-moderated');
+    const { ctx } = makeCtx(api);
+    const el = await moderationScreen(ctx, ev.id);
+    const sel = el.querySelector('select[name=area]') as HTMLSelectElement;
+    sel.value = 'verbal-technique';
+    sel.dispatchEvent(new Event('change'));
+    await wait();
+    return { api, ev, t1, el };
+  };
+  const removeButton = (el: HTMLElement) => [...el.querySelectorAll('button')].find((b) => /remove override|confirm: remove/i.test(b.textContent ?? '')) as HTMLButtonElement | undefined;
+
+  it('needs a second click to confirm, then removes it and the screen refreshes', async () => {
+    const { api, ev, el } = await setup();
+    const first = removeButton(el)!;
+    expect(first).toBeDefined();
+    first.click();
+    await wait();
+    expect(await api.listOverrides(ev.id)).toHaveLength(1);
+    expect(text(removeButton(el)!)).toMatch(/confirm/i);
+    removeButton(el)!.click();
+    await wait(); await wait();
+    expect(await api.listOverrides(ev.id)).toEqual([]);
+    expect(removeButton(el)).toBeUndefined();
+    expect(text(el)).toContain('Override removed');
+  });
+
+  it('is not offered while results are released', async () => {
+    const { api, ev, el } = await setup();
+    await api.setReleased(ev.id, true);
+    const sel = el.querySelector('select[name=area]') as HTMLSelectElement;
+    sel.dispatchEvent(new Event('change'));
+    await wait();
+    expect(removeButton(el)).toBeUndefined();
+  });
+});

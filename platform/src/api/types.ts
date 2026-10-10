@@ -59,6 +59,8 @@ export interface Api {
   listCards(eventId: string): Promise<CardRow[]>;
   listOverrides(eventId: string): Promise<OverrideRow[]>;
   setOverride(eventId: string, teamId: string, areaId: string, value: number, reason: string): Promise<void>;
+  /** Chair only. 'locked' while results are released; no such override (or not yours to remove) is 'forbidden'. */
+  removeOverride(eventId: string, teamId: string, areaId: string): Promise<void>;
   listPenalties(eventId: string): Promise<PenaltyRow[]>;
   addPenalty(eventId: string, teamId: string, points: number, reason: string): Promise<void>;
   /** Chair only. 'locked' while results are released. A row that does not exist or is not yours to remove is 'forbidden'. */
