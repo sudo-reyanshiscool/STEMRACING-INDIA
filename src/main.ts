@@ -8,9 +8,11 @@ import type { Ctx } from './ui/ctx';
 import { h } from './ui/dom';
 import { checklistScreen } from './ui/checklist';
 import { eventScreen } from './ui/event';
+import { compareScreen } from './ui/compare';
 import { homeScreen } from './ui/home';
 import { startRouter, type Route } from './ui/router';
 import { mountShell } from './ui/shell';
+import { summaryScreen } from './ui/summary';
 
 registerSW({ immediate: true });
 
@@ -40,6 +42,8 @@ async function boot(): Promise<void> {
         case 'home': node = await homeScreen(ctx); break;
         case 'event': node = await eventScreen(ctx, route.eventId); break;
         case 'car': node = await checklistScreen(ctx, route.carId); break;
+        case 'summary': node = await summaryScreen(ctx, route.carId); break;
+        case 'compare': node = await compareScreen(ctx, route.teamId); break;
         default: node = h('p', null, 'This screen is not built yet.');
       }
       main.replaceChildren(node);
