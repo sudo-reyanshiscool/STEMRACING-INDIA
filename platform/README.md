@@ -54,6 +54,42 @@ that reason).
 2. Put the project URL and **anon** key in `.env` (copy `.env.example`). Never put the service role key in the app.
 3. Deploy the built `dist/` (for example on Vercel). Hash-based routing means no rewrite rules are needed.
 
+### Hosted launch checklist
+
+Before the first real event on a hosted project:
+
+- **Sign-ups and event creation are open.** Anyone with the anon key can create an account and call `create_event`
+  (becoming Organiser of their own event, which they alone can see). Before launch, disable automatic sign-up
+  (Authentication, Providers, Email: turn off "Allow new users to sign up") and create the organisers' accounts, or
+  restrict `create_event` to an allow-list.
+- **`max_rows`.** The adapter reads every list in pages of 1000. The hosted project's API setting `max_rows` must be
+  1000 or more (the default), otherwise a short page would be mistaken for the last one. `supabase/config.toml` keeps
+  the local value at 1000 and a test pins it.
+- **Redirect URLs.** Authentication, URL Configuration: set the Site URL to the deployed address and add that address
+  (with and without the trailing slash) to the redirect allow-list. Locally, `supabase/config.toml` already allows
+  `http://localhost` and `http://127.0.0.1` on ports 5173 and 5174.
+- **Confirmed email.** Keep email confirmation on: invitations are only claimed by an account whose address is confirmed.
+
+### Things to know
+
+- **The Chair alone releases results.** Releasing and withdrawing go through `release_results()` and
+  `withdraw_results()`; nobody can set `results_released` with a direct update. A release is refused unless the latest
+  published ranking matches everything that is counted now.
+- **No rule stops removing the last Organiser** of an event (or the last Chair). Do not remove the people running the
+  event; add a replacement first.
+- **Penalty points are public by design.** After release the public ranking shows each team's penalties column, and
+  the team manager sees their own penalty reasons.
+- **Phase 1a counts every submitted card of a judge who later loses their role.** Removing a judge does not remove
+  their submitted scorecards from the ranking; reopen them in Moderation if they should not count.
+- **Teams stay editable after release.** The freeze covers scorecards, scores, overrides and penalties; a Chair or
+  Organiser can still add or rename teams, which changes the public team list (the published snapshot is unaffected).
+- **Global default privileges.** `0001_core.sql` revokes execute on new functions from `public`, `anon` and
+  `authenticated` for the role that runs the migrations, and `0003_results.sql` revokes default table and sequence
+  privileges from the API roles. Every function a later migration adds is therefore callable by nobody until it is
+  granted explicitly: always write the `grant execute` (and a test) with the function.
+- **Conflicts of interest** must be declared before judging: once a judge has submitted a card for a team, or results
+  are released, the declaration is refused. The Chair sees declared conflicts in Moderation and on Rankings.
+
 ## What is not here yet
 
 Judging schedule generator, protest and appeal lodging, judge-to-team assignment, server-side snapshot verification,
