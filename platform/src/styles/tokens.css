@@ -1,0 +1,40 @@
+/* STEM Racing brand tokens: Secondary division theme, Brand Identity Guidelines v1.3.
+   Source: the published "STEM Racing" design system. Dark surface is the default. */
+:root {
+  --carbon-shadow: #05000B;
+  --carbon-800: #261A3D;
+  --carbon-700: #2E2347;
+  --carbon-500: #5B5376;
+  --carbon-300: #A39FB8;
+  --carbon-100: #D7D6E3;
+  --surface-light: #F3F3F7;
+  --white: #FFFFFF;
+
+  --ignite-indigo: #312783;
+  --chicane-violet: #961B81;
+  --pitlane-pink: #E6007E;
+  --burnout-orange: #ED6D05;
+  --podium-gold: #FCBC00;
+
+  --bg: var(--carbon-shadow);
+  --bg-raised: var(--carbon-800);
+  --fg: var(--carbon-100);
+  --fg-strong: var(--white);
+  --fg-muted: var(--carbon-300);
+  --rule: var(--carbon-700);
+  --heading-accent: var(--pitlane-pink);
+  --focus: var(--podium-gold);
+
+  --font-display: "Magistral", Arial, system-ui, sans-serif;
+  --font-body: "MachoModular", Arial, system-ui, sans-serif;
+
+  --radius-button: 4px;
+  --radius-card: 8px;
+  --radius-pill: 999px;
+
+  --gutter: clamp(1.375rem, 0.75rem + 2.5vw, 2.5rem);
+  --container: 1200px;
+  --section-y: clamp(2.5rem, 1.5rem + 4vw, 5rem);
+  --header-h: 88px;
+  --logo-h: 44px;
+}
