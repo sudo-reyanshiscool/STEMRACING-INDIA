@@ -177,3 +177,33 @@ describe('rank: derived values are validated', () => {
     expect(r.rows.every((x) => x.total === 0)).toBe(true);
   });
 });
+
+describe('rank: duplicate cards', () => {
+  it('throws when one judge has two cards for the same team and area', () => {
+    const cards = [card('t1', 'de-portfolio', 'jA', 10), card('t1', 'de-portfolio', 'jA', 11)];
+    expect(() => rank(base({ cards }))).toThrow(RankingInputError);
+    expect(() => rank(base({ cards }))).toThrow(/duplicate/i);
+  });
+  it('allows the same judge on different teams or areas, and different judges on the same one', () => {
+    const cards = [
+      card('t1', 'de-portfolio', 'jA', 10), card('t2', 'de-portfolio', 'jA', 10),
+      card('t1', 'pit-display', 'jA', 10), card('t1', 'de-portfolio', 'jB', 10),
+    ];
+    expect(() => rank(base({ cards }))).not.toThrow();
+  });
+});
+
+describe('rank: override precision and duplicates', () => {
+  it('rejects an override that is not representable at one decimal place', () => {
+    expect(() => rank(base({ overrides: [{ teamId: 't1', areaId: 'de-portfolio', value: 100.55 }] }))).toThrow(RankingInputError);
+    expect(() => rank(base({ overrides: [{ teamId: 't1', areaId: 'de-portfolio', value: 100.5 }] }))).not.toThrow();
+    expect(() => rank(base({ overrides: [{ teamId: 't1', areaId: 'de-portfolio', value: 0.3 }] }))).not.toThrow();
+  });
+  it('throws on two overrides for the same team and area', () => {
+    const overrides = [
+      { teamId: 't1', areaId: 'de-portfolio', value: 100 },
+      { teamId: 't1', areaId: 'de-portfolio', value: 110 },
+    ];
+    expect(() => rank(base({ overrides }))).toThrow(RankingInputError);
+  });
+});

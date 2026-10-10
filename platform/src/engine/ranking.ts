@@ -54,12 +54,18 @@ export function rank(inputs: RankInputs): Ranking {
   const teamIds = new Set(teams.map((t) => t.id));
 
   const totalsByTeamArea = new Map<string, number[]>();
+  const seenCards = new Set<string>();
   for (const c of inputs.cards) {
     const area = areas.get(c.areaId);
     if (!area) throw new RankingInputError(`Scorecard for unknown area ${c.areaId}`);
     if (area.kind !== 'scorecard') throw new RankingInputError(`${area.name} is not scored on a scorecard`);
     const problems = validateScores(area, c.scores, { complete: true });
     if (problems.length > 0) throw new RankingInputError(`${area.name}, judge ${c.judgeId}: ${problems[0].message}`);
+    const cardKey = `${key(c.teamId, c.areaId)}\u0000${c.judgeId}`;
+    if (seenCards.has(cardKey)) {
+      throw new RankingInputError(`Duplicate card: judge ${c.judgeId} has more than one card for team ${c.teamId}, ${area.name}`);
+    }
+    seenCards.add(cardKey);
     if (!teamIds.has(c.teamId)) continue;
     const list = totalsByTeamArea.get(key(c.teamId, c.areaId)) ?? [];
     list.push(areaTotal(area, c.scores));
@@ -72,6 +78,12 @@ export function rank(inputs: RankInputs): Ranking {
     if (!area || area.kind !== 'scorecard') throw new RankingInputError(`Override for ${o.areaId}: only scorecard areas can be overridden`);
     if (!Number.isFinite(o.value) || o.value < 0 || o.value > area.max) {
       throw new RankingInputError(`Override for ${area.name} must be between 0 and ${area.max}`);
+    }
+    if (Math.abs(o.value * 10 - Math.round(o.value * 10)) > 1e-9) {
+      throw new RankingInputError(`Override for ${area.name} must have at most one decimal place`);
+    }
+    if (overrides.has(key(o.teamId, o.areaId))) {
+      throw new RankingInputError(`Duplicate override for team ${o.teamId}, ${area.name}`);
     }
     overrides.set(key(o.teamId, o.areaId), o.value);
   }
