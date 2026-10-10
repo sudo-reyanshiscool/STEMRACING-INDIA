@@ -13,6 +13,8 @@ import { eventHomeScreen } from './ui/event-home';
 import { eventsScreen } from './ui/events';
 import { loginScreen } from './ui/login';
 import { peopleScreen } from './ui/people';
+import { scorecardScreen } from './ui/scorecard';
+import { scoringScreen } from './ui/scoring';
 import { startRouter, type Route } from './ui/router';
 import { QueueHost } from './ui/queuehost';
 import { mountShell } from './ui/shell';
@@ -118,6 +120,8 @@ async function screenFor(route: Route, ctx: Ctx): Promise<HTMLElement> {
     case 'event': return eventHomeScreen(ctx, route.eventId);
     case 'teams': return teamsScreen(ctx, route.eventId);
     case 'people': return peopleScreen(ctx, route.eventId);
+    case 'score': return scoringScreen(ctx, route.eventId);
+    case 'scorecard': return scorecardScreen(ctx, route.eventId, route.teamId, route.areaId);
     default: return notFound('This screen is not built yet.', '#/', 'Back to events');
   }
 }
