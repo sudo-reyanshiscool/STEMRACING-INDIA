@@ -234,8 +234,30 @@ describe('peopleScreen', () => {
     (el.querySelector('input[name=email]') as HTMLInputElement).value = 'a@x.test';
     submit(el);
     await wait();
-    expect(text(el.querySelector('[role=alert]')!)).toBe('That person already has this role or invitation');
+    expect(text(el.querySelector('[role=alert]')!)).toBe('That person already has this role or invitation.');
     expect(text(el)).not.toContain('violates');
+  });
+
+  it('recovers after a validation failure: controls enabled, corrected invitation sent once', async () => {
+    const { api, ev } = await world();
+    await api.signIn(EMAILS.org);
+    let calls = 0;
+    const real = api.invite.bind(api);
+    const spy = new Proxy(api, { get: (t, k) => (k === 'invite' ? async (...a: Parameters<Api['invite']>) => { calls++; return real(...a); } : (t as never)[k]) }) as Api;
+    const { ctx } = makeCtx(spy);
+    const el = await peopleScreen(ctx, ev.id);
+    pick(el, 'role', 'chair');
+    const email = el.querySelector('input[name=email]') as HTMLInputElement;
+    email.value = 'typo';
+    submit(el);
+    await wait();
+    expect((el.querySelector('form button[type=submit]') as HTMLButtonElement).disabled).toBe(false);
+    expect(calls).toBe(0);
+    email.value = 'fixed@x.test';
+    submit(el);
+    await wait();
+    expect(calls).toBe(1);
+    expect(text(el.querySelector('[data-section=invitations]')!)).toContain('fixed@x.test');
   });
 
   it('keeps email text as text', async () => {

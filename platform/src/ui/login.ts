@@ -15,15 +15,16 @@ export function loginScreen(ctx: Ctx): HTMLElement {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (busy) return;
-    busy = true;
-    submitBtn.disabled = true;
     error.hidden = true;
     notice.hidden = true;
+    // Validate before going busy, so a typo never leaves the form disabled.
     if (!isPlausibleEmail(email.value)) {
       error.textContent = 'Enter a valid email address, for example name@school.org.';
       error.hidden = false;
       return;
     }
+    busy = true;
+    submitBtn.disabled = true;
     try {
       await ctx.api.signIn(email.value);
       if (await ctx.api.getSession()) {

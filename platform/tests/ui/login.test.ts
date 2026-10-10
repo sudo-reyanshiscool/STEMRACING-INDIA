@@ -45,6 +45,23 @@ describe('loginScreen', () => {
     expect(text(el.querySelector('[role=alert]')!)).toContain('valid email');
   });
 
+  it('recovers after a typo: the button stays enabled and a corrected address signs in once', async () => {
+    const api = new MemoryApi();
+    let calls = 0;
+    const real = api.signIn.bind(api);
+    api.signIn = async (e: string) => { calls++; await real(e); };
+    const { ctx } = makeCtx(api);
+    const el = loginScreen(ctx);
+    submit(el, 'typo');
+    await new Promise((r) => setTimeout(r, 0));
+    expect((el.querySelector('button[type=submit]') as HTMLButtonElement).disabled).toBe(false);
+    expect(calls).toBe(0);
+    submit(el, 'good@x.test');
+    await new Promise((r) => setTimeout(r, 0));
+    expect(calls).toBe(1);
+    expect((await api.getSession())?.email).toBe('good@x.test');
+  });
+
   it('says what happens when the link has to be opened from an email', async () => {
     const api = new MemoryApi();
     api.getSession = async () => null; // a real backend does not sign in until the link is opened

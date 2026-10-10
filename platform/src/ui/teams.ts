@@ -49,7 +49,7 @@ export async function teamsScreen(ctx: Ctx, eventId: string): Promise<HTMLElemen
         : number.length > 12 ? 'The team number must be 12 characters or fewer.'
         : !name ? 'Enter a team name.'
         : name.length > 80 ? 'The team name must be 80 characters or fewer.'
-        : school.length > 120 ? 'The school or club must be 120 characters or fewer .'
+        : school.length > 120 ? 'The school or club must be 120 characters or fewer.'
         : null;
       if (problem) {
         error.textContent = problem;

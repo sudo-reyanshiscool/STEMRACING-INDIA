@@ -109,6 +109,28 @@ describe('teamsScreen', () => {
     expect(calls).toBe(0);
   });
 
+  it('recovers after a validation failure: button enabled, corrected team is added once', async () => {
+    const { api, ev } = await world();
+    await api.signIn(EMAILS.org);
+    const { ctx } = makeCtx(api);
+    const el = await teamsScreen(ctx, ev.id);
+    const button = el.querySelector('form button[type=submit]') as HTMLButtonElement;
+    await add(el, '', 'Name');
+    expect(button.disabled).toBe(false);
+    await add(el, '8', 'Name');
+    expect(text(el)).toContain('Team 8 · Name');
+    expect(el.querySelectorAll('.list li')).toHaveLength(3);
+  });
+
+  it('words the school-length message cleanly', async () => {
+    const { api, ev } = await world();
+    await api.signIn(EMAILS.org);
+    const { ctx } = makeCtx(api);
+    const el = await teamsScreen(ctx, ev.id);
+    await add(el, '8', 'Name', 'x'.repeat(121));
+    expect(text(el.querySelector('[role=alert]')!)).toBe('The school or club must be 120 characters or fewer.');
+  });
+
   it('names the form fields and clears the form after adding', async () => {
     const { api, ev } = await world();
     await api.signIn(EMAILS.org);

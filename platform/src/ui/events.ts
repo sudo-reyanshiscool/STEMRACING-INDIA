@@ -1,5 +1,5 @@
 import type { Ctx } from './ctx';
-import { errorText } from './common';
+import { reportActionError } from './actions';
 import { h } from './dom';
 import { routeHref } from './router';
 
@@ -8,13 +8,16 @@ const today = () => new Date().toISOString().slice(0, 10);
 export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
   const events = await ctx.api.listEvents();
   const error = h('p', { class: 'alert', role: 'alert', hidden: true });
+  const submitBtn = h('button', { class: 'btn btn--primary', type: 'submit' }, 'Create event');
   const form = h('form', { class: 'form', novalidate: true },
     h('label', { class: 'field' }, h('span', { class: 'field__label' }, 'Event name'), h('input', { name: 'name', required: true, maxlength: 120, autocomplete: 'off' })),
     h('label', { class: 'field' }, h('span', { class: 'field__label' }, 'Date'), h('input', { name: 'date', type: 'date', value: today() })),
-    h('button', { class: 'btn btn--primary', type: 'submit' }, 'Create event'),
+    submitBtn,
   );
+  let busy = false;
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (busy) return;
     error.hidden = true;
     const f = new FormData(form);
     if (!String(f.get('name') ?? '').trim()) {
@@ -22,12 +25,16 @@ export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
       error.hidden = false;
       return;
     }
+    busy = true;
+    submitBtn.disabled = true;
     try {
       const ev = await ctx.api.createEvent({ name: String(f.get('name')), startsOn: String(f.get('date') ?? '') || undefined });
       location.hash = routeHref({ name: 'event', eventId: ev.id });
     } catch (err) {
-      error.textContent = errorText(err);
-      error.hidden = false;
+      reportActionError(ctx, error, err);
+    } finally {
+      busy = false;
+      submitBtn.disabled = false;
     }
   });
   return h('div', { class: 'stack stack--lg' },

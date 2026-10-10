@@ -27,7 +27,7 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
   const inviteHolder = h('div', { 'data-section': 'invitations' });
   const error = h('p', { class: 'alert', role: 'alert', hidden: true });
   const status = h('p', { class: 'notice', role: 'status', hidden: true });
-  const fail = (e: unknown) => { if (alive) reportActionError(ctx, error, e, { duplicate: 'That person already has this role or invitation' }); };
+  const fail = (e: unknown) => { if (alive) reportActionError(ctx, error, e, { duplicate: 'That person already has this role or invitation.' }); };
 
   // One write at a time: every Remove/Withdraw/Send control is disabled while one is in flight.
   let inFlight = false;
