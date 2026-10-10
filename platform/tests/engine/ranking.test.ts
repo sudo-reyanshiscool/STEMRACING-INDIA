@@ -207,3 +207,16 @@ describe('rank: override precision and duplicates', () => {
     expect(() => rank(base({ overrides }))).toThrow(RankingInputError);
   });
 });
+
+describe('rank: penalty sums are rounded to one decimal', () => {
+  it('shows 0.1 + 0.2 as 0.3 and subtracts exactly that', () => {
+    const r = rank(base({
+      cards: [card('t1', 'verbal-technique', 'j', 20)],
+      penalties: [{ teamId: 't1', points: 0.1 }, { teamId: 't1', points: 0.2 }],
+    }));
+    const row = r.rows.find((x) => x.teamId === 't1')!;
+    expect(row.penalties).toBe(0.3);
+    expect(row.subtotal).toBe(40);
+    expect(row.total).toBe(39.7);
+  });
+});

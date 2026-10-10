@@ -91,7 +91,7 @@ export function rank(inputs: RankInputs): Ranking {
   const penaltyByTeam = new Map<string, number>();
   for (const p of inputs.penalties) {
     if (!Number.isFinite(p.points) || p.points < 0) throw new RankingInputError('Penalty points must be zero or more');
-    penaltyByTeam.set(p.teamId, (penaltyByTeam.get(p.teamId) ?? 0) + p.points);
+    penaltyByTeam.set(p.teamId, round1((penaltyByTeam.get(p.teamId) ?? 0) + p.points));
   }
 
   const derived = inputs.derived ?? {};
