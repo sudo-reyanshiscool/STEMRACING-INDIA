@@ -138,7 +138,7 @@ describe.skipIf(!run)('local Supabase smoke test', () => {
     await chair.addPenalty(ev.id, t1.id, 15, 'Unsuccessful appeal');
     expect(await code(judge.addPenalty(ev.id, t1.id, 5, 'Not mine to give'))).toBe('forbidden');
 
-    const publish = async (released: boolean) => {
+    const publish = async () => {
       const [teams, cards, overrides, penalties] = await Promise.all([
         chair.listTeams(ev.id), chair.listCards(ev.id), chair.listOverrides(ev.id), chair.listPenalties(ev.id),
       ]);
@@ -150,13 +150,19 @@ describe.skipIf(!run)('local Supabase smoke test', () => {
       };
       const ranking = rank({ ruleset: ev.ruleset, ...inputs });
       const hash = await sha256Hex(canonicalJson({ rulesetId: ev.ruleset.id, inputs, rows: ranking.rows }));
-      const snap = await chair.publishSnapshot(ev.id, { rulesetId: ev.ruleset.id, inputHash: hash, inputs, rows: ranking.rows, released });
+      const snap = await chair.publishSnapshot(ev.id, { rulesetId: ev.ruleset.id, inputHash: hash, inputs, rows: ranking.rows });
       return { snap, inputs, ranking, hash };
     };
-    let first = await publish(true);
+    let first = await publish();
     expect(first.ranking.rows.find((r) => r.teamId === t1.id)!.total).toBe(27 - 15);
     expect(first.snap.inputHash).toBe(first.hash);
     expect(Object.keys(first.snap)).not.toContain('inputs');
+
+    // A snapshot can only be released-capable.
+    const hidden = await clients[emails.chair].from('ranking_snapshots').insert({
+      event_id: ev.id, ruleset_id: ev.ruleset.id, input_hash: 'f'.repeat(64), inputs: {}, rows: [], released: false,
+    });
+    expect(hidden.error?.code).toBe('23514');
 
     // Release is decided by the server: a direct update is not granted, and a ranking that is out of date is refused.
     const direct = await clients[emails.chair].from('events').update({ results_released: true }).eq('id', ev.id).select('id');
@@ -164,7 +170,7 @@ describe.skipIf(!run)('local Supabase smoke test', () => {
     await chair.setOverride(ev.id, t2.id, 'pit-display', 42, 'Late correction');
     expect(await code(chair.setReleased(ev.id, true))).toBe('locked');
     expect(await code(org.setReleased(ev.id, true))).toBe('forbidden');
-    first = await publish(true);
+    first = await publish();
     expect(first.ranking.rows.find((r) => r.teamId === t1.id)!.total).toBe(27 - 15);
 
     // Not released yet: the public sees nothing, the team manager sees no cards.
@@ -217,7 +223,7 @@ describe.skipIf(!run)('local Supabase smoke test', () => {
     expect(await chair.listOverrides(ev.id)).toEqual([]);
     expect(await code(chair.removeOverride(ev.id, t2.id, 'pit-display'))).toBe('forbidden');
     expect(await code(chair.removePenalty(penalty.id))).toBe('forbidden');
-    const second = await publish(true);
+    const second = await publish();
     expect(second.ranking.rows.find((r) => r.teamId === t1.id)!.total).toBe(27);
     expect(second.snap.id).not.toBe(first.snap.id);
     expect(second.hash).not.toBe(first.hash);

@@ -105,8 +105,7 @@ describe('ranking snapshots', () => {
     expect((await w.db.query<{ rows: unknown[] }>('select rows from ranking_snapshots where id = $1', [id])).rows[0].rows).toHaveLength(1);
   });
 
-  it('is public only while the event is released, and only the released snapshots', async () => {
-    const hidden = (await snapshot('chair', false)).rows[0].id;
+  it('is public only while the event is released', async () => {
     const shown = (await snapshot('chair', true)).rows[0].id;
     const publicIds = () => as(w.db, null, async (q) => (await q('select id from ranking_snapshots where event_id = $1', [w.eventId])).rows.map((r: { id: string }) => r.id));
     expect(await publicIds()).toEqual([]);
@@ -114,13 +113,12 @@ describe('ranking snapshots', () => {
     try {
       const open = await publicIds();
       expect(open).toContain(shown);
-      expect(open).not.toContain(hidden);
     } finally {
       await release(false);
     }
     expect(await publicIds()).toEqual([]);
     const staff = await as(w.db, 'organiser', async (q) => (await q('select id from ranking_snapshots where event_id = $1', [w.eventId])).rows.map((r: { id: string }) => r.id));
-    expect(staff).toContain(hidden);
+    expect(staff).toContain(shown);
     const judge = await as(w.db, 'judgeV', async (q) => (await q('select id from ranking_snapshots')).rows);
     expect(judge).toEqual([]);
   });
@@ -191,7 +189,6 @@ describe('freeze on release', () => {
 
 describe('visibility before and after release', () => {
   it('never shows overrides to team members, and shows snapshots only once released', async () => {
-    const hidden = (await snapshot('chair', false)).rows[0].id;
     const shown = (await snapshot('chair', true)).rows[0].id;
     const ids_ = (who: Who | null) => as(w.db, who, async (q) => (await q('select id from ranking_snapshots')).rows.map((r: { id: string }) => r.id));
     const overrides = (who: Who) => as(w.db, who, async (q) => (await q('select 1 from score_overrides')).rows);
@@ -201,7 +198,6 @@ describe('visibility before and after release', () => {
       for (const who of ['mgr1', 'outsider', null] as const) {
         const seen = await ids_(who);
         expect(seen, String(who)).toContain(shown);
-        expect(seen, String(who)).not.toContain(hidden);
       }
       for (const who of ['mgr1', 'mgr2', 'judgeV', 'leadV'] as const) expect(await overrides(who), who).toEqual([]);
       const penalties = await as(w.db, 'mgr2', async (q) => (await q('select team_id from penalties')).rows);

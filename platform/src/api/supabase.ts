@@ -292,7 +292,7 @@ export function createApiFromClient(sb: SupabaseClient, options: SupabaseApiOpti
     async publishSnapshot(eventId, s) {
       // `inputs` goes in but is not selectable, so the returning list names the readable columns explicitly.
       const row = one(await guard(() => sb.from('ranking_snapshots').insert({
-        event_id: eventId, ruleset_id: s.rulesetId, input_hash: s.inputHash, inputs: s.inputs, rows: s.rows, released: s.released ?? true,
+        event_id: eventId, ruleset_id: s.rulesetId, input_hash: s.inputHash, inputs: s.inputs, rows: s.rows,
       }).select(SNAPSHOT_COLS).single()));
       return toSnapshotRow(row);
     },

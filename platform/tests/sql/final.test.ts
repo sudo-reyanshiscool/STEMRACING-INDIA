@@ -197,3 +197,20 @@ describe('I4: releasing is checked on the server', () => {
     expect(helper.rows[0].vol).toBe('v');
   });
 });
+
+describe('M2: a snapshot is always a released-capable record', () => {
+  const insert = (released: boolean | null) => as(w.db, 'chair', (q) => q(
+    released === null
+      ? `insert into ranking_snapshots(event_id, ruleset_id, input_hash, inputs, rows) values ($1, 'india-national-finals-2026', $2, '{}', '[]') returning released`
+      : `insert into ranking_snapshots(event_id, ruleset_id, input_hash, inputs, rows, released) values ($1, 'india-national-finals-2026', $2, '{}', '[]', ${released}) returning released`,
+    [w.eventId, 'e'.repeat(64)]));
+
+  it('rejects released = false and accepts the default and true', async () => {
+    await expect(insert(false)).rejects.toMatchObject({ code: '23514' });
+    await expect(insert(false)).rejects.toThrow(/released/);
+    expect((await insert(null)).rows[0].released).toBe(true);
+    expect((await insert(true)).rows[0].released).toBe(true);
+    // not even a privileged session can slip one in around the API roles
+    await expect(w.db.query(`insert into ranking_snapshots(event_id, ruleset_id, input_hash, inputs, rows, released) values ($1, 'india-national-finals-2026', $2, '{}', '[]', false)`, [w.eventId, 'e'.repeat(64)])).rejects.toThrow(/released/);
+  });
+});

@@ -57,7 +57,7 @@ describe('ranking snapshots', () => {
     const out = await api.publishSnapshot('e', { rulesetId: 'r', inputHash: 'h', inputs: { cards: [] }, rows: [] });
     expect(out).toEqual({ id: 's', eventId: 'e', createdAt: 't', rulesetId: 'r', inputHash: 'h', rows: [], released: true });
     expect(calls[0].name).toBe('ranking_snapshots');
-    expect(arg(calls[0], 'insert')).toEqual({ event_id: 'e', ruleset_id: 'r', input_hash: 'h', inputs: { cards: [] }, rows: [], released: true });
+    expect(arg(calls[0], 'insert')).toEqual({ event_id: 'e', ruleset_id: 'r', input_hash: 'h', inputs: { cards: [] }, rows: [] });
     const sel = String(arg(calls[0], 'select'));
     expect(sel).not.toContain('*');
     expect(sel.split(',')).not.toContain('inputs');

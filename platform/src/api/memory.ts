@@ -364,7 +364,7 @@ export class MemoryApi implements Api {
     if (!Array.isArray(s.rows)) throw new ApiError('invalid', 'Snapshot rows must be a list');
     const row: SnapshotRow = {
       id: nid('snapshot'), eventId, createdAt: new Date().toISOString(), rulesetId: s.rulesetId,
-      inputHash: s.inputHash, rows: copy(s.rows), released: s.released ?? true,
+      inputHash: s.inputHash, rows: copy(s.rows), released: true,
     };
     this.snapshots.push(row);
     this.snapshotVersion.set(row.id, this.version);

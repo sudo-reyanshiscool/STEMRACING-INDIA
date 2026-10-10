@@ -225,3 +225,18 @@ begin
 end $$;
 revoke execute on function withdraw_results(uuid) from public, anon;
 grant execute on function withdraw_results(uuid) to authenticated;
+
+-- A snapshot is the published record of a ranking, and only a released-capable one can exist: `released` stays as a
+-- column for the read policy, but false is refused, so there is no way to publish something "hidden".
+create or replace function snapshots_guard() returns trigger language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  if new.ruleset_id is distinct from (select ruleset ->> 'id' from events where id = new.event_id) then
+    raise exception 'snapshot ruleset does not match the ruleset pinned to the event' using errcode = '22023';
+  end if;
+  if new.released is distinct from true then
+    raise exception 'a ranking snapshot is always released-capable; released cannot be false' using errcode = '23514';
+  end if;
+  new.created_by := auth.uid();
+  new.created_at := now();
+  return new;
+end $$;
