@@ -1,0 +1,6 @@
+@font-face { font-family: "Magistral"; src: url("/fonts/Magistral-BoldItalic.woff2") format("woff2"); font-weight: 700; font-style: italic; font-display: swap; }
+@font-face { font-family: "Magistral"; src: url("/fonts/Magistral-MediumItalic.woff2") format("woff2"); font-weight: 500; font-style: italic; font-display: swap; }
+@font-face { font-family: "MachoModular"; src: url("/fonts/MachoModular-Light.woff2") format("woff2"); font-weight: 300; font-style: normal; font-display: swap; }
+/* The brand pack has no Regular weight, so 400 renders as Medium. */
+@font-face { font-family: "MachoModular"; src: url("/fonts/MachoModular-Medium.woff2") format("woff2"); font-weight: 400 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "MachoModular"; src: url("/fonts/MachoModular-Bold.woff2") format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
