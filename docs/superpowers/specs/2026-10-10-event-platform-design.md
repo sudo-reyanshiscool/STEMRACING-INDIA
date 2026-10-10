@@ -136,6 +136,7 @@ Each has a default so work can proceed; the Chair or rules owner should confirm.
 5. **Tie-break.** Highest Knock-out score (C3.4); then Chair.
 6. **C4.6 appeals text** is missing from the India PDF body (the document says so); the World Finals wording (two hours) is used until STEM Racing India confirms.
 7. **Combining several judges per category.** Default: mean of submitted cards, rounded to one decimal, with audited moderation.
+9. **Verbal Presentation split.** The C3.5 table says Technique 60, Composition 40, Subject Matter 40, but the scorecards total Technique 40, Composition 40, Subject 60 (both total 140). Default: follow the scorecards, because judges mark criteria.
 8. **Number of judges per panel and teams per event** is not stated; the platform does not assume a maximum.
 
 ## 14. Risks
