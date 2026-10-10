@@ -45,8 +45,9 @@ const SNAPSHOT_COLS = 'id,event_id,created_at,ruleset_id,input_hash,rows,release
 const EMAIL = /^[^@\s]+@[^@\s]+$/;
 const FORBIDDEN = 'You do not have permission to do that';
 
-export function createSupabaseApi(url: string, anonKey: string): Api {
-  return createApiFromClient(createClient(url, anonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }));
+/** `client` lets tests pass an already signed-in client; the app passes none and gets a persistent-session client. */
+export function createSupabaseApi(url: string, anonKey: string, client?: SupabaseClient): Api {
+  return createApiFromClient(client ?? createClient(url, anonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }));
 }
 
 /** The adapter over an existing client. Split from createSupabaseApi so tests can drive it with a scripted client. */

@@ -95,7 +95,7 @@ export async function resultsScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
       h('thead', null, h('tr', null, [
         h('th', { scope: 'col' }, 'Rank'), h('th', { scope: 'col' }, 'Team'),
         ...categories.map((c) => h('th', { scope: 'col', class: 'num' }, c.name)),
-        h('th', { scope: 'col', class: 'num' }, 'Penalties'), h('th', { scope: 'col', class: 'num' }, 'Total'),
+        h('th', { scope: 'col', class: 'num' }, 'Penalties'), h('th', { scope: 'col', class: 'num pin-end' }, 'Total'),
       ])),
       h('tbody', null, rows.map((r) => h('tr', null,
         h('td', null, String(r.rank)),
@@ -104,7 +104,7 @@ export async function resultsScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
           r.judgedComplete ? null : h('span', { class: 'small muted' }, ' (not fully judged)')),
         ...categories.map((c) => h('td', { class: 'num' }, r.categories[c.id] === undefined ? '—' : num(r.categories[c.id]))),
         h('td', { class: 'num' }, r.penalties === 0 ? '—' : `−${num(r.penalties)}`),
-        h('td', { class: 'num' }, num(r.total)))))));
+        h('td', { class: 'num pin-end' }, num(r.total)))))));
 
   let mine: HTMLElement | null = null;
   if (managed.length > 0 && event.resultsReleased && snapshot.released) {

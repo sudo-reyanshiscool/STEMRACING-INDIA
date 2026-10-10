@@ -48,6 +48,18 @@ describe('rankingsScreen', () => {
     expect(text(el)).toContain('of 650');
   });
 
+  it('pins the Total column so it stays in view when the table scrolls sideways on a phone', async () => {
+    const { api, ev, t1 } = await world();
+    await scoreTeam(api, ev.id, t1.id, 14, 12);
+    await api.signIn(EMAILS.chair);
+    const { ctx } = makeCtx(api);
+    const el = await rankingsScreen(ctx, ev.id);
+    const pinned = [...el.querySelectorAll('.pin-end')];
+    expect(pinned.length).toBe(1 + 2); // header plus one row per team
+    expect(text(pinned[0] as HTMLElement)).toBe('Total');
+    expect([...el.querySelectorAll('thead th')].at(-1)).toBe(pinned[0]);
+  });
+
   it('says in words how many submitted cards were ranked and shows the input fingerprint', async () => {
     const { api, ev, t1, t2 } = await world();
     await scoreTeam(api, ev.id, t1.id, 14, 12);

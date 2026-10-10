@@ -133,12 +133,12 @@ export async function moderationScreen(ctx: Ctx, eventId: string): Promise<HTMLE
       return form;
     };
 
-    table.replaceChildren(h('table', { class: 'table' },
+    table.replaceChildren(h('table', { class: 'table mod-table' },
       h('caption', { class: 'small muted' }, `${area.name}, out of ${area.max}. Only submitted scorecards count; drafts are listed but never counted.`),
       h('thead', null, h('tr', null, ['Team', 'Judges', 'Mean of submitted', 'Chair override'].map((c) => h('th', { scope: 'col' }, c)))),
       h('tbody', null, rows.map((r) => h('tr', null,
         h('th', { scope: 'row' }, r.teamLabel),
-        h('td', null, r.judges.length === 0 ? h('span', { class: 'muted' }, 'No cards yet') : h('ul', { class: 'list' }, [...r.judges.map((j) => {
+        h('td', { 'data-label': 'Judges' }, r.judges.length === 0 ? h('span', { class: 'muted' }, 'No cards yet') : h('ul', { class: 'list' }, [...r.judges.map((j) => {
           const judge = who(j.judgeId);
           return h('li', null,
             j.status === 'submitted' ? `${judge}: ${j.total ?? 'incomplete'} ` : `${judge}: draft, not counted `,
@@ -146,8 +146,8 @@ export async function moderationScreen(ctx: Ctx, eventId: string): Promise<HTMLE
             canChange && j.status === 'submitted' ? reopenForm(j.cardId, judge, r.teamLabel) : null);
         }),
           drafts(r) > 0 ? h('li', { class: 'small' }, `${drafts(r)} card${drafts(r) === 1 ? '' : 's'} still in draft, not counted`) : null])),
-        h('td', { class: 'num' }, r.mean === null ? '—' : String(r.mean)),
-        h('td', null,
+        h('td', { class: 'num', 'data-label': 'Mean of submitted' }, r.mean === null ? '—' : String(r.mean)),
+        h('td', { 'data-label': 'Chair override' },
           r.override ? h('p', { class: 'small' }, `Override: ${r.override.value} (${r.override.reason})`) : null,
           r.override ? h('p', { class: 'small muted' },
             r.mean === null ? "Override replaces the judges' scores: no submitted judge scores yet."

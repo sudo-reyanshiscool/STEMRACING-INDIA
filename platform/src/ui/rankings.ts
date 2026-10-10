@@ -191,7 +191,7 @@ export async function rankingsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
         h('thead', null, h('tr', null, [
           h('th', { scope: 'col' }, 'Rank'), h('th', { scope: 'col' }, 'Team'),
           ...categories.map((cat) => h('th', { scope: 'col', class: 'num' }, cat.name)),
-          h('th', { scope: 'col', class: 'num' }, 'Penalties'), h('th', { scope: 'col', class: 'num' }, 'Total'),
+          h('th', { scope: 'col', class: 'num' }, 'Penalties'), h('th', { scope: 'col', class: 'num pin-end' }, 'Total'),
         ])),
         h('tbody', null, ranking.rows.map((r) => h('tr', null,
           h('td', null, String(r.rank)),
@@ -200,7 +200,7 @@ export async function rankingsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
             r.judgedComplete ? null : h('span', { class: 'small muted' }, ' (not fully judged)')),
           ...categories.map((cat) => h('td', { class: 'num' }, r.categories[cat.id] === undefined ? '—' : String(r.categories[cat.id]))),
           h('td', { class: 'num' }, r.penalties === 0 ? '—' : `−${r.penalties}`),
-          h('td', { class: 'num' }, String(r.total))))))));
+          h('td', { class: 'num pin-end' }, String(r.total))))))));
 
       parts.push(pubSlot, fpSlot);
     }
