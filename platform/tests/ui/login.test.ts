@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { ApiError, MemoryApi } from '../../src/api';
+import { ApiError, MemoryApi, memoryKV, type KV } from '../../src/api';
+import { QueueHost } from '../../src/ui/queuehost';
 import { loginScreen } from '../../src/ui/login';
 import { makeCtx, text } from './helpers';
 
@@ -74,5 +75,21 @@ describe('loginScreen', () => {
     release();
     await new Promise((r) => setTimeout(r, 0));
     expect(btn.disabled).toBe(false);
+  });
+
+  it('via the host, tells a signed-out person how many scores wait for the last-known user', async () => {
+    const api = new MemoryApi();
+    await api.signIn('a@x.test');
+    const kvs = new Map<string, KV>();
+    const kv = (k: string) => { if (!kvs.has(k)) kvs.set(k, memoryKV()); return kvs.get(k)!; };
+    const host = new QueueHost({ api, storage: (u) => ({ queue: kv(`q:${u}`), rejected: kv(`r:${u}`) }), lastUser: memoryKV() });
+    await host.track();
+    await api.signOut();
+    await host.enqueueScore({ cardId: 'c1', criterionId: 'k1', score: 3 });
+    await host.enqueueScore({ cardId: 'c1', criterionId: 'k2', score: 4 });
+    const { ctx } = makeCtx(api);
+    const el = loginScreen({ ...ctx, queue: host, enqueueScore: (i) => host.enqueueScore(i) });
+    expect(text(el)).toContain('Sign in again — your scores are safe');
+    expect(text(el)).toContain('2 scores are waiting');
   });
 });

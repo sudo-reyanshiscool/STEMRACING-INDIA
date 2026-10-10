@@ -36,6 +36,7 @@ async function boot(): Promise<void> {
   const host = new QueueHost({
     api,
     storage: (userId) => ({ queue: kv(`scores:${userId}`), rejected: kv(`scores-rejected:${userId}`) }),
+    lastUser: kv('last-user'),
   });
   await host.track();
   mountSyncBar(shell.syncBar, host); // flushes on 'online' and on an interval, shows status and rejected scores

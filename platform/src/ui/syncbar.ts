@@ -4,14 +4,6 @@ import { h } from './dom';
 
 export const FLUSH_INTERVAL_MS = 30_000;
 
-type Enqueue = Parameters<ScoreQueue['enqueue']>[0];
-
-/** Every screen that records a score goes through this, so a save is always attempted straight away. */
-export async function enqueueScore(queue: ScoreQueue, i: Enqueue): Promise<void> {
-  queue.enqueue(i);
-  await queue.flush();
-}
-
 const scores = (n: number) => `${n} score${n === 1 ? '' : 's'}`;
 
 /** What the bar needs. Both ScoreQueue and QueueHost satisfy it. `active() === false` hides the bar (nobody signed in). */
@@ -28,7 +20,7 @@ export interface QueueLike {
 
 /**
  * Renders the queue's state in words (never colour alone) and keeps it flushing: on the window 'online' event and on
- * an interval. Callers flush on enqueue via enqueueScore. dispose() removes every listener and timer.
+ * an interval. Screens flush on enqueue via ctx.enqueueScore. dispose() removes every listener and timer.
  */
 export function mountSyncBar(root: HTMLElement, queue: QueueLike): { refresh(): void; dispose(): void } {
   const line = h('p', { class: 'sync-bar__line', role: 'status' });

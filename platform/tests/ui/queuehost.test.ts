@@ -18,11 +18,14 @@ function setup() {
   };
   const store = new Map<string, KV>();
   const kv = (k: string) => { if (!store.has(k)) store.set(k, memoryKV()); return store.get(k)!; };
-  const host = new QueueHost({
+  const lastUser = memoryKV();
+  const make = () => new QueueHost({
     api,
     storage: (u) => ({ queue: kv(`scores:${u}`), rejected: kv(`scores-rejected:${u}`) }),
+    lastUser,
   });
-  return { api, host, sent, setFail: (e: ApiError | null) => { failWith = e; }, store };
+  const host = make();
+  return { api, host, make, sent, setFail: (e: ApiError | null) => { failWith = e; }, store, kv };
 }
 
 describe('QueueHost', () => {
@@ -51,8 +54,7 @@ describe('QueueHost', () => {
     expect(host.status().pending).toBe(1);
 
     await api.signOut();
-    expect(host.active()).toBe(false);
-    expect(host.status().pending).toBe(0);
+    expect(host.status().pending).toBe(1); // signed out: the last-known person's waiting scores are still reported
 
     await api.signIn('b@x.test');
     setFail(null);
@@ -143,5 +145,65 @@ describe('QueueHost', () => {
     await api.signOut();
     expect(root.hidden).toBe(true);
     bar.dispose();
+  });
+
+  it('a lapsed session still records the score: stored under the last-known user, restored on their sign-in, never sent as B', async () => {
+    const { api, host, sent, store } = setup();
+    await host.track();
+    await api.signIn('a@x.test');
+    await api.signOut(); // session lapsed / SIGNED_OUT
+    expect(host.userId()).toBeNull();
+    await host.enqueueScore(item); // must not be lost
+    expect(JSON.parse(store.get('scores:user:a@x.test')!.get()!)).toHaveLength(1);
+    expect(host.status()).toMatchObject({ pending: 1, signedOut: true });
+    expect(host.active()).toBe(true);
+    expect(sent).toEqual([]);
+
+    const root = document.createElement('div');
+    const bar = mountSyncBar(root, host);
+    expect(root.textContent).toContain('Sign in again — your scores are safe');
+    expect(root.textContent).toContain('1 score waiting');
+    bar.dispose();
+
+    await api.signIn('b@x.test');
+    await host.flush();
+    expect(host.status().pending).toBe(0);
+    expect(sent).toEqual([]);
+    await api.signIn('a@x.test');
+    expect(host.status().pending).toBe(1);
+    await host.flush();
+    expect(sent).toEqual([{ by: 'a@x.test', cardId: 'c1', score: 3 }]);
+  });
+
+  it('a reload while signed out remembers the last-known user', async () => {
+    const { api, host, make, store } = setup();
+    await host.track();
+    await api.signIn('a@x.test');
+    await api.signOut();
+    await host.enqueueScore(item);
+    const reloaded = make(); // same storage, as after a page reload
+    await reloaded.track(); // still no session
+    expect(reloaded.status().pending).toBe(1);
+    await reloaded.enqueueScore({ ...item, criterionId: 'k2' });
+    expect(JSON.parse(store.get('scores:user:a@x.test')!.get()!)).toHaveLength(2);
+  });
+
+  it('does not flash "sign in again" after sign-in while the session check is still running', async () => {
+    const { api, host } = setup();
+    await host.track();
+    await api.signIn('a@x.test');
+    await api.signOut();
+    await host.enqueueScore(item);
+    await host.flush();
+    expect(host.status().signedOut).toBe(true);
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    const real = api.getSession.bind(api);
+    api.getSession = async () => { await gate; return real(); };
+    await api.signIn('a@x.test');
+    expect(host.status().signedOut).toBe(false); // optimistic until the check resolves
+    release();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(host.status().signedOut).toBe(false);
   });
 });

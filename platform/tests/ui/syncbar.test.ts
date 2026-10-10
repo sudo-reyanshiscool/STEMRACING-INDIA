@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, ScoreQueue, memoryKV, type KV } from '../../src/api';
-import { enqueueScore, mountSyncBar } from '../../src/ui/syncbar';
+import { mountSyncBar } from '../../src/ui/syncbar';
 import { text } from './helpers';
 
 const item = { cardId: 'c1', criterionId: 'k1', score: 3 };
@@ -110,13 +110,5 @@ describe('syncbar', () => {
     window.dispatchEvent(new Event('online'));
     await vi.advanceTimersByTimeAsync(60_000);
     expect(save).toHaveBeenCalledTimes(2);
-  });
-
-  it('enqueueScore queues and flushes straight away', async () => {
-    const save = vi.fn(async () => {});
-    const { queue } = setup(save);
-    await enqueueScore(queue, item);
-    expect(save).toHaveBeenCalledTimes(1);
-    expect(queue.pending()).toBe(0);
   });
 });
