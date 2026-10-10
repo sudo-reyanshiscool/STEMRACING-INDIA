@@ -195,11 +195,16 @@ describe('who can read a scorecard', () => {
     expect(await sees(null)).toEqual([]);
   });
 
-  it('lets a team manager read only their own team cards and scores, and only after release', async () => {
+  it('lets a team manager read only their own team cards and scores, and only after release (submitted cards only)', async () => {
     const c = await makeCard('judgeV', w.team1, 'verbal-subject');
     const other = await makeCard('judgeV', w.team2, 'verbal-subject');
     await setScore('judgeV', c.id, 'innovation', 9);
+    const crits = (await w.db.query<{ id: string }>(
+      `select x ->> 'id' as id from events e, jsonb_array_elements(e.ruleset -> 'areas') a, jsonb_array_elements(a -> 'criteria') x
+       where e.id = $1 and a ->> 'id' = 'verbal-subject'`, [w.eventId])).rows;
+    for (const cr of crits) await setScore('judgeV', c.id, cr.id, 10);
     await setScore('judgeV', other.id, 'innovation', 8);
+    await submit('judgeV', c.id);
     const read = () => as(w.db, 'mgr1', async (q) => ({
       cards: (await q('select id from scorecards where id = any($1)', [[c.id, other.id]])).rows,
       scores: (await q('select scorecard_id from scorecard_scores where scorecard_id = any($1)', [[c.id, other.id]])).rows,
@@ -209,7 +214,7 @@ describe('who can read a scorecard', () => {
     try {
       const after = await read();
       expect(after.cards).toEqual([{ id: c.id }]);
-      expect(after.scores).toEqual([{ scorecard_id: c.id }]);
+      expect(after.scores).toEqual(crits.map(() => ({ scorecard_id: c.id })));
     } finally {
       await as(w.db, 'chair', (q) => q('update events set results_released = false where id = $1', [w.eventId]));
     }
@@ -288,8 +293,8 @@ describe('hardening', () => {
               has_function_privilege('authenticated', p.oid, 'execute') as auth,
               exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a where a.grantee = 0 and a.privilege_type = 'EXECUTE') as pub
        from pg_proc p where p.pronamespace = 'public'::regnamespace
-         and p.proname in ('area_def','is_conflicted','judges_panel_any','leads_panel_any','scorecards_fill','scorecards_guard','scorecards_delete_guard','scores_guard','reopen_scorecard')`);
-    expect(funcs.rows).toHaveLength(9);
+         and p.proname in ('area_def','is_conflicted','judges_panel_any','leads_panel_any','scorecards_fill','scorecards_guard','scorecards_delete_guard','scores_guard','scores_delete_guard','reopen_scorecard')`);
+    expect(funcs.rows).toHaveLength(10);
     for (const f of funcs.rows) expect(f.pub, f.proname).toBe(false);
     const open = funcs.rows.filter((f) => f.anon || f.auth).map((f) => f.proname).sort();
     expect(open).toEqual(['is_conflicted', 'judges_panel_any', 'leads_panel_any', 'reopen_scorecard']);
@@ -299,8 +304,8 @@ describe('hardening', () => {
   it('pins search_path on every new security definer function', async () => {
     const r = await w.db.query<{ proname: string; cfg: string[] | null }>(
       `select proname, proconfig as cfg from pg_proc where pronamespace = 'public'::regnamespace and prosecdef
-         and proname in ('area_def','is_conflicted','judges_panel_any','leads_panel_any','scorecards_fill','scorecards_guard','scorecards_delete_guard','scores_guard','reopen_scorecard')`);
-    expect(r.rows).toHaveLength(9);
+         and proname in ('area_def','is_conflicted','judges_panel_any','leads_panel_any','scorecards_fill','scorecards_guard','scorecards_delete_guard','scores_guard','scores_delete_guard','reopen_scorecard')`);
+    expect(r.rows).toHaveLength(10);
     for (const f of r.rows) expect(f.cfg, f.proname).toContain('search_path=public, pg_temp');
   });
 
@@ -317,5 +322,69 @@ describe('hardening', () => {
     }
     expect(await priv('authenticated', 'judge_conflicts', 'update')).toBe(false);
     await expect(as(w.db, 'chair', (q) => q('truncate scorecards'))).rejects.toThrow(/permission denied/);
+  });
+});
+
+
+const setRelease = (v: boolean) => as(w.db, 'chair', (q) => q('update events set results_released = $2 where id = $1', [w.eventId, v]));
+
+describe('released results (review fixes)', () => {
+  it('never shows a team manager a draft card or its scores, even after release', async () => {
+    const draft = await makeCard('judgeV', w.team1, 'verbal-composition');
+    await setScore('judgeV', draft.id, 'content-quality', 7);
+    await setRelease(true);
+    try {
+      const seen = await as(w.db, 'mgr1', async (q) => ({
+        cards: (await q('select id, judge_id from scorecards where id = $1', [draft.id])).rows,
+        scores: (await q('select score from scorecard_scores where scorecard_id = $1', [draft.id])).rows,
+        all: (await q(`select judge_id from scorecards where team_id = $1 and status = 'draft'`, [w.team1])).rows,
+      }));
+      expect(seen).toEqual({ cards: [], scores: [], all: [] });
+    } finally {
+      await setRelease(false);
+    }
+  });
+
+  it('freezes judging on release: no new card, score change, submit or delete by a judge', async () => {
+    const t = await newTeam();
+    const draft = await makeCard('judgeV', t, 'verbal-technique');
+    await setScore('judgeV', draft.id, 'team-contribution', 5);
+    await fill('judgeV', draft.id);
+    const submitted = await makeCard('judgeV', await newTeam(), 'verbal-technique');
+    await fill('judgeV', submitted.id);
+    await submit('judgeV', submitted.id);
+    await setRelease(true);
+    try {
+      await expect(makeCard('judgeV', await newTeam(), 'verbal-composition')).rejects.toThrow(/released/);
+      await expect(setScore('judgeV', draft.id, 'team-contribution', 6)).rejects.toThrow(/released/);
+      await expect(submit('judgeV', draft.id)).rejects.toThrow(/released/);
+      await expect(as(w.db, 'judgeV', (q) => q('delete from scorecard_scores where scorecard_id = $1', [draft.id]))).rejects.toThrow(/released/);
+      await expect(as(w.db, 'judgeV', (q) => q('delete from scorecards where id = $1', [draft.id]))).rejects.toThrow(/released/);
+      expect((await statusOf(draft.id)).status).toBe('draft');
+      await expect(as(w.db, 'chair', (q) => q('select reopen_scorecard($1, $2)', [submitted.id, 'too late']))).rejects.toThrow(/released/);
+      expect((await statusOf(submitted.id)).status).toBe('submitted');
+    } finally {
+      await setRelease(false);
+    }
+    // Once the Chair withdraws the release, judging and reopening work again.
+    await as(w.db, 'chair', (q) => q('select reopen_scorecard($1, $2)', [submitted.id, 'release withdrawn']));
+    expect((await statusOf(submitted.id)).status).toBe('draft');
+    await setScore('judgeV', draft.id, 'team-contribution', 6);
+  });
+
+  it('refuses deleting a score of a submitted card from the trigger itself (no row-level security)', async () => {
+    const c = await makeCard('judgeV', await newTeam(), 'verbal-technique');
+    await fill('judgeV', c.id);
+    await submit('judgeV', c.id);
+    await expect(w.db.query('delete from scorecard_scores where scorecard_id = $1', [c.id])).rejects.toThrow(/submitted/);
+    await expect(w.db.query(`update scorecard_scores set score = 1 where scorecard_id = $1`, [c.id])).rejects.toThrow(/submitted/);
+    expect((await w.db.query('select 1 from scorecard_scores where scorecard_id = $1', [c.id])).rows).toHaveLength(2);
+    // A draft card's score deletes fine, and deleting a draft card still cascades to its scores.
+    const d = await makeCard('judgeV', await newTeam(), 'verbal-technique');
+    await setScore('judgeV', d.id, 'team-contribution', 3);
+    await w.db.query(`delete from scorecard_scores where scorecard_id = $1`, [d.id]);
+    await setScore('judgeV', d.id, 'team-contribution', 3);
+    await w.db.query(`delete from scorecards where id = $1`, [d.id]);
+    expect((await w.db.query('select 1 from scorecard_scores where scorecard_id = $1', [d.id])).rows).toHaveLength(0);
   });
 });

@@ -57,6 +57,9 @@ begin
   if not exists (select 1 from teams where id = new.team_id and event_id = new.event_id) then
     raise exception 'team does not belong to this event' using errcode = '22023';
   end if;
+  if event_released(new.event_id) then
+    raise exception 'results are released; judging is closed' using errcode = '55000';
+  end if;
   new.panel := (a ->> 'panel')::judging_panel;
   new.judge_id := coalesce(new.judge_id, auth.uid());
   -- Lifecycle fields are never taken from the client.
@@ -69,6 +72,9 @@ create trigger scorecards_fill before insert on scorecards for each row execute 
 create function scorecards_guard() returns trigger language plpgsql security definer set search_path = public, pg_temp as $$
 declare a jsonb; c record;
 begin
+  if event_released(old.event_id) then
+    raise exception 'results are released; judging is closed' using errcode = '55000';
+  end if;
   if (new.id, new.event_id, new.team_id, new.area_id, new.judge_id, new.panel, new.created_at)
      is distinct from (old.id, old.event_id, old.team_id, old.area_id, old.judge_id, old.panel, old.created_at) then
     raise exception 'scorecard identity cannot change' using errcode = '55000';
@@ -104,6 +110,9 @@ begin
   if old.status = 'submitted' then
     raise exception 'a submitted scorecard cannot be deleted; reopen it first' using errcode = '55000';
   end if;
+  if event_released(old.event_id) then
+    raise exception 'results are released; judging is closed' using errcode = '55000';
+  end if;
   return old;
 end $$;
 create trigger scorecards_delete_guard before delete on scorecards for each row execute function scorecards_delete_guard();
@@ -114,8 +123,12 @@ begin
   if tg_op = 'UPDATE' and (new.scorecard_id, new.criterion_id) is distinct from (old.scorecard_id, old.criterion_id) then
     raise exception 'score identity cannot change' using errcode = '55000';
   end if;
-  select * into card from scorecards where id = new.scorecard_id;
+  -- FOR SHARE conflicts with the FOR NO KEY UPDATE lock that UPDATE scorecards (the submit) takes on the card row
+  -- before its guard runs. A score write and a submit therefore serialise: whichever commits second re-reads
+  -- the other's result (READ COMMITTED), so a score cannot slip in after the completeness check.
+  select * into card from scorecards where id = new.scorecard_id for share;
   if not found then raise exception 'scorecard not found' using errcode = '22023'; end if;
+  if event_released(card.event_id) then raise exception 'results are released; judging is closed' using errcode = '55000'; end if;
   if card.status <> 'draft' then raise exception 'scorecard is submitted and locked' using errcode = '55000'; end if;
   a := area_def(card.event_id, card.area_id);
   select t.value into crit from jsonb_array_elements(a -> 'criteria') as t where t.value ->> 'id' = new.criterion_id;
@@ -128,6 +141,18 @@ begin
 end $$;
 create trigger scores_guard before insert or update on scorecard_scores for each row execute function scores_guard();
 
+-- Deleting a score is judging too: same lock, same rules. A cascade from deleting the card finds no parent row and passes.
+create function scores_delete_guard() returns trigger language plpgsql security definer set search_path = public, pg_temp as $$
+declare card record;
+begin
+  select * into card from scorecards where id = old.scorecard_id for share;
+  if not found then return old; end if;
+  if card.status <> 'draft' then raise exception 'scorecard is submitted and locked' using errcode = '55000'; end if;
+  if event_released(card.event_id) then raise exception 'results are released; judging is closed' using errcode = '55000'; end if;
+  return old;
+end $$;
+create trigger scores_delete_guard before delete on scorecard_scores for each row execute function scores_delete_guard();
+
 create function reopen_scorecard(p_card uuid, p_reason text) returns void language plpgsql security definer set search_path = public, pg_temp as $$
 declare c scorecards;
 begin
@@ -135,6 +160,7 @@ begin
   if not found then raise exception 'scorecard not found' using errcode = 'P0002'; end if;
   if not has_role(c.event_id, 'chair') then raise exception 'only the Chair can reopen a scorecard' using errcode = '42501'; end if;
   if char_length(btrim(coalesce(p_reason, ''))) < 3 then raise exception 'a reason is required to reopen a scorecard' using errcode = '22023'; end if;
+  if event_released(c.event_id) then raise exception 'results are released; withdraw the release before reopening' using errcode = '55000'; end if;
   if c.status <> 'submitted' then raise exception 'scorecard is not submitted' using errcode = '55000'; end if;
   perform set_config('app.reopen', p_card::text, true);
   update scorecards set status = 'draft' where id = p_card and status = 'submitted';
@@ -154,7 +180,7 @@ grant select, insert, delete on scorecard_scores to authenticated;
 grant update (score, comment) on scorecard_scores to authenticated;
 
 -- Internals and trigger functions are not callable by clients. Audit rows are written only through audit_write().
-revoke execute on function area_def(uuid, text), scorecards_fill(), scorecards_guard(), scorecards_delete_guard(), scores_guard()
+revoke execute on function area_def(uuid, text), scorecards_fill(), scorecards_guard(), scorecards_delete_guard(), scores_guard(), scores_delete_guard()
   from public, anon, authenticated;
 -- Policy helpers run as the signed-in user; the policies below are all `to authenticated`.
 revoke execute on function judges_panel_any(uuid), leads_panel_any(uuid), is_conflicted(uuid, uuid) from public, anon;
@@ -176,7 +202,7 @@ create policy cards_select on scorecards for select to authenticated using (
   judge_id = auth.uid()
   or is_chair_or_organiser(event_id)
   or leads_panel(event_id, panel)
-  or (event_released(event_id) and manages_team(event_id, team_id))
+  or (status = 'submitted' and event_released(event_id) and manages_team(event_id, team_id))
 );
 create policy cards_insert on scorecards for insert to authenticated
   with check (judge_id = auth.uid() and status = 'draft' and judges_panel(event_id, panel) and not is_conflicted(event_id, team_id));
