@@ -24,3 +24,14 @@
 .sync-bar__line { margin: 0; color: var(--fg-muted); }
 .sync-bar[data-state="waiting"] .sync-bar__line, .sync-bar[data-state="warning"] .sync-bar__line { color: var(--fg-strong); font-weight: 700; }
 .sync-bar[data-state="warning"] { border-bottom: 2px solid var(--pitlane-pink); }
+
+/* Results: long team names wrap inside the cell, the table scrolls sideways on a phone instead of breaking the page. */
+.results-table { min-width: 36rem; }
+.results-team { overflow-wrap: anywhere; word-break: break-word; min-width: 9rem; max-width: 22rem; }
+.results-comment { display: block; overflow-wrap: anywhere; }
+.results-hash { font-family: ui-monospace, monospace; overflow-wrap: anywhere; word-break: break-all; }
+@media print {
+  .table-wrap { overflow: visible; }
+  .results-table { min-width: 0; }
+  .back, .btn { display: none; }
+}

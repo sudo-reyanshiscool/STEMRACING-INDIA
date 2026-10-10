@@ -15,6 +15,7 @@ import { loginScreen } from './ui/login';
 import { moderationScreen } from './ui/moderation';
 import { peopleScreen } from './ui/people';
 import { rankingsScreen } from './ui/rankings';
+import { resultsScreen } from './ui/results';
 import { scorecardScreen } from './ui/scorecard';
 import { scoringScreen } from './ui/scoring';
 import { startRouter, type Route } from './ui/router';
@@ -126,6 +127,7 @@ async function screenFor(route: Route, ctx: Ctx): Promise<HTMLElement> {
     case 'scorecard': return scorecardScreen(ctx, route.eventId, route.teamId, route.areaId);
     case 'moderate': return moderationScreen(ctx, route.eventId);
     case 'rankings': return rankingsScreen(ctx, route.eventId);
+    case 'results': return resultsScreen(ctx, route.eventId);
     default: return notFound('This screen is not built yet.', '#/', 'Back to events');
   }
 }
