@@ -154,3 +154,26 @@ describe('rank: scale and determinism', () => {
     expect(r2.rows.map((x) => [x.teamId, x.rank, x.total])).toEqual(r1.rows.map((x) => [x.teamId, x.rank, x.total]));
   });
 });
+
+describe('rank: derived values are validated', () => {
+  const d = (teamId: string, areaId: string, v: number) => base({ derived: { [teamId]: { [areaId]: v } } });
+  it('throws on NaN, Infinity, negative or above-maximum values', () => {
+    expect(() => rank(d('t1', 'knockout', NaN))).toThrow(RankingInputError);
+    expect(() => rank(d('t1', 'knockout', Infinity))).toThrow(RankingInputError);
+    expect(() => rank(d('t1', 'knockout', -1))).toThrow(RankingInputError);
+    expect(() => rank(d('t1', 'knockout', area('knockout').max + 1))).toThrow(RankingInputError);
+  });
+  it('accepts the boundaries 0 and the area maximum', () => {
+    expect(() => rank(d('t1', 'knockout', 0))).not.toThrow();
+    expect(() => rank(d('t1', 'knockout', area('knockout').max))).not.toThrow();
+  });
+  it('throws when the key names a scorecard area or an unknown area', () => {
+    expect(() => rank(d('t1', 'de-portfolio', 10))).toThrow(RankingInputError);
+    expect(() => rank(d('t1', 'nope', 10))).toThrow(RankingInputError);
+  });
+  it('validates values for unknown teams, then ignores them', () => {
+    expect(() => rank(d('ghost', 'knockout', 9999))).toThrow(RankingInputError);
+    const r = rank(d('ghost', 'knockout', 10));
+    expect(r.rows.every((x) => x.total === 0)).toBe(true);
+  });
+});

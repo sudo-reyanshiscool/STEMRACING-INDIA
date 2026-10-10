@@ -83,6 +83,17 @@ export function rank(inputs: RankInputs): Ranking {
   }
 
   const derived = inputs.derived ?? {};
+  for (const [teamId, perTeam] of Object.entries(derived)) {
+    for (const [areaId, value] of Object.entries(perTeam)) {
+      const area = areas.get(areaId);
+      if (!area || area.kind !== 'derived') {
+        throw new RankingInputError(`Derived value for ${areaId} (team ${teamId}): not a derived area`);
+      }
+      if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > area.max) {
+        throw new RankingInputError(`Derived value for ${area.name} (team ${teamId}) must be between 0 and ${area.max}`);
+      }
+    }
+  }
   const tieArea = ruleset.tieBreakAreaId;
   const scorecardAreas = ruleset.areas.filter((a) => a.kind === 'scorecard');
   const available = new Set<string>(scorecardAreas.map((a) => a.id));
