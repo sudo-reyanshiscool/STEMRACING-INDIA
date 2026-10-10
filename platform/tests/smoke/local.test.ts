@@ -14,6 +14,12 @@ const ANON = process.env.SMOKE_ANON_KEY;
 const SERVICE = process.env.SMOKE_SERVICE_ROLE_KEY;
 const run = !!(URL_ && ANON && SERVICE) && /^https?:\/\/(localhost|127\.0\.0\.1)[:/]/.test(URL_ ?? '');
 
+/** Test setup only: the Chair clears a declared conflict, so the rest of the flow can score that team. */
+async function as_chair_clear_conflict(admin: SupabaseClient, eventId: string, teamId: string) {
+  const { error } = await admin.from('judge_conflicts').delete().eq('event_id', eventId).eq('team_id', teamId);
+  if (error) throw error;
+}
+
 const code = async (p: Promise<unknown>) => {
   try {
     await p;
@@ -113,6 +119,13 @@ describe.skipIf(!run)('local Supabase smoke test', () => {
     expect(mine.comments['team-contribution']).toBe('');
     expect(mine.reopenedCount).toBe(1);
     await judge.submitCard(card.id);
+
+    // A conflict cannot be declared after submitting for that team; the Chair sees declared conflicts.
+    expect(await code(judge.declareConflict(ev.id, t1.id))).toBe('locked');
+    await judge.declareConflict(ev.id, t2.id);
+    expect((await chair.listConflicts(ev.id)).map((c) => c.teamId)).toEqual([t2.id]);
+    expect(await mgr.listConflicts(ev.id)).toEqual([]);
+    await as_chair_clear_conflict(admin, ev.id, t2.id);
 
     // A second card left in draft: it must stay invisible to the team manager and must freeze on release.
     const draft = await judge.openCard(ev.id, t2.id, 'verbal-technique');

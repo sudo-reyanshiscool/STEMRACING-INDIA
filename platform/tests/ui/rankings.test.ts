@@ -388,3 +388,26 @@ describe('rankingsScreen', () => {
     expect(text(await rankingsScreen(ctx, ev.id))).toContain('Only the organiser or chair');
   });
 });
+
+describe('rankingsScreen conflicted cards', () => {
+  it('says how many counted cards belong to a judge who declared a conflict, and needs the acknowledgement', async () => {
+    const { api, ev, t1, t2 } = await world();
+    await scoreTeam(api, ev.id, t1.id, 14, 12);
+    await scoreTeam(api, ev.id, t2.id, 5, 5);
+    await api.signIn(EMAILS.chair);
+    const judgeId = (await api.listCards(ev.id))[0].judgeId;
+    const conflicted = wrap(api, { listConflicts: async () => [{ eventId: ev.id, judgeId, teamId: t1.id }] });
+    const { ctx } = makeCtx(conflicted);
+    const el = await rankingsScreen(ctx, ev.id);
+    expect(text(el)).toContain('1 counted card belongs to a judge who declared a conflict');
+    expect(el.querySelector('input[name=ack]')).not.toBeNull();
+    button(el, 'Publish ranking').click();
+    await wait();
+    expect(alertText(el)).toContain('conflict');
+    expect(await api.latestSnapshot(ev.id)).toBeNull();
+    tick(el);
+    button(el, 'Publish ranking').click();
+    await wait(); await wait();
+    expect(await api.latestSnapshot(ev.id)).not.toBeNull();
+  });
+});

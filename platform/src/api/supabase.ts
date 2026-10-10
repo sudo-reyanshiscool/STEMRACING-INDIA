@@ -1,7 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { INDIA_2026 } from '../rulesets';
 import {
-  firstRow, mapAuthError, mapPgError, toCardRow, toEventRow, toInviteRow, toOverrideRow, toPenaltyRow, toRoleRow, toSnapshotRow,
+  firstRow, mapAuthError, mapPgError, toCardRow, toConflictRow, toEventRow, toInviteRow, toOverrideRow, toPenaltyRow, toRoleRow, toSnapshotRow,
   toTeamRow,
 } from './mappers';
 import type { Api, Session } from './types';
@@ -195,6 +195,12 @@ export function createApiFromClient(sb: SupabaseClient, options: SupabaseApiOpti
       if (!s) return [];
       return (await pages<{ team_id: string }>((a, b) => sb.from('judge_conflicts').select('team_id').eq('event_id', eventId).eq('judge_id', s.userId).order('team_id').range(a, b)))
         .map((r) => r.team_id);
+    },
+
+    async listConflicts(eventId) {
+      if (!(await session())) return [];
+      return (await pages<never>((a, b) => sb.from('judge_conflicts').select('event_id,judge_id,team_id').eq('event_id', eventId)
+        .order('judge_id').order('team_id').range(a, b))).map(toConflictRow);
     },
 
     async openCard(eventId, teamId, areaId) {

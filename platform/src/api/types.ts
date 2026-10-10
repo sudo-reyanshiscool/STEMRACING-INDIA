@@ -8,6 +8,8 @@ export interface TeamRow { id: string; eventId: string; number: string; name: st
 export interface RoleRow { id: string; eventId: string; userId: string; role: Role; panel: Panel | null; teamId: string | null; email: string | null }
 export interface InviteRow { id: string; eventId: string; email: string; role: Role; panel: Panel | null; teamId: string | null }
 export interface CardRow { id: string; eventId: string; teamId: string; areaId: string; panel: Panel; judgeId: string; status: 'draft' | 'submitted'; reopenedCount: number; scores: Record<string, number>; comments: Record<string, string> }
+/** A judge's declared conflict of interest with a team. */
+export interface ConflictRow { eventId: string; judgeId: string; teamId: string }
 export interface OverrideRow { eventId: string; teamId: string; areaId: string; value: number; reason: string }
 export interface PenaltyRow { id: string; eventId: string; teamId: string; points: number; reason: string }
 /** What anyone allowed to see a snapshot gets. The inputs are deliberately absent: see Api.getSnapshotInputs. */
@@ -41,8 +43,11 @@ export interface Api {
   removeInvitation(inviteId: string): Promise<void>;
   listTeams(eventId: string): Promise<TeamRow[]>;
   createTeam(eventId: string, i: { number: string; name: string; school?: string }): Promise<TeamRow>;
+  /** 'locked' once the judge has a submitted card for the team, or while results are released. */
   declareConflict(eventId: string, teamId: string): Promise<void>;
   myConflicts(eventId: string): Promise<string[]>;
+  /** Every declared conflict the caller may see: the Chair and Organiser see all, a judge only their own. */
+  listConflicts(eventId: string): Promise<ConflictRow[]>;
   openCard(eventId: string, teamId: string, areaId: string): Promise<CardRow>;
   /**
    * Upserts one criterion's score. `comment` undefined leaves any existing comment unchanged (a brand-new score row

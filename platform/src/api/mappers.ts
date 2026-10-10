@@ -1,5 +1,5 @@
 import {
-  ApiError, type ApiErrorCode, type CardRow, type EventRow, type InviteRow, type OverrideRow, type PenaltyRow, type RoleRow,
+  ApiError, type ApiErrorCode, type CardRow, type ConflictRow, type EventRow, type InviteRow, type OverrideRow, type PenaltyRow, type RoleRow,
   type SnapshotRow, type TeamRow,
 } from './types';
 
@@ -87,3 +87,4 @@ export const toPenaltyRow = (r: Row): PenaltyRow => ({
 export const toSnapshotRow = (r: Row): SnapshotRow => ({
   id: r.id, eventId: r.event_id, createdAt: r.created_at, rulesetId: r.ruleset_id, inputHash: r.input_hash, rows: r.rows, released: !!r.released,
 });
+export const toConflictRow = (r: Row): ConflictRow => ({ eventId: r.event_id, judgeId: r.judge_id, teamId: r.team_id });

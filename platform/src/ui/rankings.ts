@@ -73,6 +73,8 @@ interface Computed {
   penalties: PenaltyRow[];
   /** Submitted-or-not: cards still in draft, which the ranking never counts. */
   drafts: number;
+  /** Submitted cards, counted in the ranking, whose judge declared a conflict with that team. */
+  conflictCards: number;
   inputs: Inputs;
   latest: SnapshotRow | null;
   outcome: Outcome;
@@ -104,9 +106,9 @@ export async function rankingsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
   const clear = () => { notice.hidden = true; error.hidden = true; };
 
   const compute = async (): Promise<Computed | null> => {
-    const [event, teams, cards, overrides, penalties, allRoles, latest] = await Promise.all([
+    const [event, teams, cards, overrides, penalties, allRoles, latest, conflicts] = await Promise.all([
       ctx.api.getEvent(eventId), ctx.api.listTeams(eventId), ctx.api.listCards(eventId), ctx.api.listOverrides(eventId),
-      ctx.api.listPenalties(eventId), ctx.api.listRoles(eventId), ctx.api.latestSnapshot(eventId),
+      ctx.api.listPenalties(eventId), ctx.api.listRoles(eventId), ctx.api.latestSnapshot(eventId), ctx.api.listConflicts(eventId),
     ]);
     if (!event) return null;
     const inputs = buildInputs(teams, cards, overrides, penalties);
@@ -122,7 +124,9 @@ export async function rankingsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
           : ['Some scorecards, overrides or penalties do not fit the scoring rules. Review the scorecards and overrides in Moderation.'],
       };
     }
-    return { event, teams, penalties, drafts: cards.filter((c) => c.status === 'draft').length, inputs, latest, outcome };
+    const conflictCards = cards.filter((c) => c.status === 'submitted'
+      && conflicts.some((x) => x.judgeId === c.judgeId && x.teamId === c.teamId)).length;
+    return { event, teams, penalties, drafts: cards.filter((c) => c.status === 'draft').length, conflictCards, inputs, latest, outcome };
   };
 
   /**
@@ -338,13 +342,14 @@ export async function rankingsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
     return form;
   };
 
-  const needsAck = (c: Computed) => c.drafts > 0 || (c.outcome.ok && c.outcome.ranking.ties.length > 0);
-  const ackKey = (c: Computed) => `${c.drafts}|${c.outcome.ok ? c.outcome.ranking.ties.length : 0}`;
+  const needsAck = (c: Computed) => c.drafts > 0 || c.conflictCards > 0 || (c.outcome.ok && c.outcome.ranking.ties.length > 0);
+  const ackKey = (c: Computed) => `${c.drafts}|${c.outcome.ok ? c.outcome.ranking.ties.length : 0}|${c.conflictCards}`;
   const ackLabel = (c: Computed) => {
     const ties = c.outcome.ok ? c.outcome.ranking.ties.length : 0;
     const parts = [
       c.drafts > 0 ? `${c.drafts} card${c.drafts === 1 ? '' : 's'} still in draft` : null,
       ties > 0 ? `${ties} tie${ties === 1 ? '' : 's'} not settled` : null,
+      c.conflictCards > 0 ? `${c.conflictCards} counted card${c.conflictCards === 1 ? '' : 's'} from a judge who declared a conflict` : null,
     ].filter(Boolean);
     return `Publish with ${parts.join(' and ')}`;
   };
@@ -384,7 +389,7 @@ export async function rankingsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
     const ackChanged = (fresh: Computed) => {
       if (!needsAck(fresh) || ackedKey === ackKey(fresh)) return false;
       draw(fresh);
-      say('The number of draft cards or ties changed since you last looked. Check the summary, tick the box again, then continue.');
+      say('The number of draft cards, ties or conflicted cards changed since you last looked. Check the summary, tick the box again, then continue.');
       return true;
     };
 
@@ -443,6 +448,7 @@ export async function rankingsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
       outcome.ok && outcome.ranking.provisional && !released
         ? h('p', { class: 'small' }, 'This ranking is provisional: releasing it shows results while some areas are still not judged.') : null,
       !released && c.drafts > 0 ? h('p', { class: 'notice' }, `${c.drafts} scorecard${c.drafts === 1 ? ' is still a draft and is' : 's are still drafts and are'} not counted in this ranking.`) : null,
+      !released && c.conflictCards > 0 ? h('p', { class: 'notice' }, `${c.conflictCards} counted card${c.conflictCards === 1 ? ' belongs' : 's belong'} to a judge who declared a conflict of interest with that team. Reopen ${c.conflictCards === 1 ? 'it' : 'them'} in Moderation to leave ${c.conflictCards === 1 ? 'it' : 'them'} out, or tick the box below to publish with ${c.conflictCards === 1 ? 'it' : 'them'} counted.`) : null,
       !released && outcome.ok && outcome.ranking.ties.length > 0 ? h('p', { class: 'notice' }, 'Settle ties before releasing: the tied teams are listed above and the ranking does not decide between them.') : null,
       !released && needsAck(c) ? ackBox(c) : null,
       released ? h('p', { class: 'small' }, 'Publishing is paused while results are released. Withdraw the release to publish again.') : null,

@@ -1,7 +1,7 @@
 import { validateScores, type Area } from '../engine';
 import { INDIA_2026 } from '../rulesets';
 import {
-  ApiError, type Api, type CardRow, type EventRow, type InviteRow, type NewSnapshot, type OverrideRow, type Panel,
+  ApiError, type Api, type CardRow, type ConflictRow, type EventRow, type InviteRow, type NewSnapshot, type OverrideRow, type Panel,
   type PenaltyRow, type Role, type RoleRow, type Session, type SnapshotRow, type TeamRow,
 } from './types';
 
@@ -189,10 +189,20 @@ export class MemoryApi implements Api {
     this.require(eventId, ...JUDGE_ROLES);
     this.teamOrThrow(eventId, teamId);
     const judgeId = this.me!.userId;
+    if (this.released(eventId)) throw new ApiError('locked', 'Results are released, so a conflict can no longer be declared');
+    if (this.cards.some((c) => c.eventId === eventId && c.teamId === teamId && c.judgeId === judgeId && c.status === 'submitted')) {
+      throw new ApiError('locked', 'You have already submitted a scorecard for this team; ask the Chair');
+    }
     if (!this.conflicts.some((c) => c.eventId === eventId && c.judgeId === judgeId && c.teamId === teamId)) this.conflicts.push({ eventId, judgeId, teamId });
   }
   async myConflicts(eventId: string) {
     return this.conflicts.filter((c) => c.eventId === eventId && !!this.me && c.judgeId === this.me.userId).map((c) => c.teamId);
+  }
+  async listConflicts(eventId: string): Promise<ConflictRow[]> {
+    if (!this.me) return [];
+    const staff = this.has(eventId, 'chair', 'organiser');
+    return this.conflicts.filter((c) => c.eventId === eventId && (staff || c.judgeId === this.me!.userId))
+      .map((c) => ({ eventId: c.eventId, judgeId: c.judgeId, teamId: c.teamId }));
   }
   private conflicted(eventId: string, teamId: string) {
     return this.conflicts.some((c) => c.eventId === eventId && c.teamId === teamId && !!this.me && c.judgeId === this.me.userId);

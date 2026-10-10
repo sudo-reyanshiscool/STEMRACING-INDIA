@@ -265,6 +265,7 @@ describe('paging (PostgREST max_rows cuts a list off silently)', () => {
     ['listRoles', (a) => a.listRoles('e'), (n) => ({ id: `r${n}`, event_id: 'e', user_id: `u${n}`, role: 'judge', panel: 'verbal', team_id: null, email: null })],
     ['listInvitations', (a) => a.listInvitations('e'), (n) => ({ id: `i${n}`, event_id: 'e', email: `a${n}@x.test`, role: 'judge', panel: 'verbal', team_id: null })],
     ['listEvents', (a) => a.listEvents(), (n) => ({ id: `e${n}`, name: 'E', starts_on: null, ruleset: {}, results_released: false })],
+    ['listConflicts', (a) => a.listConflicts('e'), (n) => ({ event_id: 'e', judge_id: `j${n}`, team_id: 't' })],
     ['myConflicts', (a) => a.myConflicts('e'), (n) => ({ team_id: `t${n}` })],
   ];
   for (const [name, call, make] of lists) {

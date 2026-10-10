@@ -59,10 +59,11 @@ export async function moderationScreen(ctx: Ctx, eventId: string): Promise<HTMLE
   let shown = 0;
 
   const load = async () => {
-    const [event, teams, cards, overrides, allRoles] = await Promise.all([
+    const [event, teams, cards, overrides, allRoles, conflicts] = await Promise.all([
       ctx.api.getEvent(eventId), ctx.api.listTeams(eventId), ctx.api.listCards(eventId), ctx.api.listOverrides(eventId), ctx.api.listRoles(eventId),
+      ctx.api.listConflicts(eventId),
     ]);
-    return { event, teams, cards, overrides, allRoles };
+    return { event, teams, cards, overrides, allRoles, conflicts };
   };
   type Loaded = Awaited<ReturnType<typeof load>>;
 
@@ -79,6 +80,7 @@ export async function moderationScreen(ctx: Ctx, eventId: string): Promise<HTMLE
     // same "Judge N" in every row and every area.
     const judgeIds = [...new Set(data.cards.map((c) => c.judgeId))].sort();
     const who = (judgeId: string) => data.allRoles.find((r) => r.userId === judgeId && r.email)?.email ?? `Judge ${judgeIds.indexOf(judgeId) + 1}`;
+    const conflicted = (judgeId: string, teamId: string) => data.conflicts.some((c) => c.judgeId === judgeId && c.teamId === teamId);
     const canChange = isChair && !released;
     const drafts = (r: ModerationRow) => r.judges.filter((j) => j.status === 'draft').length;
     const rows = buildModeration(area, [...data.teams].sort((a, b) => a.number.localeCompare(b.number, 'en', { numeric: true })), data.cards, data.overrides);
@@ -143,6 +145,10 @@ export async function moderationScreen(ctx: Ctx, eventId: string): Promise<HTMLE
           return h('li', null,
             j.status === 'submitted' ? `${judge}: ${j.total ?? 'incomplete'} ` : `${judge}: draft, not counted `,
             tag(j.status, j.status === 'submitted' ? 'pass' : 'risk'),
+            conflicted(j.judgeId, r.teamId)
+              ? h('span', { class: 'small', 'data-conflict': j.cardId }, ' ', tag('Conflict declared', 'risk'),
+                j.status === 'submitted' ? ' This judge declared a conflict with this team after submitting, and the card still counts. Reopen it to leave it out.' : ' Not counted while a draft.')
+              : null,
             canChange && j.status === 'submitted' ? reopenForm(j.cardId, judge, r.teamLabel) : null);
         }),
           drafts(r) > 0 ? h('li', { class: 'small' }, `${drafts(r)} card${drafts(r) === 1 ? '' : 's'} still in draft, not counted`) : null])),

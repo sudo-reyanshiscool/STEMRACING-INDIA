@@ -255,6 +255,43 @@ describe('judging details', () => {
     expect(await code(api.submitCard(card.id))).toBe('forbidden');
   });
 
+  it('refuses a conflict once the judge submitted a card for the team, and while results are released', async () => {
+    const { api, ev, t1, t2 } = await world();
+    await api.signIn(JUDGE);
+    const card = await api.openCard(ev.id, t1.id, 'verbal-technique');
+    await fillTechnique(api, card.id);
+    await api.submitCard(card.id);
+    expect(await code(api.declareConflict(ev.id, t1.id))).toBe('locked');
+    await api.declareConflict(ev.id, t2.id); // another team is still open
+    expect(await api.myConflicts(ev.id)).toEqual([t2.id]);
+    await api.signIn(CHAIR);
+    await api.setReleased(ev.id, true);
+    await api.signIn(JUDGE);
+    const other = ev.id;
+    expect(await code(api.declareConflict(other, t2.id))).toBe('locked');
+  });
+
+  it('lets the Chair and Organiser list every conflict, and a judge only their own', async () => {
+    const { api, ev, t1, t2 } = await world();
+    await api.signIn(JUDGE);
+    await api.declareConflict(ev.id, t1.id);
+    expect((await api.listConflicts(ev.id)).map((c) => c.teamId)).toEqual([t1.id]);
+    await api.signIn(ORG);
+    await api.invite(ev.id, { email: 'lead@x.test', role: 'lead_judge', panel: 'verbal' });
+    await api.signIn('lead@x.test');
+    await api.claimInvitations();
+    await api.declareConflict(ev.id, t2.id);
+    expect((await api.listConflicts(ev.id)).map((c) => c.teamId)).toEqual([t2.id]);
+    await api.signIn(CHAIR);
+    expect((await api.listConflicts(ev.id)).map((c) => c.teamId).sort()).toEqual([t1.id, t2.id].sort());
+    await api.signIn(ORG);
+    expect(await api.listConflicts(ev.id)).toHaveLength(2);
+    await api.signIn(MGR);
+    expect(await api.listConflicts(ev.id)).toEqual([]);
+    await api.signOut();
+    expect(await api.listConflicts(ev.id)).toEqual([]);
+  });
+
   it('refuses a conflict for a team outside the event', async () => {
     const { api, ev } = await world();
     await api.signIn(JUDGE);

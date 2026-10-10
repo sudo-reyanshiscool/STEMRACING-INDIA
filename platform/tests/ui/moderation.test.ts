@@ -285,3 +285,27 @@ describe('moderationScreen', () => {
     expect(text(await moderationScreen(ctx, ev.id))).toContain('Only the Chair and lead judges');
   });
 });
+
+describe('moderation flags conflicted cards', () => {
+  it('marks a counted card whose judge declared a conflict with that team', async () => {
+    const { api, ev, t1 } = await world();
+    await api.signIn(EMAILS.judge);
+    const c = await api.openCard(ev.id, t1.id, 'verbal-technique');
+    await api.saveScore(c.id, 'engagement-presentation-dynamics', 14);
+    await api.saveScore(c.id, 'team-contribution', 12);
+    await api.submitCard(c.id);
+    await api.signIn(EMAILS.chair);
+    const judgeId = (await api.listCards(ev.id))[0].judgeId;
+    // Cards submitted before the database refused late declarations can exist: the screen must still say so.
+    const withConflict = new Proxy(api, { get: (t, k) => (k === 'listConflicts' ? async () => [{ eventId: ev.id, judgeId, teamId: t1.id }] : (t as never)[k]) });
+    const { ctx } = makeCtx(withConflict as Api);
+    const el = await moderationScreen(ctx, ev.id);
+    const sel = el.querySelector('select[name=area]') as HTMLSelectElement;
+    sel.value = 'verbal-technique';
+    sel.dispatchEvent(new Event('change'));
+    await wait();
+    const flag = el.querySelector(`[data-conflict="${c.id}"]`);
+    expect(flag).not.toBeNull();
+    expect(text(flag as HTMLElement)).toContain('still counts');
+  });
+});
