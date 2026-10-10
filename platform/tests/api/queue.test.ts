@@ -506,15 +506,17 @@ describe('ScoreQueue head-of-line blocking (I1)', () => {
     await q.flush();
     expect(q.pendingFor('c1').map((i) => i.criterionId)).toEqual(['bad']); // good went through in the first flush
     expect(sendIds(calls)).toEqual(['bad', 'good']);
-    for (let i = 0; i < 3; i++) await q.flush();
+    for (let i = 0; i < 3; i++) { q.enqueue(item(`good${i}`, 2)); await q.flush(); } // others succeed alongside it
     expect(q.pending()).toBe(1);
     expect(q.rejected()).toEqual([]);
+    q.enqueue(item('good4', 2));
     await q.flush(); // 5th attempt
     expect(q.pending()).toBe(0);
     expect(calls.filter((c) => c.criterionId === 'bad')).toHaveLength(5);
     expect(q.rejected()).toEqual([expect.objectContaining({ code: 'stuck', item: expect.objectContaining({ criterionId: 'bad' }) })]);
     expect(events).toContainEqual({ kind: 'dropped', item: expect.objectContaining({ criterionId: 'bad' }), reason: expect.any(String) });
     expect(events.at(-1)).toEqual({ kind: 'saved', pending: 0 });
+    expect(sendIds(calls).filter((c) => c.startsWith('good'))).toHaveLength(5);
   });
 
   it('network errors never count toward the bound', async () => {
@@ -593,5 +595,103 @@ describe('ScoreQueue storage failures (I3, M1)', () => {
     await q.flush();
     expect(q.rejected()).toHaveLength(1);
     expect(events).toContainEqual({ kind: 'persist-failed' });
+  });
+});
+
+describe('ScoreQueue server outage (N1)', () => {
+  it('an all-unknown server for 20 flushes parks nothing and keeps every score', async () => {
+    const { api } = fakeApi(() => { throw new ApiError('unknown', 'HTTP 503'); });
+    const events: QueueEvent[] = [];
+    const q = new ScoreQueue(api, memoryKV());
+    q.subscribe((e) => events.push(e));
+    q.enqueue(item('a', 1));
+    q.enqueue(item('b', 2));
+    q.enqueue(item('c', 3));
+    for (let i = 0; i < 20; i++) await q.flush();
+    expect(q.pending()).toBe(3);
+    expect(q.rejected()).toEqual([]);
+    expect(events.some((e) => e.kind === 'dropped')).toBe(false);
+    expect(events.at(-1)).toEqual({ kind: 'offline', pending: 3, lastError: { code: 'unknown', message: 'HTTP 503' } });
+  });
+
+  it('everything sends once the outage ends', async () => {
+    let up = false;
+    const { api, calls } = fakeApi(() => { if (!up) throw new ApiError('unknown', 'HTTP 502'); });
+    const q = new ScoreQueue(api, memoryKV());
+    q.enqueue(item('a', 1));
+    q.enqueue(item('b', 2));
+    for (let i = 0; i < 10; i++) await q.flush();
+    up = true;
+    await q.flush();
+    expect(q.pending()).toBe(0);
+    expect(sendIds(calls).slice(-2)).toEqual(['a', 'b']);
+    expect(q.rejected()).toEqual([]);
+  });
+
+  it('a poisoned item beside succeeding ones is parked after 5 flushes; the others are sent', async () => {
+    const { api, calls } = fakeApi((c) => { if (c.criterionId === 'bad') throw new ApiError('unknown', 'HTTP 500'); });
+    const q = new ScoreQueue(api, memoryKV());
+    q.enqueue(item('bad', 1));
+    for (let i = 0; i < 5; i++) { q.enqueue(item(`ok${i}`, 1)); await q.flush(); }
+    expect(q.pending()).toBe(0);
+    expect(q.rejected().map((r) => r.item.criterionId)).toEqual(['bad']);
+    expect(sendIds(calls).filter((c) => c.startsWith('ok'))).toHaveLength(5);
+  });
+
+  it('a poisoned item that fails before a success in the same flush is still counted', async () => {
+    const { api } = fakeApi((c) => { if (c.criterionId === 'bad') throw new ApiError('unknown', 'HTTP 500'); });
+    const q = new ScoreQueue(api, memoryKV());
+    q.enqueue(item('bad', 1));
+    for (let i = 0; i < 5; i++) { q.enqueue(item(`ok${i}`, 1)); await q.flush(); }
+    expect(q.rejected()).toHaveLength(1);
+  });
+
+  it('outage flushes do not use up attempts that a later partial recovery would count', async () => {
+    let up = false;
+    const { api } = fakeApi((c) => { if (!up || c.criterionId === 'bad') throw new ApiError('unknown', 'HTTP 500'); });
+    const q = new ScoreQueue(api, memoryKV());
+    q.enqueue(item('bad', 1));
+    for (let i = 0; i < 10; i++) await q.flush();
+    up = true;
+    q.enqueue(item('ok', 1));
+    await q.flush();
+    expect(q.pending()).toBe(1);
+    expect(q.rejected()).toEqual([]); // only one counted attempt so far
+  });
+});
+
+describe('ScoreQueue requeueRejected', () => {
+  it('moves a rejected entry back to the end of the pending queue and persists both', async () => {
+    const kv = memoryKV();
+    const ledger = memoryKV();
+    let refuse = true;
+    const { api, calls } = fakeApi((c) => { if (refuse && c.criterionId === 'a') throw new ApiError('locked', 'submitted'); });
+    const q = new ScoreQueue(api, kv, undefined, { rejectedKv: ledger });
+    q.enqueue({ cardId: 'c1', criterionId: 'a', score: 5, comment: 'hi' });
+    await q.flush();
+    q.enqueue(item('b', 1));
+    const [r] = q.rejected();
+    expect(q.requeueRejected(r.id)).toBe(true);
+    expect(q.rejected()).toEqual([]);
+    expect(q.pendingFor('c1').map((i) => i.criterionId)).toEqual(['b', 'a']);
+    const q2 = new ScoreQueue(api, kv, undefined, { rejectedKv: ledger });
+    expect(q2.pending()).toBe(2);
+    expect(q2.rejected()).toEqual([]);
+    refuse = false;
+    await q2.flush();
+    expect(calls.at(-1)).toEqual({ cardId: 'c1', criterionId: 'a', score: 5, comment: 'hi' });
+    expect(q2.pending()).toBe(0);
+  });
+
+  it('returns false for an unknown id, and will not resurrect a value older than a pending edit', async () => {
+    const { api } = fakeApi((c) => { if (c.score === 5) throw new ApiError('invalid', 'x'); });
+    const q = new ScoreQueue(api, memoryKV());
+    expect(q.requeueRejected('nope')).toBe(false);
+    q.enqueue(item('a', 5));
+    await q.flush();
+    q.enqueue(item('a', 7));
+    const [r] = q.rejected();
+    expect(q.requeueRejected(r.id)).toBe(false);
+    expect(q.pendingFor('c1')).toEqual([expect.objectContaining({ score: 7 })]);
   });
 });

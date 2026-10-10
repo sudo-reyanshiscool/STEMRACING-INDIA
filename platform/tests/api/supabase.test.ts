@@ -8,7 +8,8 @@ interface Call { kind: 'from' | 'rpc'; name: string; args?: unknown; steps: Step
 interface Res { data?: unknown; error?: { message: string; code?: string } | null }
 
 /** A scripted stand-in for supabase-js: records each query chain and answers it from `handler`. */
-function fake(handler: (c: Call) => Res | Promise<Res>, user: { id: string; email: string } | null = { id: 'me', email: 'Me@X.test' }) {
+function fake(handler: (c: Call) => Res | Promise<Res>, user: { id: string; email: string } | null = { id: 'me', email: 'Me@X.test' }, getSession?: (n: number) => Promise<unknown>) {
+  let sessionCalls = 0;
   const calls: Call[] = [];
   const chain = (call: Call) => {
     const p: unknown = new Proxy({}, {
@@ -28,7 +29,7 @@ function fake(handler: (c: Call) => Res | Promise<Res>, user: { id: string; emai
     from: (name: string) => chain({ kind: 'from', name, steps: [] }),
     rpc: (name: string, args?: unknown) => chain({ kind: 'rpc', name, args, steps: [] }),
     auth: {
-      getSession: async () => ({ data: { session: user ? { user } : null }, error: null }),
+      getSession: async () => (getSession ? getSession(++sessionCalls) : { data: { session: user ? { user } : null }, error: null }),
     },
   } as unknown as SupabaseClient;
   return { api: createApiFromClient(sb), calls };
@@ -221,6 +222,15 @@ describe('signed-out scoring', () => {
     const { api } = fake(() => ({ error: { message: 'JWT expired', code: 'PGRST301' } }));
     expect(await fail(api.saveScore('c', 'k', 5))).toBe('unauthenticated');
   });
+  it('rethrows a failing session re-check (retryable) instead of the forbidden that would be dropped', async () => {
+    const { api } = fake(
+      () => ({ error: { message: 'new row violates row-level security policy', code: '42501' } }),
+      null,
+      async () => { throw new TypeError('Failed to fetch'); },
+    );
+    expect(await fail(api.saveScore('c', 'k', 5))).toBe('network');
+  });
+
   it('still reports a refused write with a live session as forbidden', async () => {
     const { api } = fake(() => ({ error: { message: 'new row violates row-level security policy', code: '42501' } }));
     expect(await fail(api.saveScore('c', 'k', 5))).toBe('forbidden');

@@ -97,6 +97,8 @@ export class ScoreQueue {
   private flushing: Promise<void> | null = null;
   private inFlight: QueuedScore | null = null;
   private attempts = new Map<QueuedScore, number>();
+  /** Items whose last send failed with a server error (drives status().headStuck). */
+  private struggling = new Set<QueuedScore>();
   private lastError: LastError | undefined;
   private signedOut = false;
   private failed = { queue: false, ledger: false };
@@ -124,7 +126,7 @@ export class ScoreQueue {
     const s: QueueStatus = {
       pending: this.items.length,
       signedOut: this.signedOut,
-      headStuck: !!head && (this.attempts.get(head) ?? 0) > 0,
+      headStuck: !!head && this.struggling.has(head),
       persistFailed: this.failed.queue || this.failed.ledger,
     };
     if (this.lastError) s.lastError = { ...this.lastError };
@@ -136,6 +138,21 @@ export class ScoreQueue {
   clearRejected(id?: string) {
     this.ledger = id === undefined ? [] : this.ledger.filter((r) => r.id !== id);
     this.persistLedger();
+  }
+
+  /**
+   * Moves a rejected entry back to the end of the pending queue. Returns false if there is no such entry, or if a
+   * newer edit for the same criterion is already pending (the old value must not overwrite it).
+   */
+  requeueRejected(id: string): boolean {
+    const r = this.ledger.find((x) => x.id === id);
+    if (!r) return false;
+    if (this.items.some((x) => x.cardId === r.item.cardId && x.criterionId === r.item.criterionId)) return false;
+    this.items.push({ ...r.item });
+    this.persist(); // queue first: a crash between the two writes leaves a duplicate, never a loss
+    this.ledger = this.ledger.filter((x) => x.id !== id);
+    this.persistLedger();
+    return true;
   }
 
   enqueue(i: { cardId: string; criterionId: string; score: number; comment?: string }) {
@@ -184,6 +201,7 @@ export class ScoreQueue {
       }
     }
     const skipped = new Set<QueuedScore>(); // failed with a server error this flush; try the rest
+    let succeeded = 0;
     for (;;) {
       const item = this.items.find((x) => !skipped.has(x));
       if (!item) break;
@@ -191,7 +209,7 @@ export class ScoreQueue {
       try {
         await this.api.saveScore(item.cardId, item.criterionId, item.score, item.comment);
         this.signedOut = false;
-        this.attempts.delete(item);
+        succeeded += 1;
         this.remove(item);
       } catch (e) {
         const code: ApiErrorCode = e instanceof ApiError ? e.code : 'network';
@@ -214,16 +232,25 @@ export class ScoreQueue {
         } else if (superseded()) {
           this.remove(item);
         } else {
-          const n = (this.attempts.get(item) ?? 0) + 1;
-          this.attempts.set(item, n);
-          if (n >= MAX_ATTEMPTS) {
-            this.reject(item, 'stuck', `This change could not be saved after ${MAX_ATTEMPTS} attempts (${message}).`, dropped);
-          } else {
-            skipped.add(item);
-          }
+          // Counted against the item only at the end of the flush, and only if something else got through.
+          skipped.add(item);
+          this.struggling.add(item);
         }
       } finally {
         this.inFlight = null;
+      }
+    }
+    // Every attempted item failing with a server error is an outage (502/503/504), not a poisoned item: count nothing.
+    // If something else succeeded in this flush, the failures are item-specific and count towards the bound.
+    if (succeeded > 0) {
+      for (const item of [...skipped]) {
+        const n = (this.attempts.get(item) ?? 0) + 1;
+        this.attempts.set(item, n);
+        if (n >= MAX_ATTEMPTS) {
+          const msg = this.lastError?.message ?? 'server error';
+          this.reject(item, 'stuck', `This change could not be saved after ${MAX_ATTEMPTS} attempts (${msg}).`, dropped);
+          skipped.delete(item);
+        }
       }
     }
     if (skipped.size > 0) return { kind: 'offline', pending: this.items.length, ...(this.lastError ? { lastError: { ...this.lastError } } : {}) };
@@ -233,7 +260,6 @@ export class ScoreQueue {
 
   private reject(item: QueuedScore, code: RejectCode, reason: string, dropped: QueueEvent[]) {
     this.remove(item);
-    this.attempts.delete(item);
     this.seq += 1;
     this.ledger.push({ id: `${this.clock()}-${this.seq}-${Math.random().toString(36).slice(2, 8)}`, item: { ...item }, code, reason, at: this.clock() });
     this.persistLedger();
@@ -244,6 +270,7 @@ export class ScoreQueue {
     const i = this.items.indexOf(item);
     if (i >= 0) this.items.splice(i, 1);
     this.attempts.delete(item);
+    this.struggling.delete(item);
     this.persist();
   }
 

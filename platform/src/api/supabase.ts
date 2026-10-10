@@ -193,7 +193,8 @@ export function createApiFromClient(sb: SupabaseClient): Api {
         // Row-level security hides rows from a signed-out client, which looks like a refusal. It is not one: say so,
         // so a queue never discards a judge's scores because their session lapsed.
         if (e instanceof ApiError && e.code === 'forbidden') {
-          const s = await session().catch(() => undefined);
+          // If the re-check itself fails, that error (network/unknown: retried) replaces the forbidden, which would be dropped.
+          const s = await session();
           if (s === null) throw new ApiError('unauthenticated', 'Your session has expired. Sign in again.');
         }
         throw e;
