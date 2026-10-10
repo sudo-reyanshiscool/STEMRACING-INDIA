@@ -89,7 +89,7 @@ async function boot(): Promise<void> {
       host.setUser(session?.userId ?? null); // idempotent; covers an auth event the adapter did not deliver
       if (session) {
         await api.claimInvitations().catch(() => 0);
-        void queue.flush(); // a fresh sign-in releases anything that waited for a session
+        void host.flush(); // a fresh sign-in releases anything that waited for a session
       }
       let node: HTMLElement;
       if (!session && route.name !== 'results') node = loginScreen(ctx);
