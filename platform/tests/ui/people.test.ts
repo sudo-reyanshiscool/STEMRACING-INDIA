@@ -82,6 +82,7 @@ describe('peopleScreen', () => {
     await api.signIn(EMAILS.org);
     const { ctx } = makeCtx(api);
     const el = await peopleScreen(ctx, ev.id);
+    pick(el, 'role', 'chair');
     for (let i = 0; i < 2; i++) {
       (el.querySelector('input[name=email]') as HTMLInputElement).value = 'dup@x.test';
       submit(el);
@@ -121,6 +122,7 @@ describe('peopleScreen', () => {
     for (const [code, expected] of [['forbidden', 'permission'], ['locked', 'Withdraw the release']] as const) {
       const { ctx } = makeCtx(failing(api, 'invite', code));
       const el = await peopleScreen(ctx, ev.id);
+      pick(el, 'role', 'chair');
       (el.querySelector('input[name=email]') as HTMLInputElement).value = 'a@x.test';
       submit(el);
       await wait();
@@ -147,6 +149,7 @@ describe('peopleScreen', () => {
     await api.signIn(EMAILS.org);
     const { ctx } = makeCtx(failing(api, 'invite', 'unauthenticated'));
     const el = await peopleScreen(ctx, ev.id);
+    pick(el, 'role', 'chair');
     (el.querySelector('input[name=email]') as HTMLInputElement).value = 'a@x.test';
     submit(el);
     await wait();
@@ -164,6 +167,75 @@ describe('peopleScreen', () => {
     submit(el);
     await wait();
     expect(text(el.querySelector('[role=alert]')!)).toContain('Add a team');
+  });
+
+  it('does not default to a role: a blank "Choose a role" is selected and must be changed', async () => {
+    const { api, ev } = await world();
+    await api.signIn(EMAILS.org);
+    let invites = 0;
+    const spy = new Proxy(api, { get: (t, k) => (k === 'invite' ? async () => { invites++; } : (t as never)[k]) }) as Api;
+    const { ctx } = makeCtx(spy);
+    const el = await peopleScreen(ctx, ev.id);
+    const role = el.querySelector('[name=role]') as HTMLSelectElement;
+    expect(role.value).toBe('');
+    expect(text(role.options[0])).toBe('Choose a role');
+    expect(role.required).toBe(true);
+    (el.querySelector('input[name=email]') as HTMLInputElement).value = 'a@x.test';
+    submit(el);
+    await wait();
+    expect(text(el.querySelector('[role=alert]')!)).toContain('Choose a role');
+    expect(invites).toBe(0);
+  });
+
+  it('requires a panel for judge roles and a team for team managers', async () => {
+    const { api, ev } = await world();
+    await api.signIn(EMAILS.org);
+    const { ctx } = makeCtx(api);
+    const el = await peopleScreen(ctx, ev.id);
+    (el.querySelector('input[name=email]') as HTMLInputElement).value = 'a@x.test';
+    pick(el, 'role', 'judge');
+    expect((el.querySelector('[name=panel]') as HTMLSelectElement).value).toBe('');
+    submit(el);
+    await wait();
+    expect(text(el.querySelector('[role=alert]')!)).toContain('Choose a panel');
+    pick(el, 'role', 'team_manager');
+    expect((el.querySelector('[name=team]') as HTMLSelectElement).value).toBe('');
+    submit(el);
+    await wait();
+    expect(text(el.querySelector('[role=alert]')!)).toContain('Choose a team');
+    expect((el.querySelector('input[name=email]') as HTMLInputElement).value).toBe('a@x.test');
+  });
+
+  it('checks the email address before calling the API', async () => {
+    const { api, ev } = await world();
+    await api.signIn(EMAILS.org);
+    let invites = 0;
+    const spy = new Proxy(api, { get: (t, k) => (k === 'invite' ? async () => { invites++; } : (t as never)[k]) }) as Api;
+    const { ctx } = makeCtx(spy);
+    const el = await peopleScreen(ctx, ev.id);
+    pick(el, 'role', 'chair');
+    for (const bad of ['', 'a b@x.test', 'a@@x.test', 'a@', '@x.test']) {
+      (el.querySelector('input[name=email]') as HTMLInputElement).value = bad;
+      submit(el);
+      await wait();
+      expect(text(el.querySelector('[role=alert]')!), bad).toContain('valid email');
+    }
+    expect(invites).toBe(0);
+  });
+
+  it('never shows a raw backend duplicate or invalid message', async () => {
+    const { api, ev } = await world();
+    await api.signIn(EMAILS.org);
+    const raw = 'duplicate key value violates unique constraint "invitations_unique"';
+    const stub = new Proxy(api, { get: (t, k) => (k === 'invite' ? async () => { throw new ApiError('duplicate', raw); } : (t as never)[k]) }) as Api;
+    const { ctx } = makeCtx(stub);
+    const el = await peopleScreen(ctx, ev.id);
+    pick(el, 'role', 'chair');
+    (el.querySelector('input[name=email]') as HTMLInputElement).value = 'a@x.test';
+    submit(el);
+    await wait();
+    expect(text(el.querySelector('[role=alert]')!)).toBe('That person already has this role or invitation');
+    expect(text(el)).not.toContain('violates');
   });
 
   it('keeps email text as text', async () => {

@@ -10,15 +10,21 @@ describe('errorText', () => {
     for (const c of CODES) {
       const t = errorText(new ApiError(c, 'raw backend text: PGRST301'));
       expect(t.length, c).toBeGreaterThan(10);
-      if (c !== 'invalid' && c !== 'duplicate') expect(t, c).not.toContain('PGRST');
+      expect(t, c).not.toContain('PGRST');
+      expect(t, c).not.toContain('raw backend');
       expect(codeText(c), c).toBeTruthy();
     }
   });
   it('tells a signed-out person their scores are safe', () => {
     expect(errorText(new ApiError('unauthenticated', 'JWT expired'))).toBe('Sign in again — your scores are safe');
   });
-  it('keeps the specific message for a validation refusal', () => {
-    expect(errorText(new ApiError('invalid', 'Event name is required'))).toBe('Event name is required');
+  it('never shows the backend message, even for validation and duplicate refusals', () => {
+    const raw = 'duplicate key value violates unique constraint "teams_event_number"';
+    for (const c of ['invalid', 'duplicate'] as const) {
+      const t = errorText(new ApiError(c, raw));
+      expect(t).toBe(codeText(c));
+      expect(t).not.toContain('constraint');
+    }
   });
   it('never leaks a raw error', () => {
     expect(errorText(new Error('TypeError: x is undefined'))).toBe('Something went wrong. Try again.');

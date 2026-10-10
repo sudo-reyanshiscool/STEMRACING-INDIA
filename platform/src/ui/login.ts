@@ -1,5 +1,5 @@
 import type { Ctx } from './ctx';
-import { codeText, errorText } from './common';
+import { codeText, errorText, isPlausibleEmail } from './common';
 import { h } from './dom';
 
 export function loginScreen(ctx: Ctx): HTMLElement {
@@ -19,6 +19,11 @@ export function loginScreen(ctx: Ctx): HTMLElement {
     submitBtn.disabled = true;
     error.hidden = true;
     notice.hidden = true;
+    if (!isPlausibleEmail(email.value)) {
+      error.textContent = 'Enter a valid email address, for example name@school.org.';
+      error.hidden = false;
+      return;
+    }
     try {
       await ctx.api.signIn(email.value);
       if (await ctx.api.getSession()) {

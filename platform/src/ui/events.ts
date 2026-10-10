@@ -17,6 +17,11 @@ export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
     e.preventDefault();
     error.hidden = true;
     const f = new FormData(form);
+    if (!String(f.get('name') ?? '').trim()) {
+      error.textContent = 'Event name is required.';
+      error.hidden = false;
+      return;
+    }
     try {
       const ev = await ctx.api.createEvent({ name: String(f.get('name')), startsOn: String(f.get('date') ?? '') || undefined });
       location.hash = routeHref({ name: 'event', eventId: ev.id });

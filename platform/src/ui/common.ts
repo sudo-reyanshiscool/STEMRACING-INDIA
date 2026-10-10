@@ -16,14 +16,17 @@ const CODE_TEXT: Record<ApiErrorCode, string> = {
 export const codeText = (code: ApiErrorCode): string => CODE_TEXT[code] ?? CODE_TEXT.unknown;
 
 /**
- * Validation refusals ('invalid', 'duplicate') carry a specific, human-written message from the API (for example
- * "Event name is required"), so it is shown. Every other code uses the fixed text so raw backend wording never leaks.
+ * Always fixed, plain-language text. The ApiError message is for logs only: on a real backend it can be a raw
+ * database message (constraint names, SQL), so it is never shown. Screens that know what a code means for their
+ * form pass their own wording (see actions.ts) and validate before calling the API.
  */
 export function errorText(e: unknown): string {
   if (!(e instanceof ApiError)) return CODE_TEXT.unknown;
-  if ((e.code === 'invalid' || e.code === 'duplicate') && e.message.trim()) return e.message;
   return codeText(e.code);
 }
+
+/** Syntactically plausible: exactly one @, something on both sides, no spaces. The server still verifies. */
+export const isPlausibleEmail = (v: string): boolean => /^[^\s@]+@[^\s@]+$/.test(v.trim());
 
 export function notFound(message: string, backHref = '#/', backLabel = 'Back'): HTMLElement {
   return h('div', { class: 'stack' }, h('p', null, message), h('a', { class: 'back', href: backHref }, backLabel));

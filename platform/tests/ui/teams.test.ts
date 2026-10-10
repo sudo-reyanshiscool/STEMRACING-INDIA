@@ -69,6 +69,46 @@ describe('teamsScreen', () => {
     expect((await teamsScreen(ctx, ev.id)).querySelectorAll('.list li')).toHaveLength(1);
   });
 
+  it('never shows a raw backend duplicate message', async () => {
+    const { api, ev } = await world();
+    await api.signIn(EMAILS.org);
+    const stub = new Proxy(api, { get: (t, k) => (k === 'createTeam' ? async () => { throw new ApiError('duplicate', 'duplicate key value violates unique constraint "teams_event_number"'); } : (t as never)[k]) }) as Api;
+    const { ctx } = makeCtx(stub);
+    const el = await teamsScreen(ctx, ev.id);
+    await add(el, '9', 'Nine');
+    expect(text(el.querySelector('[role=alert]')!)).toBe('That team number is already used in this event');
+    expect(text(el)).not.toContain('violates');
+    expect((el.querySelector('input[name=name]') as HTMLInputElement).value).toBe('Nine');
+  });
+
+  it('never shows a raw backend invalid message', async () => {
+    const { api, ev } = await world();
+    await api.signIn(EMAILS.org);
+    const stub = new Proxy(api, { get: (t, k) => (k === 'createTeam' ? async () => { throw new ApiError('invalid', 'new row violates check constraint "teams_name_check"'); } : (t as never)[k]) }) as Api;
+    const { ctx } = makeCtx(stub);
+    const el = await teamsScreen(ctx, ev.id);
+    await add(el, '9', 'Nine');
+    expect(text(el)).not.toContain('constraint');
+    expect(text(el.querySelector('[role=alert]')!)).toContain('not valid');
+  });
+
+  it('validates before calling the API and keeps what was typed', async () => {
+    const { api, ev } = await world();
+    await api.signIn(EMAILS.org);
+    let calls = 0;
+    const spy = new Proxy(api, { get: (t, k) => (k === 'createTeam' ? async () => { calls++; throw new Error('should not be called'); } : (t as never)[k]) }) as Api;
+    const { ctx } = makeCtx(spy);
+    const el = await teamsScreen(ctx, ev.id);
+    await add(el, '   ', 'Name');
+    expect(text(el.querySelector('[role=alert]')!)).toContain('team number');
+    await add(el, '5', '   ');
+    expect(text(el.querySelector('[role=alert]')!)).toContain('team name');
+    await add(el, '5', 'Name', 'x'.repeat(121));
+    expect(text(el.querySelector('[role=alert]')!)).toContain('120');
+    expect((el.querySelector('input[name=name]') as HTMLInputElement).value).toBe('Name');
+    expect(calls).toBe(0);
+  });
+
   it('names the form fields and clears the form after adding', async () => {
     const { api, ev } = await world();
     await api.signIn(EMAILS.org);

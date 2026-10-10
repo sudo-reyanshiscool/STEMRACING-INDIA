@@ -1,7 +1,7 @@
 import type { Panel, Role } from '../api';
 import { reportActionError } from './actions';
 import type { Ctx } from './ctx';
-import { notFound } from './common';
+import { isPlausibleEmail, notFound } from './common';
 import { h } from './dom';
 import { INVITABLE, PANEL_LABEL, ROLE_LABEL } from './labels';
 
@@ -27,7 +27,7 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
   const inviteHolder = h('div', { 'data-section': 'invitations' });
   const error = h('p', { class: 'alert', role: 'alert', hidden: true });
   const status = h('p', { class: 'notice', role: 'status', hidden: true });
-  const fail = (e: unknown) => { if (alive) reportActionError(ctx, error, e); };
+  const fail = (e: unknown) => { if (alive) reportActionError(ctx, error, e, { duplicate: 'That person already has this role or invitation' }); };
 
   // One write at a time: every Remove/Withdraw/Send control is disabled while one is in flight.
   let inFlight = false;
@@ -73,9 +73,9 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
     );
   };
 
-  const roleSelect = h('select', { name: 'role' }, INVITABLE.map((r) => h('option', { value: r }, ROLE_LABEL[r])));
-  const panelSelect = h('select', { name: 'panel' }, PANELS.map((p) => h('option', { value: p }, PANEL_LABEL[p])));
-  const teamSelect = h('select', { name: 'team' }, teams.map((t) => h('option', { value: t.id }, `Team ${t.number} · ${t.name}`)));
+  const roleSelect = h('select', { name: 'role', required: true }, h('option', { value: '' }, 'Choose a role'), INVITABLE.map((r) => h('option', { value: r }, ROLE_LABEL[r])));
+  const panelSelect = h('select', { name: 'panel', required: true }, h('option', { value: '' }, 'Choose a panel'), PANELS.map((p) => h('option', { value: p }, PANEL_LABEL[p])));
+  const teamSelect = h('select', { name: 'team', required: true }, h('option', { value: '' }, 'Choose a team'), teams.map((t) => h('option', { value: t.id }, `Team ${t.number} · ${t.name}`)));
   const panelField = h('label', { class: 'field', 'data-field': 'panel', hidden: true }, h('span', { class: 'field__label' }, 'Panel'), panelSelect);
   const teamField = h('label', { class: 'field', 'data-field': 'team', hidden: true }, h('span', { class: 'field__label' }, 'Team'), teamSelect);
   const sync = () => {
@@ -83,7 +83,6 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
     teamField.hidden = roleSelect.value !== 'team_manager';
   };
   roleSelect.addEventListener('change', sync);
-  roleSelect.value = 'chair';
   sync();
 
   const emailInput = h('input', { name: 'email', type: 'email', required: true, autocomplete: 'off' });
@@ -97,8 +96,14 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
     e.preventDefault();
     void run(async () => {
       const role = roleSelect.value as Role;
-      if (role === 'team_manager' && teams.length === 0) {
-        error.textContent = 'Add a team first, then invite its manager.';
+      const problem = !isPlausibleEmail(emailInput.value) ? 'Enter a valid email address, for example name@school.org.'
+        : !role ? 'Choose a role.'
+        : isJudgeRole(role) && !panelSelect.value ? 'Choose a panel for this judge.'
+        : role === 'team_manager' && teams.length === 0 ? 'Add a team first, then invite its manager.'
+        : role === 'team_manager' && !teamSelect.value ? 'Choose a team for this team manager.'
+        : null;
+      if (problem) {
+        error.textContent = problem;
         error.hidden = false;
         return;
       }

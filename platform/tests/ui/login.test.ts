@@ -33,6 +33,18 @@ describe('loginScreen', () => {
     expect(await api.getSession()).toBeNull();
   });
 
+  it('rejects a bad address before calling the API', async () => {
+    const api = new MemoryApi();
+    let calls = 0;
+    api.signIn = async () => { calls++; };
+    const { ctx } = makeCtx(api);
+    const el = loginScreen(ctx);
+    submit(el, 'a b@x.test');
+    await new Promise((r) => setTimeout(r, 0));
+    expect(calls).toBe(0);
+    expect(text(el.querySelector('[role=alert]')!)).toContain('valid email');
+  });
+
   it('says what happens when the link has to be opened from an email', async () => {
     const api = new MemoryApi();
     api.getSession = async () => null; // a real backend does not sign in until the link is opened

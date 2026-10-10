@@ -39,19 +39,33 @@ export async function teamsScreen(ctx: Ctx, eventId: string): Promise<HTMLElemen
     f.addEventListener('submit', async (e) => {
       e.preventDefault();
       if (inFlight) return;
-      inFlight = true;
-      submit.disabled = true;
       error.hidden = true;
       status.hidden = true;
       const data = new FormData(f);
+      const number = String(data.get('number') ?? '').trim();
+      const name = String(data.get('name') ?? '').trim();
+      const school = String(data.get('school') ?? '').trim();
+      const problem = !number ? 'Enter a team number.'
+        : number.length > 12 ? 'The team number must be 12 characters or fewer.'
+        : !name ? 'Enter a team name.'
+        : name.length > 80 ? 'The team name must be 80 characters or fewer.'
+        : school.length > 120 ? 'The school or club must be 120 characters or fewer .'
+        : null;
+      if (problem) {
+        error.textContent = problem;
+        error.hidden = false;
+        return;
+      }
+      inFlight = true;
+      submit.disabled = true;
       try {
-        const team = await ctx.api.createTeam(eventId, { number: String(data.get('number') ?? ''), name: String(data.get('name') ?? ''), school: String(data.get('school') ?? '') });
+        const team = await ctx.api.createTeam(eventId, { number, name, school });
         f.reset();
         status.textContent = `Added Team ${team.number}.`;
         status.hidden = false;
         await showTeams();
       } catch (err) {
-        if (alive) reportActionError(ctx, error, err);
+        if (alive) reportActionError(ctx, error, err, { duplicate: 'That team number is already used in this event' });
       } finally {
         inFlight = false;
         submit.disabled = false;
