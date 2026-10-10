@@ -13,7 +13,8 @@ export interface PenaltyRow { id: string; eventId: string; teamId: string; point
 /** What anyone allowed to see a snapshot gets. The inputs are deliberately absent: see Api.getSnapshotInputs. */
 export interface SnapshotRow { id: string; eventId: string; createdAt: string; rulesetId: string; inputHash: string; rows: RankRow[]; released: boolean }
 export interface NewSnapshot { rulesetId: string; inputHash: string; inputs: unknown; rows: RankRow[]; released?: boolean }
-export type ApiErrorCode = 'forbidden' | 'locked' | 'invalid' | 'duplicate' | 'not-found' | 'network' | 'unknown';
+/** 'unauthenticated': no valid session (signed out, token expired). The caller should sign in again; nothing was refused on merit. */
+export type ApiErrorCode = 'unauthenticated' | 'forbidden' | 'locked' | 'invalid' | 'duplicate' | 'not-found' | 'network' | 'unknown';
 
 export class ApiError extends Error {
   constructor(public code: ApiErrorCode, message: string) {

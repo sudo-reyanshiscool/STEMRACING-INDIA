@@ -1,5 +1,6 @@
 import { ApiError, type Api, type ApiErrorCode } from './types';
 
+/** `set` must throw if the value could not be stored: the queue turns that into a visible 'persist-failed'. */
 export interface KV { get(): string | null; set(v: string): void }
 
 export function memoryKV(): KV {
@@ -10,7 +11,7 @@ export function memoryKV(): KV {
 export function localStorageKV(key: string): KV {
   return {
     get: () => { try { return localStorage.getItem(key); } catch { return null; } },
-    set: (v) => { try { localStorage.setItem(key, v); } catch { /* storage full or blocked: the queue still works in memory */ } },
+    set: (v) => { localStorage.setItem(key, v); }, // throws when storage is full or blocked; the queue reports it
   };
 }
 
@@ -19,13 +20,38 @@ export function localStorageKV(key: string): KV {
  */
 export interface QueuedScore { cardId: string; criterionId: string; score: number; comment?: string; at: number }
 
+export type RejectCode = ApiErrorCode | 'stuck';
+/** A score the server refused (or that kept failing). Kept until the user clears it so a drop is never silent. */
+export interface Rejected { id: string; item: QueuedScore; code: RejectCode; reason: string; at: number }
+
 export type QueueEvent =
   | { kind: 'saved'; pending: number }
-  | { kind: 'offline'; pending: number }
-  | { kind: 'dropped'; item: QueuedScore; reason: string };
+  | { kind: 'offline'; pending: number; lastError?: { code: ApiErrorCode; message: string } }
+  /** No valid session: nothing was sent or dropped. The UI should say "Sign in again, your scores are safe". */
+  | { kind: 'signed-out'; pending: number; reason: 'signed-out' }
+  | { kind: 'dropped'; item: QueuedScore; reason: string }
+  | { kind: 'persist-failed' };
+
+export interface QueueStatus {
+  pending: number;
+  lastError?: { code: ApiErrorCode; message: string };
+  signedOut: boolean;
+  /** The oldest queued score keeps failing with a server error (not a network error). */
+  headStuck: boolean;
+  persistFailed: boolean;
+}
+
+export interface QueueOptions {
+  /** Return false when there is no usable session: flush then sends and consumes nothing and reports 'signed-out'. */
+  canSend?: () => boolean | Promise<boolean>;
+  /** Where the rejected ledger lives (a different key from the queue). Defaults to memory only. */
+  rejectedKv?: KV;
+}
 
 /** Only these mean the server has definitively refused the write. Everything else is retried: a score is never dropped on a guess. */
 const DROP: ApiErrorCode[] = ['locked', 'forbidden', 'invalid', 'not-found'];
+/** Server-side failures (not network, not signed-out) are retried this many times per item, then moved to the ledger. */
+export const MAX_ATTEMPTS = 5;
 
 const REASONS: Partial<Record<ApiErrorCode, string>> = {
   locked: 'This scorecard was submitted or reopened elsewhere, so your latest change was not saved.',
@@ -33,29 +59,56 @@ const REASONS: Partial<Record<ApiErrorCode, string>> = {
   'not-found': 'This scorecard no longer exists, so your latest change was not saved.',
 };
 
-function load(raw: string | null): QueuedScore[] {
+function validItem(x: unknown): x is QueuedScore {
+  if (!x || typeof x !== 'object') return false;
+  const v = x as Record<string, unknown>;
+  return typeof v.cardId === 'string' && typeof v.criterionId === 'string'
+    && typeof v.score === 'number' && Number.isFinite(v.score)
+    && (v.comment === undefined || typeof v.comment === 'string') && typeof v.at === 'number';
+}
+
+function parseArray(raw: string | null): unknown[] {
   if (!raw) return [];
   try {
     const data: unknown = JSON.parse(raw);
-    if (!Array.isArray(data)) return [];
-    return data.filter((x): x is QueuedScore =>
-      !!x && typeof x === 'object' && typeof x.cardId === 'string' && typeof x.criterionId === 'string'
-      && typeof x.score === 'number' && Number.isFinite(x.score)
-      && (x.comment === undefined || typeof x.comment === 'string') && typeof x.at === 'number');
+    return Array.isArray(data) ? data : [];
   } catch {
     return [];
   }
 }
 
+const load = (raw: string | null): QueuedScore[] => parseArray(raw).filter(validItem);
+
+function loadRejected(raw: string | null): Rejected[] {
+  return parseArray(raw).filter((x): x is Rejected => {
+    if (!x || typeof x !== 'object') return false;
+    const v = x as Record<string, unknown>;
+    return typeof v.id === 'string' && typeof v.code === 'string' && typeof v.reason === 'string' && typeof v.at === 'number' && validItem(v.item);
+  });
+}
+
+type LastError = { code: ApiErrorCode; message: string };
+
 export class ScoreQueue {
   private items: QueuedScore[];
+  private ledger: Rejected[];
   private listeners = new Set<(e: QueueEvent) => void>();
   private running = false;
   private flushing: Promise<void> | null = null;
   private inFlight: QueuedScore | null = null;
+  private attempts = new Map<QueuedScore, number>();
+  private lastError: LastError | undefined;
+  private signedOut = false;
+  private failed = { queue: false, ledger: false };
+  private seq = 0;
+  private canSend?: () => boolean | Promise<boolean>;
+  private rejectedKv: KV;
 
-  constructor(private api: Pick<Api, 'saveScore'>, private kv: KV, private clock: () => number = Date.now) {
+  constructor(private api: Pick<Api, 'saveScore'>, private kv: KV, private clock: () => number = Date.now, opts: QueueOptions = {}) {
+    this.canSend = opts.canSend;
+    this.rejectedKv = opts.rejectedKv ?? memoryKV();
     this.items = load(kv.get());
+    this.ledger = loadRejected(this.rejectedKv.get());
   }
 
   subscribe(cb: (e: QueueEvent) => void) {
@@ -65,6 +118,25 @@ export class ScoreQueue {
 
   pending() { return this.items.length; }
   pendingFor(cardId: string) { return this.items.filter((i) => i.cardId === cardId).map((i) => ({ ...i })); }
+
+  status(): QueueStatus {
+    const head = this.items[0];
+    const s: QueueStatus = {
+      pending: this.items.length,
+      signedOut: this.signedOut,
+      headStuck: !!head && (this.attempts.get(head) ?? 0) > 0,
+      persistFailed: this.failed.queue || this.failed.ledger,
+    };
+    if (this.lastError) s.lastError = { ...this.lastError };
+    return s;
+  }
+
+  rejected(): Rejected[] { return this.ledger.map((r) => ({ ...r, item: { ...r.item } })); }
+
+  clearRejected(id?: string) {
+    this.ledger = id === undefined ? [] : this.ledger.filter((r) => r.id !== id);
+    this.persistLedger();
+  }
 
   enqueue(i: { cardId: string; criterionId: string; score: number; comment?: string }) {
     const same = (x: QueuedScore) => x.cardId === i.cardId && x.criterionId === i.criterionId;
@@ -103,36 +175,92 @@ export class ScoreQueue {
   }
 
   private async drain(dropped: QueueEvent[]): Promise<QueueEvent> {
-    while (this.items.length > 0) {
-      const item = this.items[0];
+    if (this.canSend) {
+      let ok = true;
+      try { ok = await this.canSend(); } catch { ok = true; } // a broken check must not strand scores: let the server decide
+      if (!ok) {
+        this.signedOut = true;
+        return { kind: 'signed-out', pending: this.items.length, reason: 'signed-out' };
+      }
+    }
+    const skipped = new Set<QueuedScore>(); // failed with a server error this flush; try the rest
+    for (;;) {
+      const item = this.items.find((x) => !skipped.has(x));
+      if (!item) break;
       this.inFlight = item;
       try {
         await this.api.saveScore(item.cardId, item.criterionId, item.score, item.comment);
+        this.signedOut = false;
+        this.attempts.delete(item);
         this.remove(item);
       } catch (e) {
         const code: ApiErrorCode = e instanceof ApiError ? e.code : 'network';
-        if (!DROP.includes(code)) {
-          // A newer value for the same criterion is queued behind it and will overwrite this one: discard the stale copy.
-          if (this.items.some((x) => x !== item && x.cardId === item.cardId && x.criterionId === item.criterionId)) this.remove(item);
-          return { kind: 'offline', pending: this.items.length };
+        const message = e instanceof Error ? e.message : String(e);
+        this.lastError = { code, message };
+        // A newer value for the same criterion is queued behind it and will overwrite this one: discard the stale copy.
+        const superseded = () => this.items.some((x) => x !== item && x.cardId === item.cardId && x.criterionId === item.criterionId);
+        if (code === 'unauthenticated') {
+          this.signedOut = true;
+          if (superseded()) this.remove(item);
+          return { kind: 'signed-out', pending: this.items.length, reason: 'signed-out' };
         }
-        this.remove(item);
-        const reason = code === 'invalid' && e instanceof ApiError ? e.message : (REASONS[code] ?? 'The change could not be saved.');
-        dropped.push({ kind: 'dropped', item, reason });
+        if (code === 'network') {
+          if (superseded()) this.remove(item);
+          return { kind: 'offline', pending: this.items.length, lastError: { ...this.lastError } };
+        }
+        if (DROP.includes(code)) {
+          const reason = code === 'invalid' && e instanceof ApiError ? e.message : (REASONS[code] ?? 'The change could not be saved.');
+          this.reject(item, code, reason, dropped);
+        } else if (superseded()) {
+          this.remove(item);
+        } else {
+          const n = (this.attempts.get(item) ?? 0) + 1;
+          this.attempts.set(item, n);
+          if (n >= MAX_ATTEMPTS) {
+            this.reject(item, 'stuck', `This change could not be saved after ${MAX_ATTEMPTS} attempts (${message}).`, dropped);
+          } else {
+            skipped.add(item);
+          }
+        }
       } finally {
         this.inFlight = null;
       }
     }
+    if (skipped.size > 0) return { kind: 'offline', pending: this.items.length, ...(this.lastError ? { lastError: { ...this.lastError } } : {}) };
+    this.lastError = undefined;
     return { kind: 'saved', pending: 0 };
+  }
+
+  private reject(item: QueuedScore, code: RejectCode, reason: string, dropped: QueueEvent[]) {
+    this.remove(item);
+    this.attempts.delete(item);
+    this.seq += 1;
+    this.ledger.push({ id: `${this.clock()}-${this.seq}-${Math.random().toString(36).slice(2, 8)}`, item: { ...item }, code, reason, at: this.clock() });
+    this.persistLedger();
+    dropped.push({ kind: 'dropped', item, reason });
   }
 
   private remove(item: QueuedScore) {
     const i = this.items.indexOf(item);
     if (i >= 0) this.items.splice(i, 1);
+    this.attempts.delete(item);
     this.persist();
   }
 
-  private persist() { this.kv.set(JSON.stringify(this.items)); }
+  private persist() { this.store('queue', () => this.kv.set(JSON.stringify(this.items))); }
+  private persistLedger() { this.store('ledger', () => this.rejectedKv.set(JSON.stringify(this.ledger))); }
+
+  /** Storage trouble never throws into the caller and never loses the in-memory state; it is reported instead. */
+  private store(which: 'queue' | 'ledger', write: () => void) {
+    try {
+      write();
+      this.failed[which] = false;
+    } catch {
+      this.failed[which] = true;
+      this.emit({ kind: 'persist-failed' });
+    }
+  }
+
   private emit(e: QueueEvent) {
     for (const l of [...this.listeners]) {
       try { l(e); } catch { /* a faulty listener must not break the queue */ }

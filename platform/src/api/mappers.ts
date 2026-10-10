@@ -12,8 +12,9 @@ type Row = Record<string, any>;
  */
 export const PG_ERROR_CODES: Readonly<Record<string, ApiErrorCode>> = {
   '42501': 'forbidden', // insufficient_privilege: RLS violation, or a function/table not granted to this role
-  '28000': 'forbidden', // create_event with no signed-in user
-  PGRST301: 'forbidden', // PostgREST: JWT invalid or expired
+  '28000': 'unauthenticated', // create_event with no signed-in user
+  PGRST301: 'unauthenticated', // PostgREST: JWT invalid or expired
+  PGRST303: 'unauthenticated', // PostgREST: JWT claims validation failed
   '55000': 'locked', // object_not_in_prerequisite_state: submitted card, released freeze, immutable snapshot
   '23505': 'duplicate', // unique_violation
   '23514': 'invalid', // check_violation (also: criterion has no score on submit)
@@ -29,11 +30,13 @@ export const PG_ERROR_CODES: Readonly<Record<string, ApiErrorCode>> = {
   PGRST116: 'not-found', // PostgREST: single row expected, none found
 };
 
+const EXPIRED = /jwt expired/i;
 const NETWORK = /failed to fetch|networkerror|network request failed|load failed|fetch failed|econnrefused|enotfound/i;
 
 export function mapPgError(e: { message: string; code?: string }): ApiError {
   const known = e.code && Object.prototype.hasOwnProperty.call(PG_ERROR_CODES, e.code) ? PG_ERROR_CODES[e.code] : undefined;
   if (known) return new ApiError(known, e.message);
+  if (EXPIRED.test(e.message)) return new ApiError('unauthenticated', e.message);
   if (NETWORK.test(e.message)) return new ApiError('network', 'No connection to the server');
   return new ApiError('unknown', e.message);
 }

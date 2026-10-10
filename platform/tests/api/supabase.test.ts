@@ -211,3 +211,18 @@ describe('events and invitations', () => {
     expect((await api.listTeams('e')).map((t) => t.number)).toEqual(['1', '2', '10']);
   });
 });
+
+describe('signed-out scoring', () => {
+  it('reports a score write with no session as unauthenticated, not forbidden', async () => {
+    const { api } = fake(() => ({ error: { message: 'new row violates row-level security policy', code: '42501' } }), null);
+    expect(await fail(api.saveScore('c', 'k', 5))).toBe('unauthenticated');
+  });
+  it('reports an expired token as unauthenticated', async () => {
+    const { api } = fake(() => ({ error: { message: 'JWT expired', code: 'PGRST301' } }));
+    expect(await fail(api.saveScore('c', 'k', 5))).toBe('unauthenticated');
+  });
+  it('still reports a refused write with a live session as forbidden', async () => {
+    const { api } = fake(() => ({ error: { message: 'new row violates row-level security policy', code: '42501' } }));
+    expect(await fail(api.saveScore('c', 'k', 5))).toBe('forbidden');
+  });
+});

@@ -100,7 +100,7 @@ export class MemoryApi implements Api {
     return copy(this.events.filter((e) => e.resultsReleased || this.rolesOf(e.id).length > 0));
   }
   async createEvent(i: { name: string; startsOn?: string }) {
-    if (!this.me) throw new ApiError('forbidden', 'Sign in first');
+    if (!this.me) throw new ApiError('unauthenticated', 'Sign in first');
     const name = this.text(i.name, 'Event name', 120);
     if (i.startsOn !== undefined) {
       const d = new Date(`${i.startsOn}T00:00:00Z`);
@@ -199,7 +199,8 @@ export class MemoryApi implements Api {
   }
   private myCard(cardId: string) {
     const c = this.cards.find((x) => x.id === cardId);
-    if (!c || !this.me || c.judgeId !== this.me.userId) throw new ApiError('forbidden', 'That scorecard is not yours');
+    if (!this.me) throw new ApiError('unauthenticated', 'Sign in first');
+    if (!c || c.judgeId !== this.me.userId) throw new ApiError('forbidden', 'That scorecard is not yours');
     return c;
   }
   /** Returns the judge's own card for this team and area, creating it the first time. One card per judge, team and area. */

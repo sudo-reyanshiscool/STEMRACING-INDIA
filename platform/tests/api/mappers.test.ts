@@ -29,11 +29,18 @@ describe('mapPgError', () => {
 
   it('maps the other states the database and PostgREST can produce', () => {
     // 28000: create_event without a signed-in user. 23503: a team that is not part of the event (composite foreign key).
-    for (const c of ['28000', 'PGRST301']) expect(mapPgError({ message: 'x', code: c }).code, c).toBe('forbidden');
+    for (const c of ['28000', 'PGRST301', 'PGRST303']) expect(mapPgError({ message: 'x', code: c }).code, c).toBe('unauthenticated');
     for (const c of ['23503', '22007', '22008', '22001', '22003']) expect(mapPgError({ message: 'x', code: c }).code, c).toBe('invalid');
     expect(mapPgError({ message: 'x', code: 'PGRST116' }).code).toBe('not-found');
     expect(mapPgError({ message: 'x', code: '' }).code).toBe('unknown');
     expect(mapPgError({ message: 'x', code: '40001' }).code).toBe('unknown');
+  });
+
+  it('maps an expired or missing token to unauthenticated, never to forbidden', () => {
+    expect(mapPgError({ message: 'JWT expired', code: 'PGRST301' }).code).toBe('unauthenticated');
+    expect(mapPgError({ message: 'JWT expired' }).code).toBe('unauthenticated');
+    expect(mapPgError({ message: 'Bad request: JWT expired at 123', code: '400' }).code).toBe('unauthenticated');
+    expect(mapPgError({ message: 'new row violates row-level security policy', code: '42501' }).code).toBe('forbidden');
   });
 
   it('knows every errcode the migrations raise', () => {

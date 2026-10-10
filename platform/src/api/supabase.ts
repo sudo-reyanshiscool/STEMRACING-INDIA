@@ -68,6 +68,19 @@ export function createApiFromClient(sb: SupabaseClient): Api {
     if (rows.length === 0) throw new ApiError('forbidden', `${FORBIDDEN}, or it no longer exists`);
   };
 
+  const writeScore = async (cardId: string, criterionId: string, score: number, comment?: string) => {
+    // The comment column is left out of the write unless a string was passed, so an existing comment survives.
+    // Update then insert rather than upsert: the API role may only UPDATE (score, comment), and an upsert's
+    // ON CONFLICT DO UPDATE also names the key columns.
+    const patch = comment === undefined ? { score } : { score, comment };
+    if ((await updateScore(cardId, criterionId, patch)).length > 0) return;
+    const { error } = await guard(() => sb.from('scorecard_scores').insert({ scorecard_id: cardId, criterion_id: criterionId, ...patch }));
+    if (!error) return;
+    if (error.code !== '23505') throw mapPgError(error);
+    // Another write created the row between our update and insert: update it now.
+    if ((await updateScore(cardId, criterionId, patch)).length === 0) throw new ApiError('forbidden', 'You cannot score on this scorecard');
+  };
+
   return {
     async getSession() {
       return session();
@@ -163,7 +176,7 @@ export function createApiFromClient(sb: SupabaseClient): Api {
 
     async openCard(eventId, teamId, areaId) {
       const s = await session();
-      if (!s) throw new ApiError('forbidden', 'Sign in first');
+      if (!s) throw new ApiError('unauthenticated', 'Sign in first');
       const existing = await findCard(eventId, teamId, areaId, s.userId);
       if (existing) return toCardRow(existing);
       // panel and judge_id are filled by the database from the ruleset and the session.
@@ -174,16 +187,17 @@ export function createApiFromClient(sb: SupabaseClient): Api {
       return toCardRow(created);
     },
     async saveScore(cardId, criterionId, score, comment) {
-      // The comment column is left out of the write unless a string was passed, so an existing comment survives.
-      // Update then insert rather than upsert: the API role may only UPDATE (score, comment), and an upsert's
-      // ON CONFLICT DO UPDATE also names the key columns.
-      const patch = comment === undefined ? { score } : { score, comment };
-      if ((await updateScore(cardId, criterionId, patch)).length > 0) return;
-      const { error } = await guard(() => sb.from('scorecard_scores').insert({ scorecard_id: cardId, criterion_id: criterionId, ...patch }));
-      if (!error) return;
-      if (error.code !== '23505') throw mapPgError(error);
-      // Another write created the row between our update and insert: update it now.
-      if ((await updateScore(cardId, criterionId, patch)).length === 0) throw new ApiError('forbidden', 'You cannot score on this scorecard');
+      try {
+        await writeScore(cardId, criterionId, score, comment);
+      } catch (e) {
+        // Row-level security hides rows from a signed-out client, which looks like a refusal. It is not one: say so,
+        // so a queue never discards a judge's scores because their session lapsed.
+        if (e instanceof ApiError && e.code === 'forbidden') {
+          const s = await session().catch(() => undefined);
+          if (s === null) throw new ApiError('unauthenticated', 'Your session has expired. Sign in again.');
+        }
+        throw e;
+      }
     },
     async submitCard(cardId) {
       const rows = ok(await guard(() => sb.from('scorecards').update({ status: 'submitted' }).eq('id', cardId).select('id'))) as unknown[];

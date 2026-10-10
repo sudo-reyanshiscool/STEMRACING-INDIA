@@ -237,6 +237,14 @@ describe('judging details', () => {
     expect(await code(api.saveScore(a.id, 'team-contribution', 5))).toBe('forbidden');
   });
 
+  it('reports a score write with no session as unauthenticated, not forbidden', async () => {
+    const { api, ev, t1 } = await world();
+    await api.signIn(JUDGE);
+    const card = await api.openCard(ev.id, t1.id, 'verbal-technique');
+    await api.signOut();
+    expect(await code(api.saveScore(card.id, 'team-contribution', 5))).toBe('unauthenticated');
+  });
+
   it('stops scoring and submitting on a conflicted team', async () => {
     const { api, ev, t1 } = await world();
     await api.signIn(JUDGE);
@@ -397,7 +405,7 @@ describe('events', () => {
     expect(await code(api.createEvent({ name: 'X', startsOn: '2026-13-45' }))).toBe('invalid');
     expect(await code(api.createEvent({ name: '  ' }))).toBe('invalid');
     await api.signOut();
-    expect(await code(api.createEvent({ name: 'X' }))).toBe('forbidden');
+    expect(await code(api.createEvent({ name: 'X' }))).toBe('unauthenticated');
   });
 });
 

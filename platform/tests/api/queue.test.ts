@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ApiError, ScoreQueue, memoryKV, type QueueEvent } from '../../src/api';
+import { ApiError, ScoreQueue, memoryKV, type KV, type QueueEvent } from '../../src/api';
 
 type Call = { cardId: string; criterionId: string; score: number; comment: string };
 function fakeApi(plan: (c: Call, n: number) => Promise<void> | void) {
@@ -53,7 +53,7 @@ describe('ScoreQueue', () => {
     q1.enqueue(item('a', 5, 'good'));
     await q1.flush();
     expect(q1.pending()).toBe(1);
-    expect(events.at(-1)).toEqual({ kind: 'offline', pending: 1 });
+    expect(events.at(-1)).toEqual({ kind: 'offline', pending: 1, lastError: { code: 'network', message: 'offline' } });
 
     const q2 = new ScoreQueue(api, kv); // a page reload
     expect(q2.pendingFor('c1')).toEqual([expect.objectContaining({ criterionId: 'a', score: 5, comment: 'good' })]);
@@ -355,5 +355,243 @@ describe('ScoreQueue data-loss guards', () => {
     q.enqueue(item('a', 1));
     await q.flush();
     expect(events).toEqual([]);
+  });
+});
+
+const auth = () => { throw new ApiError('unauthenticated', 'JWT expired'); };
+const sendIds = (calls: { criterionId: string }[]) => calls.map((c) => c.criterionId);
+
+describe('ScoreQueue signed out (C1)', () => {
+  it('an expired token keeps every queued score, drops nothing, and reports signed-out', async () => {
+    const { api, calls } = fakeApi(() => auth());
+    const events: QueueEvent[] = [];
+    const q = new ScoreQueue(api, memoryKV());
+    q.subscribe((e) => events.push(e));
+    q.enqueue(item('a', 1));
+    q.enqueue(item('b', 2));
+    q.enqueue(item('c', 3));
+    await q.flush();
+    expect(q.pending()).toBe(3);
+    expect(calls).toHaveLength(1); // stopped at the first refusal
+    expect(events.some((e) => e.kind === 'dropped')).toBe(false);
+    expect(events.at(-1)).toEqual({ kind: 'signed-out', pending: 3, reason: 'signed-out' });
+    expect(q.status().signedOut).toBe(true);
+    expect(q.rejected()).toEqual([]);
+  });
+
+  it('sends everything once signed in again', async () => {
+    let signedIn = false;
+    const { api, calls } = fakeApi(() => { if (!signedIn) auth(); });
+    const q = new ScoreQueue(api, memoryKV());
+    q.enqueue(item('a', 1));
+    q.enqueue(item('b', 2));
+    await q.flush();
+    signedIn = true;
+    await q.flush();
+    expect(q.pending()).toBe(0);
+    expect(sendIds(calls).slice(-2)).toEqual(['a', 'b']);
+    expect(q.status().signedOut).toBe(false);
+  });
+
+  it('canSend false: nothing is sent or consumed, and signed-out is reported', async () => {
+    const { api, calls } = fakeApi(() => {});
+    const events: QueueEvent[] = [];
+    let ok = false;
+    const q = new ScoreQueue(api, memoryKV(), undefined, { canSend: async () => ok });
+    q.subscribe((e) => events.push(e));
+    q.enqueue(item('a', 1));
+    await q.flush();
+    expect(calls).toHaveLength(0);
+    expect(q.pending()).toBe(1);
+    expect(events.at(-1)).toEqual({ kind: 'signed-out', pending: 1, reason: 'signed-out' });
+    ok = true;
+    await q.flush();
+    expect(q.pending()).toBe(0);
+    expect(q.status().signedOut).toBe(false);
+  });
+
+  it('a synchronous canSend works too', async () => {
+    const { api, calls } = fakeApi(() => {});
+    const q = new ScoreQueue(api, memoryKV(), undefined, { canSend: () => false });
+    q.enqueue(item('a', 1));
+    await q.flush();
+    expect(calls).toHaveLength(0);
+  });
+
+  it('keeps an in-flight value and a newer edit across an unauthenticated failure', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    const { api } = fakeApi(async (_c, n) => { if (n === 1) { await gate; auth(); } });
+    const q = new ScoreQueue(api, memoryKV());
+    q.enqueue({ cardId: 'c1', criterionId: 'a', score: 5, comment: 'keep' });
+    const f = q.flush();
+    q.enqueue({ cardId: 'c1', criterionId: 'a', score: 6 });
+    release();
+    await f;
+    expect(q.pendingFor('c1')).toEqual([expect.objectContaining({ score: 6, comment: 'keep' })]);
+  });
+});
+
+describe('ScoreQueue rejected ledger (I2)', () => {
+  it('records dropped scores in a separate persisted ledger that survives a reload', async () => {
+    const kv = memoryKV();
+    const ledger = memoryKV();
+    const { api } = fakeApi((c) => { if (c.criterionId === 'a') throw new ApiError('locked', 'submitted'); });
+    const events: QueueEvent[] = [];
+    const q = new ScoreQueue(api, kv, () => 42, { rejectedKv: ledger });
+    q.subscribe((e) => events.push(e));
+    q.enqueue({ cardId: 'c1', criterionId: 'a', score: 5, comment: 'x' });
+    await q.flush();
+    expect(events).toContainEqual(expect.objectContaining({ kind: 'dropped' }));
+    expect(q.rejected()).toEqual([expect.objectContaining({ code: 'locked', at: 42, item: expect.objectContaining({ criterionId: 'a', score: 5, comment: 'x' }) })]);
+    expect(kv.get()).toBe('[]');
+    expect(ledger.get()).not.toBeNull();
+
+    const q2 = new ScoreQueue(api, kv, undefined, { rejectedKv: ledger });
+    expect(q2.rejected()).toHaveLength(1);
+    expect(q2.rejected()[0].item.score).toBe(5);
+  });
+
+  it('clearRejected removes one entry by id, or all', async () => {
+    const { api } = fakeApi(() => { throw new ApiError('invalid', 'bad'); });
+    const q = new ScoreQueue(api, memoryKV());
+    q.enqueue(item('a', 1));
+    q.enqueue(item('b', 2));
+    await q.flush();
+    const [first] = q.rejected();
+    expect(q.rejected()).toHaveLength(2);
+    q.clearRejected(first.id);
+    expect(q.rejected().map((r) => r.item.criterionId)).toEqual(['b']);
+    q.clearRejected();
+    expect(q.rejected()).toEqual([]);
+  });
+
+  it('ignores a corrupt ledger without crashing', () => {
+    const { api } = fakeApi(() => {});
+    for (const bad of ['nope', '{}', '[1]', 'null']) {
+      const ledger = memoryKV();
+      ledger.set(bad);
+      expect(new ScoreQueue(api, memoryKV(), undefined, { rejectedKv: ledger }).rejected(), bad).toEqual([]);
+    }
+  });
+});
+
+describe('ScoreQueue head-of-line blocking (I1)', () => {
+  it('status reports pending, the last error and whether the head is stuck', async () => {
+    const { api } = fakeApi(() => { throw new ApiError('unknown', 'HTTP 500'); });
+    const q = new ScoreQueue(api, memoryKV());
+    expect(q.status()).toEqual({ pending: 0, signedOut: false, headStuck: false, persistFailed: false });
+    q.enqueue(item('a', 1));
+    await q.flush();
+    expect(q.status()).toEqual({ pending: 1, lastError: { code: 'unknown', message: 'HTTP 500' }, signedOut: false, headStuck: true, persistFailed: false });
+  });
+
+  it('the offline event carries the last error', async () => {
+    const { api } = fakeApi(() => { throw new ApiError('unknown', 'HTTP 500'); });
+    const events: QueueEvent[] = [];
+    const q = new ScoreQueue(api, memoryKV());
+    q.subscribe((e) => events.push(e));
+    q.enqueue(item('a', 1));
+    await q.flush();
+    expect(events.at(-1)).toEqual({ kind: 'offline', pending: 1, lastError: { code: 'unknown', message: 'HTTP 500' } });
+  });
+
+  it('a poisoned head does not block later items; it is rejected as stuck after 5 attempts', async () => {
+    const { api, calls } = fakeApi((c) => { if (c.criterionId === 'bad') throw new ApiError('unknown', 'HTTP 500'); });
+    const events: QueueEvent[] = [];
+    const q = new ScoreQueue(api, memoryKV());
+    q.subscribe((e) => events.push(e));
+    q.enqueue(item('bad', 1));
+    q.enqueue(item('good', 2));
+    await q.flush();
+    expect(q.pendingFor('c1').map((i) => i.criterionId)).toEqual(['bad']); // good went through in the first flush
+    expect(sendIds(calls)).toEqual(['bad', 'good']);
+    for (let i = 0; i < 3; i++) await q.flush();
+    expect(q.pending()).toBe(1);
+    expect(q.rejected()).toEqual([]);
+    await q.flush(); // 5th attempt
+    expect(q.pending()).toBe(0);
+    expect(calls.filter((c) => c.criterionId === 'bad')).toHaveLength(5);
+    expect(q.rejected()).toEqual([expect.objectContaining({ code: 'stuck', item: expect.objectContaining({ criterionId: 'bad' }) })]);
+    expect(events).toContainEqual({ kind: 'dropped', item: expect.objectContaining({ criterionId: 'bad' }), reason: expect.any(String) });
+    expect(events.at(-1)).toEqual({ kind: 'saved', pending: 0 });
+  });
+
+  it('network errors never count toward the bound', async () => {
+    let online = false;
+    const { api } = fakeApi(() => { if (!online) net(); });
+    const q = new ScoreQueue(api, memoryKV());
+    q.enqueue(item('a', 1));
+    for (let i = 0; i < 20; i++) await q.flush();
+    expect(q.pending()).toBe(1);
+    expect(q.rejected()).toEqual([]);
+    expect(q.status().headStuck).toBe(false);
+    online = true;
+    await q.flush();
+    expect(q.pending()).toBe(0);
+  });
+
+  it('a network error stops the flush (everything else would fail too)', async () => {
+    const { api, calls } = fakeApi(() => net());
+    const q = new ScoreQueue(api, memoryKV());
+    q.enqueue(item('a', 1));
+    q.enqueue(item('b', 2));
+    await q.flush();
+    expect(calls).toHaveLength(1);
+  });
+});
+
+describe('ScoreQueue storage failures (I3, M1)', () => {
+  const failingKV = (): KV & { broken: boolean } => {
+    let v: string | null = null;
+    const kv = { broken: true, get: () => v, set: (x: string) => { if (kv.broken) throw new Error('QuotaExceededError'); v = x; } };
+    return kv;
+  };
+
+  it('keeps the item in memory, does not throw, and reports persist-failed', () => {
+    const { api } = fakeApi(() => {});
+    const events: QueueEvent[] = [];
+    const q = new ScoreQueue(api, failingKV());
+    q.subscribe((e) => events.push(e));
+    expect(() => q.enqueue(item('a', 1))).not.toThrow();
+    expect(q.pending()).toBe(1);
+    expect(events).toContainEqual({ kind: 'persist-failed' });
+    expect(q.status().persistFailed).toBe(true);
+  });
+
+  it('still sends the in-memory item, and clears the flag once storage works again', async () => {
+    const { api, calls } = fakeApi(() => {});
+    const kv = failingKV();
+    const q = new ScoreQueue(api, kv);
+    q.enqueue(item('a', 1));
+    kv.broken = false;
+    await q.flush();
+    expect(calls).toHaveLength(1);
+    expect(q.status().persistFailed).toBe(false);
+  });
+
+  it('a persist failure after a successful send is not reported as offline', async () => {
+    const { api } = fakeApi(() => {});
+    const kv = failingKV();
+    const events: QueueEvent[] = [];
+    const q = new ScoreQueue(api, kv);
+    q.enqueue(item('a', 1));
+    q.subscribe((e) => events.push(e));
+    await q.flush();
+    expect(q.pending()).toBe(0);
+    expect(events.some((e) => e.kind === 'offline')).toBe(false);
+    expect(events.at(-1)).toEqual({ kind: 'saved', pending: 0 });
+    expect(events).toContainEqual({ kind: 'persist-failed' });
+  });
+
+  it('a failing rejected ledger is reported too', async () => {
+    const { api } = fakeApi(() => { throw new ApiError('locked', 'x'); });
+    const events: QueueEvent[] = [];
+    const q = new ScoreQueue(api, memoryKV(), undefined, { rejectedKv: failingKV() });
+    q.subscribe((e) => events.push(e));
+    q.enqueue(item('a', 1));
+    await q.flush();
+    expect(q.rejected()).toHaveLength(1);
+    expect(events).toContainEqual({ kind: 'persist-failed' });
   });
 });
