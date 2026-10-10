@@ -1,0 +1,176 @@
+// @vitest-environment jsdom
+import { describe, expect, it } from 'vitest';
+import { ApiError, type Api } from '../../src/api';
+import { peopleScreen } from '../../src/ui/people';
+import { EMAILS, makeCtx, text, world } from './helpers';
+
+const wait = () => new Promise((r) => setTimeout(r, 0));
+const pick = (el: HTMLElement, name: string, value: string) => {
+  const s = el.querySelector(`[name=${name}]`) as HTMLSelectElement | HTMLInputElement;
+  s.value = value;
+  s.dispatchEvent(new Event('change', { bubbles: true }));
+};
+const submit = (el: HTMLElement) => el.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
+const failing = (api: Api, method: string, code: ConstructorParameters<typeof ApiError>[0]): Api =>
+  new Proxy(api, { get: (t, k) => (k === method ? async () => { throw new ApiError(code, 'raw backend wording'); } : (t as never)[k]) });
+
+describe('peopleScreen', () => {
+  it('lists the roles with email, role and panel or team', async () => {
+    const { api, ev } = await world();
+    await api.signIn(EMAILS.org);
+    const { ctx } = makeCtx(api);
+    const el = await peopleScreen(ctx, ev.id);
+    const t = text(el);
+    expect(t).toContain('judge@x.test');
+    expect(t).toContain('Judge');
+    expect(t).toContain('Verbal Presentation');
+    expect(t).toContain('Team 1');
+  });
+
+  it('shows the panel choice only for judge roles and the team choice only for team managers', async () => {
+    const { api, ev } = await world();
+    await api.signIn(EMAILS.org);
+    const { ctx } = makeCtx(api);
+    const el = await peopleScreen(ctx, ev.id);
+    const panel = el.querySelector('[data-field=panel]') as HTMLElement;
+    const team = el.querySelector('[data-field=team]') as HTMLElement;
+    pick(el, 'role', 'chair');
+    expect([panel.hidden, team.hidden]).toEqual([true, true]);
+    pick(el, 'role', 'judge');
+    expect([panel.hidden, team.hidden]).toEqual([false, true]);
+    pick(el, 'role', 'team_manager');
+    expect([panel.hidden, team.hidden]).toEqual([true, false]);
+  });
+
+  it('invites someone, shows the pending invitation, and lets it be withdrawn', async () => {
+    const { api, ev } = await world();
+    await api.signIn(EMAILS.org);
+    const { ctx } = makeCtx(api);
+    const el = await peopleScreen(ctx, ev.id);
+    pick(el, 'role', 'judge');
+    pick(el, 'panel', 'enterprise');
+    (el.querySelector('input[name=email]') as HTMLInputElement).value = 'New@X.test';
+    submit(el);
+    await wait();
+    expect(text(el)).toContain('new@x.test');
+    expect(text(el.querySelector('[data-section=invitations]')!)).toContain('Enterprise');
+    (el.querySelector('[data-section=invitations] button') as HTMLButtonElement).click();
+    await wait();
+    expect(el.querySelector('[data-section=invitations] li')).toBeNull();
+  });
+
+  it('explains invalid or duplicate invitations', async () => {
+    const { api, ev } = await world();
+    await api.signIn(EMAILS.org);
+    const { ctx } = makeCtx(api);
+    const el = await peopleScreen(ctx, ev.id);
+    (el.querySelector('input[name=email]') as HTMLInputElement).value = 'nope';
+    submit(el);
+    await wait();
+    expect(text(el.querySelector('[role=alert]')!)).toContain('valid email');
+  });
+
+  it('is not available to a judge', async () => {
+    const { api, ev } = await world();
+    await api.signIn(EMAILS.judge);
+    const { ctx } = makeCtx(api);
+    expect(text(await peopleScreen(ctx, ev.id))).toContain('Only the organiser or chair');
+  });
+
+  it('explains a duplicate invitation', async () => {
+    const { api, ev } = await world();
+    await api.signIn(EMAILS.org);
+    const { ctx } = makeCtx(api);
+    const el = await peopleScreen(ctx, ev.id);
+    for (let i = 0; i < 2; i++) {
+      (el.querySelector('input[name=email]') as HTMLInputElement).value = 'dup@x.test';
+      submit(el);
+      await wait();
+    }
+    expect(el.querySelector('[role=alert]')!.hasAttribute('hidden')).toBe(false);
+    expect(el.querySelectorAll('[data-section=invitations] li')).toHaveLength(1);
+  });
+
+  it('removes a role, but offers no Remove for the organiser or for yourself', async () => {
+    const { api, ev } = await world();
+    await api.signIn(EMAILS.chair);
+    const { ctx } = makeCtx(api);
+    const el = await peopleScreen(ctx, ev.id);
+    const rows = [...el.querySelectorAll('[data-section=people] li')];
+    const byEmail = (e: string) => rows.find((r) => text(r).includes(e))!;
+    expect(byEmail('org@x.test').querySelector('button')).toBeNull();
+    expect(byEmail('chair@x.test').querySelector('button')).toBeNull();
+    (byEmail('judge@x.test').querySelector('button') as HTMLButtonElement).click();
+    await wait();
+    expect(text(el.querySelector('[data-section=people]')!)).not.toContain('judge@x.test');
+  });
+
+  it('names Remove and Withdraw buttons after the person', async () => {
+    const { api, ev } = await world();
+    await api.signIn(EMAILS.org);
+    await api.invite(ev.id, { email: 'p@x.test', role: 'chair' });
+    const { ctx } = makeCtx(api);
+    const el = await peopleScreen(ctx, ev.id);
+    expect(el.querySelector('[data-section=people] button')!.getAttribute('aria-label')).toBe('Remove chair@x.test');
+    expect(el.querySelector('[data-section=invitations] button')!.getAttribute('aria-label')).toBe('Withdraw invitation for p@x.test');
+  });
+
+  it('shows the forbidden and locked outcomes of an invitation in plain words', async () => {
+    const { api, ev } = await world();
+    await api.signIn(EMAILS.org);
+    for (const [code, expected] of [['forbidden', 'permission'], ['locked', 'Withdraw the release']] as const) {
+      const { ctx } = makeCtx(failing(api, 'invite', code));
+      const el = await peopleScreen(ctx, ev.id);
+      (el.querySelector('input[name=email]') as HTMLInputElement).value = 'a@x.test';
+      submit(el);
+      await wait();
+      const alert = text(el.querySelector('[role=alert]')!);
+      expect(alert).toContain(expected);
+      expect(alert).not.toContain('raw backend');
+    }
+  });
+
+  it('shows a failed Remove and keeps the list', async () => {
+    const { api, ev } = await world();
+    await api.signIn(EMAILS.org);
+    const { ctx } = makeCtx(failing(api, 'removeRole', 'forbidden'));
+    const el = await peopleScreen(ctx, ev.id);
+    const before = el.querySelectorAll('[data-section=people] li').length;
+    (el.querySelector('[data-section=people] button') as HTMLButtonElement).click();
+    await wait();
+    expect(text(el.querySelector('[role=alert]')!)).toContain('permission');
+    expect(el.querySelectorAll('[data-section=people] li')).toHaveLength(before);
+  });
+
+  it('returns to sign-in when the session lapses during an action', async () => {
+    const { api, ev } = await world();
+    await api.signIn(EMAILS.org);
+    const { ctx } = makeCtx(failing(api, 'invite', 'unauthenticated'));
+    const el = await peopleScreen(ctx, ev.id);
+    (el.querySelector('input[name=email]') as HTMLInputElement).value = 'a@x.test';
+    submit(el);
+    await wait();
+    expect(ctx.rerender).toHaveBeenCalled();
+  });
+
+  it('asks for a team first when inviting a team manager to an event with no teams', async () => {
+    const { api } = await world();
+    await api.signIn(EMAILS.org);
+    const ev = await api.createEvent({ name: 'Empty' });
+    const { ctx } = makeCtx(api);
+    const el = await peopleScreen(ctx, ev.id);
+    pick(el, 'role', 'team_manager');
+    (el.querySelector('input[name=email]') as HTMLInputElement).value = 'a@x.test';
+    submit(el);
+    await wait();
+    expect(text(el.querySelector('[role=alert]')!)).toContain('Add a team');
+  });
+
+  it('keeps email text as text', async () => {
+    const { api, ev } = await world();
+    await api.signIn(EMAILS.org);
+    const { ctx } = makeCtx(api);
+    const el = await peopleScreen(ctx, ev.id);
+    expect(el.querySelector('img')).toBeNull();
+  });
+});

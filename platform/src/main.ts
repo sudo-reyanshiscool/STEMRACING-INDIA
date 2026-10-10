@@ -9,12 +9,15 @@ import type { Ctx } from './ui/ctx';
 import { DEMO_PERSONAS, seedDemo } from './ui/demo';
 import { h } from './ui/dom';
 import { errorScreen } from './ui/errorscreen';
+import { eventHomeScreen } from './ui/event-home';
 import { eventsScreen } from './ui/events';
 import { loginScreen } from './ui/login';
+import { peopleScreen } from './ui/people';
 import { startRouter, type Route } from './ui/router';
 import { QueueHost } from './ui/queuehost';
 import { mountShell } from './ui/shell';
 import { mountSyncBar } from './ui/syncbar';
+import { teamsScreen } from './ui/teams';
 
 const url = import.meta.env.VITE_SUPABASE_URL;
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -112,6 +115,9 @@ async function boot(): Promise<void> {
 async function screenFor(route: Route, ctx: Ctx): Promise<HTMLElement> {
   switch (route.name) {
     case 'home': return eventsScreen(ctx);
+    case 'event': return eventHomeScreen(ctx, route.eventId);
+    case 'teams': return teamsScreen(ctx, route.eventId);
+    case 'people': return peopleScreen(ctx, route.eventId);
     default: return notFound('This screen is not built yet.', '#/', 'Back to events');
   }
 }
