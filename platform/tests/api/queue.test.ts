@@ -695,3 +695,58 @@ describe('ScoreQueue requeueRejected', () => {
     expect(q.pendingFor('c1')).toEqual([expect.objectContaining({ score: 7 })]);
   });
 });
+
+describe('ScoreQueue edits during a flush, and stale ledger entries', () => {
+  it('an edit made mid-flush to an item with 4 failed attempts is not parked as stuck for the stale value', async () => {
+    const events: QueueEvent[] = [];
+    let q!: ScoreQueue;
+    const { api } = fakeApi((c) => {
+      if (c.criterionId === 'a') throw new ApiError('unknown', 'HTTP 500');
+      if (c.criterionId === 'ok4') q.enqueue(item('a', 9)); // judge edits a while ok4 is being sent
+    });
+    q = new ScoreQueue(api, memoryKV());
+    q.subscribe((e) => events.push(e));
+    q.enqueue(item('a', 1));
+    for (let i = 0; i < 4; i++) { q.enqueue(item(`ok${i}`, 1)); await q.flush(); }
+    expect(q.rejected()).toEqual([]);
+    q.enqueue(item('ok4', 1));
+    await q.flush();
+    expect(q.rejected()).toEqual([]);
+    expect(events.some((e) => e.kind === 'dropped')).toBe(false);
+    expect(q.pendingFor('c1')).toEqual([expect.objectContaining({ criterionId: 'a', score: 9 })]);
+  });
+
+  it('a stale item replaced mid-flush does not make the flush report offline when everything else was sent', async () => {
+    let q!: ScoreQueue;
+    const events: QueueEvent[] = [];
+    let first = true;
+    const { api } = fakeApi((c) => {
+      if (c.criterionId === 'a' && first) { first = false; throw new ApiError('unknown', 'HTTP 500'); }
+      if (c.criterionId === 'b') q.enqueue(item('a', 9));
+    });
+    q = new ScoreQueue(api, memoryKV());
+    q.subscribe((e) => events.push(e));
+    q.enqueue(item('a', 1));
+    q.enqueue(item('b', 2));
+    await q.flush();
+    expect(q.pending()).toBe(0); // a=9 was sent in the same flush
+    expect(events.at(-1)).toEqual({ kind: 'saved', pending: 0 });
+  });
+
+  it('a later successful save removes rejected entries for the same criterion, and they can no longer be requeued', async () => {
+    const { api } = fakeApi((c) => { if (c.score === 1) throw new ApiError('invalid', 'bad'); });
+    const ledger = memoryKV();
+    const q = new ScoreQueue(api, memoryKV(), undefined, { rejectedKv: ledger });
+    q.enqueue(item('a', 1));
+    q.enqueue(item('b', 1));
+    await q.flush();
+    const [ra, rb] = q.rejected();
+    expect(q.rejected()).toHaveLength(2);
+    q.enqueue(item('a', 7));
+    await q.flush();
+    expect(q.rejected().map((r) => r.item.criterionId)).toEqual(['b']);
+    expect(q.requeueRejected(ra.id)).toBe(false);
+    expect(q.pending()).toBe(0);
+    expect(new ScoreQueue(api, memoryKV(), undefined, { rejectedKv: ledger }).rejected().map((r) => r.id)).toEqual([rb.id]);
+  });
+});

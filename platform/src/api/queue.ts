@@ -142,7 +142,8 @@ export class ScoreQueue {
 
   /**
    * Moves a rejected entry back to the end of the pending queue. Returns false if there is no such entry, or if a
-   * newer edit for the same criterion is already pending (the old value must not overwrite it).
+   * newer edit for the same criterion is already pending (the old value must not overwrite it). It does not flush:
+   * the caller must call flush() afterwards.
    */
   requeueRejected(id: string): boolean {
     const r = this.ledger.find((x) => x.id === id);
@@ -166,6 +167,7 @@ export class ScoreQueue {
     const next: QueuedScore = { cardId: i.cardId, criterionId: i.criterionId, score: i.score, at: this.clock() };
     if (comment !== undefined) next.comment = comment;
     // Drop every older unsent value for this criterion, but never the one being sent right now.
+    for (const x of this.items) if (same(x) && x !== this.inFlight) { this.attempts.delete(x); this.struggling.delete(x); }
     this.items = this.items.filter((x) => !same(x) || x === this.inFlight);
     this.items.push(next);
     this.persist();
@@ -211,6 +213,7 @@ export class ScoreQueue {
         this.signedOut = false;
         succeeded += 1;
         this.remove(item);
+        this.supersedeRejected(item);
       } catch (e) {
         const code: ApiErrorCode = e instanceof ApiError ? e.code : 'network';
         const message = e instanceof Error ? e.message : String(e);
@@ -242,6 +245,14 @@ export class ScoreQueue {
     }
     // Every attempted item failing with a server error is an outage (502/503/504), not a poisoned item: count nothing.
     // If something else succeeded in this flush, the failures are item-specific and count towards the bound.
+    // Skip anything enqueue() replaced during the flush: its value is stale and must neither be counted nor parked.
+    for (const item of [...skipped]) {
+      if (!this.items.includes(item)) {
+        skipped.delete(item);
+        this.attempts.delete(item);
+        this.struggling.delete(item);
+      }
+    }
     if (succeeded > 0) {
       for (const item of [...skipped]) {
         const n = (this.attempts.get(item) ?? 0) + 1;
@@ -256,6 +267,14 @@ export class ScoreQueue {
     if (skipped.size > 0) return { kind: 'offline', pending: this.items.length, ...(this.lastError ? { lastError: { ...this.lastError } } : {}) };
     this.lastError = undefined;
     return { kind: 'saved', pending: 0 };
+  }
+
+  /** A saved value makes any older rejected value for the same criterion obsolete: requeueing it would overwrite this one. */
+  private supersedeRejected(saved: QueuedScore) {
+    const keep = this.ledger.filter((r) => !(r.item.cardId === saved.cardId && r.item.criterionId === saved.criterionId && r.item.at <= saved.at));
+    if (keep.length === this.ledger.length) return;
+    this.ledger = keep;
+    this.persistLedger();
   }
 
   private reject(item: QueuedScore, code: RejectCode, reason: string, dropped: QueueEvent[]) {
