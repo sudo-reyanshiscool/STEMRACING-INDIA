@@ -1,5 +1,5 @@
 /* Components from the STEM Racing design system (bundle.css), plus the scrutineering rows. */
-.btn { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 12px 24px; border: 2px solid transparent; border-radius: var(--radius-button); font-family: var(--font-display); font-style: italic; font-weight: 500; font-size: 15px; letter-spacing: .06em; line-height: 1.1; text-decoration: none; text-transform: uppercase; cursor: pointer; transition: background-color .2s ease, border-color .2s ease, color .2s ease; }
+.btn { gap: 8px; display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 12px 24px; border: 2px solid transparent; border-radius: var(--radius-button); font-family: var(--font-display); font-style: italic; font-weight: 500; font-size: 15px; letter-spacing: .06em; line-height: 1.1; text-decoration: none; text-transform: uppercase; cursor: pointer; transition: background-color .2s ease, border-color .2s ease, color .2s ease; }
 .btn--small { min-height: 44px; padding: 8px 16px; font-size: 13px; }
 .btn--primary { background: var(--chicane-violet); color: var(--white); }
 .btn--primary:hover { background: var(--ignite-indigo); }

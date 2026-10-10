@@ -6,6 +6,7 @@ import { registerSW } from 'virtual:pwa-register';
 import { openStore, type Store } from './store';
 import type { Ctx } from './ui/ctx';
 import { h } from './ui/dom';
+import { checklistScreen } from './ui/checklist';
 import { eventScreen } from './ui/event';
 import { homeScreen } from './ui/home';
 import { startRouter, type Route } from './ui/router';
@@ -38,6 +39,7 @@ async function boot(): Promise<void> {
       switch (route.name) {
         case 'home': node = await homeScreen(ctx); break;
         case 'event': node = await eventScreen(ctx, route.eventId); break;
+        case 'car': node = await checklistScreen(ctx, route.carId); break;
         default: node = h('p', null, 'This screen is not built yet.');
       }
       main.replaceChildren(node);
