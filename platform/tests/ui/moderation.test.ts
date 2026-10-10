@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ApiError, type Api, type CardRow, type OverrideRow, type TeamRow } from '../../src/api';
 import { INDIA_2026 } from '../../src/rulesets';
 import { buildModeration, moderationScreen } from '../../src/ui/moderation';
-import { EMAILS, makeCtx, text, world } from './helpers';
+import { EMAILS, makeCtx, releaseResults, text, world } from './helpers';
 
 const area = INDIA_2026.areas.find((a) => a.id === 'verbal-technique')!;
 const team = (id: string, number: string): TeamRow => ({ id, eventId: 'e', number, name: `T${number}`, school: '' });
@@ -186,7 +186,7 @@ describe('moderationScreen', () => {
     const { api, ev, t1 } = await world();
     await submitOne(api, ev.id, t1.id);
     await api.signIn(EMAILS.chair);
-    await api.setReleased(ev.id, true);
+    await releaseResults(api, ev.id);
     const { ctx } = makeCtx(api);
     const el = await moderationScreen(ctx, ev.id);
     expect(text(el)).toContain('Results are released');
@@ -201,7 +201,7 @@ describe('moderationScreen', () => {
     await api.signIn(EMAILS.chair);
     const { ctx } = makeCtx(api);
     const el = await moderationScreen(ctx, ev.id);
-    await api.setReleased(ev.id, true);
+    await releaseResults(api, ev.id);
     setOverride(overrideForm(el), '30', 'Panel agreed');
     await wait();
     expect(alertText(el)).toContain('Withdraw the release to change this');
@@ -342,7 +342,7 @@ describe('removing an override', () => {
 
   it('is not offered while results are released', async () => {
     const { api, ev, el } = await setup();
-    await api.setReleased(ev.id, true);
+    await releaseResults(api, ev.id);
     const sel = el.querySelector('select[name=area]') as HTMLSelectElement;
     sel.dispatchEvent(new Event('change'));
     await wait();

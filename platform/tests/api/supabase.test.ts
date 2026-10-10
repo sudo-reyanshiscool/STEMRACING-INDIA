@@ -196,9 +196,26 @@ describe('events and invitations', () => {
     await expect(api.declareConflict('e', 't')).resolves.toBeUndefined();
   });
 
-  it('releasing results with no row updated is forbidden', async () => {
-    const { api } = fake(() => ({ data: [] }));
-    expect(await fail(api.setReleased('e', true))).toBe('forbidden');
+  it('releases and withdraws through the server functions, never by updating the column', async () => {
+    const rel = fake(() => ({ data: null }));
+    await rel.api.setReleased('e', true);
+    expect(rel.calls[0]).toMatchObject({ kind: 'rpc', name: 'release_results', args: { p_event: 'e' } });
+    const wd = fake(() => ({ data: null }));
+    await wd.api.setReleased('e', false);
+    expect(wd.calls[0]).toMatchObject({ kind: 'rpc', name: 'withdraw_results', args: { p_event: 'e' } });
+  });
+
+  it('maps a refused release: not the Chair is forbidden, an out-of-date ranking is locked with fixed text', async () => {
+    const no = fake(() => ({ error: { message: 'only the Chair can release results', code: '42501' } }));
+    expect(await fail(no.api.setReleased('e', true))).toBe('forbidden');
+    const old = fake(() => ({ error: { message: 'the published ranking is out of date; publish it again before releasing', code: '55000' } }));
+    try { await old.api.setReleased('e', true); throw new Error('expected a refusal'); } catch (e) {
+      expect(e).toBeInstanceOf(ApiError);
+      expect((e as ApiError).code).toBe('locked');
+      expect((e as ApiError).message).toBe('The published ranking is out of date. Publish it again before releasing.');
+    }
+    const none = fake(() => ({ error: { message: 'publish a ranking before releasing it', code: '55000' } }));
+    expect(await fail(none.api.setReleased('e', true))).toBe('locked');
   });
 
   it('turns a thrown network failure into a network error', async () => {

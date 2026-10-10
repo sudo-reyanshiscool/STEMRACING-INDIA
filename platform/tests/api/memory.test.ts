@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ApiError, MemoryApi } from '../../src/api';
+import { releaseResults } from '../ui/helpers';
 
 const ORG = 'org@x.test';
 const CHAIR = 'chair@x.test';
@@ -138,7 +139,7 @@ describe('scorecards', () => {
     await api.signIn(MGR);
     expect(await api.listCards(ev.id)).toEqual([]);
     await api.signIn(CHAIR);
-    await api.setReleased(ev.id, true);
+    await releaseResults(api, ev.id);
     await api.signIn(MGR);
     expect(await api.listCards(ev.id)).toEqual([]); // drafts are never shown to a team manager
     await api.signOut();
@@ -265,7 +266,7 @@ describe('judging details', () => {
     await api.declareConflict(ev.id, t2.id); // another team is still open
     expect(await api.myConflicts(ev.id)).toEqual([t2.id]);
     await api.signIn(CHAIR);
-    await api.setReleased(ev.id, true);
+    await releaseResults(api, ev.id);
     await api.signIn(JUDGE);
     const other = ev.id;
     expect(await code(api.declareConflict(other, t2.id))).toBe('locked');
@@ -301,7 +302,7 @@ describe('judging details', () => {
     await api.signIn(ORG);
     expect(await code(api.removeOverride(ev.id, t1.id, 'pit-display'))).toBe('forbidden');
     await api.signIn(CHAIR);
-    await api.setReleased(ev.id, true);
+    await releaseResults(api, ev.id);
     expect(await code(api.removeOverride(ev.id, t1.id, 'pit-display'))).toBe('locked');
     await api.setReleased(ev.id, false);
     await api.removeOverride(ev.id, t1.id, 'pit-display');
@@ -336,7 +337,7 @@ describe('release freezes judging and results', () => {
     const done = await submitFor(api, ev.id, t2.id);
     await api.signIn(CHAIR);
     await api.setOverride(ev.id, t1.id, 'de-portfolio', 100, 'Moderated');
-    await api.setReleased(ev.id, true);
+    await releaseResults(api, ev.id);
 
     await api.signIn(JUDGE);
     expect(await code(api.saveScore(draft.id, 'team-contribution', 3))).toBe('locked');
@@ -356,6 +357,59 @@ describe('release freezes judging and results', () => {
   });
 });
 
+describe('releasing needs a matching published ranking', () => {
+  const publish = async (api: MemoryApi, evId: string) => api.publishSnapshot(evId, { rulesetId: RULESET, inputHash: HASH, inputs: { cards: [] }, rows: [] });
+
+  it('refuses without a snapshot, and for anyone but the Chair', async () => {
+    const { api, ev } = await world();
+    await api.signIn(CHAIR);
+    expect(await code(api.setReleased(ev.id, true))).toBe('locked');
+    await publish(api, ev.id);
+    await api.signIn(ORG);
+    expect(await code(api.setReleased(ev.id, true))).toBe('forbidden');
+    await api.signIn(JUDGE);
+    expect(await code(api.setReleased(ev.id, true))).toBe('forbidden');
+    await api.signIn(CHAIR);
+    await api.setReleased(ev.id, true);
+    expect((await api.getEvent(ev.id))!.resultsReleased).toBe(true);
+    await api.signIn(ORG);
+    expect(await code(api.setReleased(ev.id, false))).toBe('forbidden');
+  });
+
+  it('goes out of date when a card is submitted, an override or penalty changes, or a card is reopened', async () => {
+    const { api, ev, t1, t2 } = await world();
+    await api.signIn(JUDGE);
+    const card = await api.openCard(ev.id, t1.id, 'verbal-technique');
+    await fillTechnique(api, card.id);
+    await api.submitCard(card.id);
+    await api.signIn(CHAIR);
+    await publish(api, ev.id);
+    await api.setOverride(ev.id, t2.id, 'pit-display', 20, 'Cross-moderated');
+    expect(await code(api.setReleased(ev.id, true))).toBe('locked');
+    await publish(api, ev.id);
+    await api.addPenalty(ev.id, t1.id, 5, 'Unsuccessful appeal');
+    expect(await code(api.setReleased(ev.id, true))).toBe('locked');
+    await publish(api, ev.id);
+    await api.reopenCard(card.id, 'Judge asked to fix a typo');
+    expect(await code(api.setReleased(ev.id, true))).toBe('locked');
+    await publish(api, ev.id);
+    await api.setReleased(ev.id, true);
+    // Withdrawing and releasing the same ranking again is fine: nothing changed.
+    await api.setReleased(ev.id, false);
+    await api.setReleased(ev.id, true);
+  });
+
+  it('refuses to release a snapshot made before a removal as well', async () => {
+    const { api, ev, t1 } = await world();
+    await api.signIn(CHAIR);
+    await api.addPenalty(ev.id, t1.id, 5, 'Unsuccessful appeal');
+    await publish(api, ev.id);
+    const [p] = await api.listPenalties(ev.id);
+    await api.removePenalty(p.id);
+    expect(await code(api.setReleased(ev.id, true))).toBe('locked');
+  });
+});
+
 describe('visibility after release', () => {
   it('shows a team manager only the submitted cards of their own team', async () => {
     const { api, ev, t1, t2 } = await world();
@@ -363,7 +417,7 @@ describe('visibility after release', () => {
     await api.openCard(ev.id, t1.id, 'verbal-technique'); // stays a draft
     await submitFor(api, ev.id, t2.id);
     await api.signIn(CHAIR);
-    await api.setReleased(ev.id, true);
+    await releaseResults(api, ev.id);
     await api.signIn(MGR);
     expect(await api.listCards(ev.id)).toEqual([]);
     await api.signIn(JUDGE);
@@ -378,7 +432,7 @@ describe('visibility after release', () => {
     await api.signIn(MGR);
     expect(await api.listPenalties(ev.id)).toEqual([]);
     await api.signIn(CHAIR);
-    await api.setReleased(ev.id, true);
+    await releaseResults(api, ev.id);
     await api.signIn(MGR);
     expect((await api.listPenalties(ev.id)).map((p) => p.teamId)).toEqual([t1.id]);
     expect(await api.listOverrides(ev.id)).toEqual([]);
@@ -432,7 +486,7 @@ describe('snapshots', () => {
     await api.signIn(ORG);
     expect(await api.getSnapshotInputs(snap.id)).toEqual(secret);
     await api.signIn(CHAIR);
-    await api.setReleased(ev.id, true);
+    await releaseResults(api, ev.id);
     for (const who of [JUDGE, MGR]) {
       await api.signIn(who);
       expect(Object.keys((await api.latestSnapshot(ev.id))!)).not.toContain('inputs');
@@ -489,7 +543,7 @@ describe('removePenalty', () => {
     expect(await code(api.removePenalty(p.id))).toBe('forbidden');
     await api.signIn(CHAIR);
     expect(await code(api.removePenalty('penalty-nope'))).toBe('forbidden');
-    await api.setReleased(ev.id, true);
+    await releaseResults(api, ev.id);
     expect(await code(api.removePenalty(p.id))).toBe('locked');
     await api.setReleased(ev.id, false);
     await api.removePenalty(p.id);

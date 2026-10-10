@@ -74,7 +74,126 @@ describe('I3: removing an override', () => {
     }
     await as(w.db, 'chair', (q) => q('delete from score_overrides where team_id = $1', [w.team1]));
     expect(await count()).toBe(0);
-    const audit = await w.db.query(`select action from audit_log where entity = 'score_overrides' and action = 'delete'`);
+    const audit = await w.db.query<{ action: string; actor: string }>(`select action from audit_log where entity = 'score_overrides' and action = 'delete'`);
     expect(audit.rows.length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('I4: releasing is checked on the server', () => {
+  const HASH = 'c'.repeat(64);
+  /** The inputs the client would publish: what is counted right now. */
+  const currentInputs = async () => {
+    const q = (sql: string) => w.db.query(sql, [w.eventId]).then((r) => r.rows);
+    return {
+      teams: await q('select id from teams where event_id = $1'),
+      cards: await q(`select team_id, area_id, judge_id from scorecards where event_id = $1 and status = 'submitted'`),
+      overrides: await q('select team_id, area_id, value from score_overrides where event_id = $1'),
+      penalties: await q('select team_id, points from penalties where event_id = $1'),
+    };
+  };
+  const publish = async (released = true) => {
+    const inputs = await currentInputs();
+    return as(w.db, 'chair', (q) => q('insert into ranking_snapshots(event_id, ruleset_id, input_hash, inputs, rows, released) values ($1, $2, $3, $4::jsonb, $5::jsonb, $6) returning id',
+      [w.eventId, 'india-national-finals-2026', HASH, JSON.stringify(inputs), '[]', released]));
+  };
+  const release = (who: Who | null) => as(w.db, who, (q) => q('select release_results($1)', [w.eventId]));
+  const withdraw = (who: Who | null) => as(w.db, who, (q) => q('select withdraw_results($1)', [w.eventId]));
+  const released = async () => (await w.db.query<{ r: boolean }>('select results_released as r from events where id = $1', [w.eventId])).rows[0].r;
+  const reset = () => setReleasedRaw(false);
+
+  it('denies setting results_released directly, for the Chair and Organiser too, but not renaming', async () => {
+    for (const who of ['chair', 'organiser', 'judgeV', 'mgr1'] as const) {
+      await expect(as(w.db, who, (q) => q('update events set results_released = true where id = $1', [w.eventId])), who).rejects.toThrow(/permission denied/);
+    }
+    await expect(as(w.db, 'chair', (q) => q('update events set results_released = false where id = $1', [w.eventId]))).rejects.toThrow(/permission denied/);
+    await as(w.db, 'chair', (q) => q(`update events set name = 'Renamed event' where id = $1`, [w.eventId]));
+    expect(await released()).toBe(false);
+  });
+
+  it('refuses to release without a published ranking', async () => {
+    await expect(release('chair')).rejects.toMatchObject({ code: '55000' });
+    await expect(release('chair')).rejects.toThrow(/publish/i);
+    expect(await released()).toBe(false);
+  });
+
+  it('releases when the latest snapshot matches the current inputs, audits it, and withdraws on request', async () => {
+    const card = await makeCard('judgeD', w.team2, 'de-portfolio');
+    for (const c of ['design-concepts', '3d-modelling', 'computer-aided-analysis', 'cam-cnc', 'manufacturing-assembly', 'research-development', 'testing', 'design-process-evaluation', 'document-presentation']) {
+      await as(w.db, 'judgeD', (q) => q('insert into scorecard_scores(scorecard_id, criterion_id, score) values ($1, $2, 15)', [card, c]));
+    }
+    await submit('judgeD', card);
+    await publish();
+    await release('chair');
+    expect(await released()).toBe(true);
+    const audit = await w.db.query<{ action: string; actor: string }>(`select action, actor from audit_log where entity = 'events' and entity_id = $1 order by id desc limit 1`, [w.eventId]);
+    expect(audit.rows[0].actor).toBe(ids.chair);
+    await release('chair'); // idempotent
+    expect(await withdraw('chair')).toBeDefined();
+    expect(await released()).toBe(false);
+  });
+
+  it('refuses non-Chairs and anonymous callers, for both functions', async () => {
+    await publish();
+    for (const who of ['organiser', 'judgeV', 'leadV', 'mgr1', 'outsider'] as const) {
+      await expect(release(who), who).rejects.toThrow(/permission|only the Chair/i);
+    }
+    await expect(release(null)).rejects.toThrow(/permission denied/);
+    await expect(withdraw(null)).rejects.toThrow(/permission denied/);
+    await setReleasedRaw(true);
+    try {
+      for (const who of ['organiser', 'judgeV', 'mgr1'] as const) await expect(withdraw(who), who).rejects.toThrow(/permission|only the Chair/i);
+      expect(await released()).toBe(true);
+    } finally {
+      await reset();
+    }
+  });
+
+  it('refuses a release when anything changed after the snapshot: a new override, a submitted card, a removed penalty, a reopened card', async () => {
+    await publish();
+    await as(w.db, 'chair', (q) => q(`insert into score_overrides(event_id, team_id, area_id, value, reason) values ($1, $2, 'pit-display', 20, 'Cross-moderated')`, [w.eventId, w.team2]));
+    await expect(release('chair')).rejects.toMatchObject({ code: '55000' });
+    await expect(release('chair')).rejects.toThrow(/out of date/);
+    await publish();
+    await release('chair');
+    await reset();
+
+    const pid = (await as(w.db, 'chair', (q) => q(`insert into penalties(event_id, team_id, points, reason) values ($1, $2, 5, 'Unsuccessful appeal') returning id`, [w.eventId, w.team2]))).rows[0].id;
+    await publish();
+    await as(w.db, 'chair', (q) => q('delete from penalties where id = $1', [pid]));
+    await expect(release('chair')).rejects.toThrow(/out of date/); // a deletion leaves no later timestamp: the counts catch it
+    await publish();
+
+    const card = await makeCard('judgeV', w.team1, 'verbal-composition');
+    for (const c of ['content-quality', 'time-clarity-structure']) {
+      await as(w.db, 'judgeV', (q) => q('insert into scorecard_scores(scorecard_id, criterion_id, score) values ($1, $2, 10)', [card, c]));
+    }
+    await submit('judgeV', card);
+    await expect(release('chair')).rejects.toThrow(/out of date/);
+    await publish();
+    await as(w.db, 'chair', (q) => q('select reopen_scorecard($1, $2)', [card, 'Judge asked to fix a typo']));
+    await expect(release('chair')).rejects.toThrow(/out of date/);
+    await publish();
+    await release('chair');
+    await reset();
+  });
+
+  it('exposes the two functions to authenticated only, pinned to a search_path, and has the guards take the event lock', async () => {
+    const f = await w.db.query<{ proname: string; anon: boolean; auth: boolean; pub: boolean; def: boolean; cfg: string[] }>(
+      `select p.proname, prosecdef as def, proconfig as cfg,
+              has_function_privilege('anon', p.oid, 'execute') as anon, has_function_privilege('authenticated', p.oid, 'execute') as auth,
+              exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a where a.grantee = 0 and a.privilege_type = 'EXECUTE') as pub
+       from pg_proc p where p.proname in ('release_results', 'withdraw_results') order by 1`);
+    expect(f.rows.map((r) => r.proname)).toEqual(['release_results', 'withdraw_results']);
+    for (const r of f.rows) {
+      expect({ anon: r.anon, auth: r.auth, pub: r.pub, def: r.def }, r.proname).toEqual({ anon: false, auth: true, pub: false, def: true });
+      expect(r.cfg).toContain('search_path=public, pg_temp');
+    }
+    const guards = await w.db.query<{ proname: string; src: string }>(
+      `select proname, prosrc as src from pg_proc where proname in ('scorecards_fill', 'scorecards_guard', 'scorecards_delete_guard', 'scores_guard', 'scores_delete_guard', 'overrides_guard', 'penalties_guard')`);
+    expect(guards.rows).toHaveLength(7);
+    for (const g of guards.rows) expect(g.src, g.proname).toContain('event_released_locked');
+    const helper = await w.db.query<{ src: string; vol: string }>(`select prosrc as src, provolatile as vol from pg_proc where proname = 'event_released_locked'`);
+    expect(helper.rows[0].src).toMatch(/for share/i);
+    expect(helper.rows[0].vol).toBe('v');
   });
 });

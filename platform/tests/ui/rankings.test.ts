@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError, type Api, type CardRow, type OverrideRow } from '../../src/api';
 import { rankingsScreen } from '../../src/ui/rankings';
-import { EMAILS, makeCtx, text, world } from './helpers';
+import { EMAILS, makeCtx, releaseResults, text, world } from './helpers';
 
 type World = Awaited<ReturnType<typeof world>>;
 const wait = () => new Promise((r) => setTimeout(r, 0));
@@ -220,7 +220,7 @@ describe('rankingsScreen', () => {
     const { api, ev, t1 } = await world();
     await scoreTeam(api, ev.id, t1.id, 14, 12);
     await api.signIn(EMAILS.chair);
-    await api.setReleased(ev.id, true);
+    await releaseResults(api, ev.id);
     const { ctx } = makeCtx(api);
     const el = await rankingsScreen(ctx, ev.id);
     expect(text(el)).toContain('Results are released');
@@ -236,7 +236,7 @@ describe('rankingsScreen', () => {
     await api.signIn(EMAILS.chair);
     const { ctx } = makeCtx(api);
     const el = await rankingsScreen(ctx, ev.id);
-    await api.setReleased(ev.id, true);
+    await releaseResults(api, ev.id);
     setPenalty(el, { team: t1.id, points: '15', reason: 'Unsuccessful appeal' });
     await wait();
     expect(alertText(el)).toContain('Withdraw the release to change this');
@@ -329,7 +329,7 @@ describe('rankingsScreen', () => {
     const { ctx } = makeCtx(api);
     const el = await rankingsScreen(ctx, ev.id);
     button(el, 'Remove penalty').click();
-    await api.setReleased(ev.id, true);
+    await releaseResults(api, ev.id);
     button(el, 'Confirm: remove this penalty').click();
     await vi.waitFor(() => expect(alertText(el)).toContain('Withdraw the release to change this'));
     await vi.waitFor(() => expect(button(el, 'Remove penalty')).toBeUndefined());
@@ -429,5 +429,25 @@ describe('rankingsScreen after an override is removed', () => {
     el = await rankingsScreen(makeCtx(api).ctx, ev.id);
     expect(text(el)).not.toContain('matches the ranking above');
     expect(text(el)).toContain('out of date');
+  });
+});
+
+describe('rankingsScreen when the server refuses a release', () => {
+  it('explains an out-of-date refusal in words and refreshes, instead of the released-results text', async () => {
+    const { api, ev, t1 } = await world();
+    await scoreTeam(api, ev.id, t1.id, 14, 12);
+    await api.signIn(EMAILS.chair);
+    const refusing = wrap(api, { setReleased: async () => { throw new ApiError('locked', 'The published ranking is out of date. Publish it again before releasing.'); } });
+    const { ctx } = makeCtx(refusing);
+    let el = await rankingsScreen(ctx, ev.id);
+    button(el, 'Publish ranking').click();
+    await wait(); await wait();
+    el = await rankingsScreen(makeCtx(refusing).ctx, ev.id);
+    button(el, 'Release results to teams and the public').click();
+    await wait(); await wait();
+    const t = alertText(el);
+    expect(t).toContain('out of date');
+    expect(t).not.toContain('Results are released, so');
+    expect((await api.getEvent(ev.id))!.resultsReleased).toBe(false);
   });
 });

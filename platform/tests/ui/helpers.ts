@@ -1,4 +1,5 @@
 import { vi } from 'vitest';
+import type { RankRow } from '../../src/engine';
 import { MemoryApi, ScoreQueue, memoryKV, type Api } from '../../src/api';
 import type { Ctx } from '../../src/ui/ctx';
 
@@ -34,3 +35,28 @@ export function makeCtx(api: Api, queueApi: Pick<Api, 'saveScore'> = api) {
 }
 
 export const text = (el: Element) => el.textContent ?? '';
+
+/**
+ * Releases results as the Chair, the way the server demands: the latest published ranking must match what is counted.
+ * If it does not (or none exists) a snapshot of the current inputs is published first. Restores whoever was signed in.
+ */
+export async function releaseResults(api: MemoryApi, eventId: string, rows: RankRow[] = []) {
+  const before = await api.getSession();
+  await api.signIn(EMAILS.chair);
+  try {
+    await api.setReleased(eventId, true);
+  } catch {
+    const [teams, cards, overrides, penalties, event] = await Promise.all([
+      api.listTeams(eventId), api.listCards(eventId), api.listOverrides(eventId), api.listPenalties(eventId), api.getEvent(eventId),
+    ]);
+    const inputs = {
+      teams: teams.map((t) => ({ id: t.id, number: t.number, name: t.name })),
+      cards: cards.filter((c) => c.status === 'submitted').map((c) => ({ teamId: c.teamId, areaId: c.areaId, judgeId: c.judgeId, scores: c.scores })),
+      overrides: overrides.map((o) => ({ teamId: o.teamId, areaId: o.areaId, value: o.value })),
+      penalties: penalties.map((p) => ({ teamId: p.teamId, points: p.points })),
+    };
+    await api.publishSnapshot(eventId, { rulesetId: event!.ruleset.id, inputHash: 'a'.repeat(64), inputs, rows });
+    await api.setReleased(eventId, true);
+  }
+  if (before) await api.signIn(before.email);
+}

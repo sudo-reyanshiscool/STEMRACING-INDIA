@@ -46,6 +46,8 @@ const SNAPSHOT_COLS = 'id,event_id,created_at,ruleset_id,input_hash,rows,release
 export const PAGE_SIZE = 1000;
 
 const EMAIL = /^[^@\s]+@[^@\s]+$/;
+/** Fixed text for the server's refusal to release a ranking that no longer matches what is counted. */
+export const OUT_OF_DATE = 'The published ranking is out of date. Publish it again before releasing.';
 const FORBIDDEN = 'You do not have permission to do that';
 
 /** `client` lets tests pass an already signed-in client; the app passes none and gets a persistent-session client. */
@@ -145,8 +147,15 @@ export function createApiFromClient(sb: SupabaseClient, options: SupabaseApiOpti
       return row ? toEventRow(row) : null;
     },
     async setReleased(eventId, released) {
-      const rows = ok(await guard(() => sb.from('events').update({ results_released: released }).eq('id', eventId).select('id'))) as unknown[];
-      if (rows.length === 0) throw new ApiError('forbidden', FORBIDDEN);
+      // The database decides: release_results() checks the latest snapshot against what is counted, and the Chair's
+      // direct update of results_released is not granted at all.
+      try {
+        if (released) ok(await guard(() => sb.rpc('release_results', { p_event: eventId })));
+        else ok(await guard(() => sb.rpc('withdraw_results', { p_event: eventId })));
+      } catch (e) {
+        if (e instanceof ApiError && e.code === 'locked' && /out of date/i.test(e.message)) throw new ApiError('locked', OUT_OF_DATE);
+        throw e;
+      }
     },
 
     async myRoles(eventId) {

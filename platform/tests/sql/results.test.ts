@@ -12,7 +12,8 @@ const setOverride = (who: Who, team: string, area: string, value: number, reason
   as(w.db, who, (q) => q('insert into score_overrides(event_id, team_id, area_id, value, reason) values ($1, $2, $3, $4, $5) on conflict (event_id, team_id, area_id) do update set value = excluded.value, reason = excluded.reason returning value', [w.eventId, team, area, value, reason]));
 const snapshot = (who: Who, released = true, hash = HASH) =>
   as(w.db, who, (q) => q('insert into ranking_snapshots(event_id, ruleset_id, input_hash, inputs, rows, released) values ($1, $2, $3, $4::jsonb, $5::jsonb, $6) returning id', [w.eventId, 'india-national-finals-2026', hash, '{"cards":[]}', '[{"rank":1,"teamId":"t","total":1}]', released]));
-const release = (on: boolean) => as(w.db, 'chair', (q) => q('update events set results_released = $2 where id = $1', [w.eventId, on]));
+// Releasing through release_results() needs a matching snapshot; these tests are about what release does, so set the flag as the superuser.
+const release = (on: boolean) => w.db.query('update events set results_released = $2 where id = $1', [w.eventId, on]);
 
 describe('score overrides', () => {
   it('lets the Chair set and change an override within the area maximum, with a reason', async () => {

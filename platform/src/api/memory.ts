@@ -33,6 +33,13 @@ export class MemoryApi implements Api {
   private overrides: OverrideRow[] = [];
   private penalties: PenaltyRow[] = [];
   private snapshots: SnapshotRow[] = [];
+  /**
+   * Counts every change to what a ranking counts (card submitted or reopened, override set or removed, penalty added or
+   * removed, team added). A snapshot remembers the value it was published at: the database compares timestamps and counts
+   * to the same end (release_results()).
+   */
+  private version = 0;
+  private snapshotVersion = new Map<string, number>();
   /** Snapshot inputs live apart from the rows so no read path can leak them by accident. */
   private snapshotInputs = new Map<string, unknown>();
 
@@ -119,7 +126,19 @@ export class MemoryApi implements Api {
   }
   async setReleased(eventId: string, released: boolean) {
     this.require(eventId, 'chair', 'organiser');
-    this.eventOrThrow(eventId).resultsReleased = released;
+    this.require(eventId, 'chair'); // release_results() and withdraw_results() are the Chair's alone
+    const ev = this.eventOrThrow(eventId);
+    if (!released) {
+      ev.resultsReleased = false;
+      return;
+    }
+    if (ev.resultsReleased) return;
+    const latest = this.snapshots.filter((s) => s.eventId === eventId).at(-1);
+    if (!latest || !latest.released) throw new ApiError('locked', 'Publish a ranking before releasing it');
+    if (this.snapshotVersion.get(latest.id) !== this.version) {
+      throw new ApiError('locked', 'The published ranking is out of date. Publish it again before releasing.');
+    }
+    ev.resultsReleased = true;
   }
 
   // ---- roles and invitations
@@ -181,6 +200,7 @@ export class MemoryApi implements Api {
     }
     const team: TeamRow = { id: nid('team'), eventId, number, name, school };
     this.teams.push(team);
+    this.version += 1;
     return copy(team);
   }
 
@@ -255,6 +275,7 @@ export class MemoryApi implements Api {
     const problems = validateScores(area, card.scores, { complete: true });
     if (problems.length > 0) throw new ApiError('invalid', problems[0].message);
     card.status = 'submitted';
+    this.version += 1;
   }
   async reopenCard(cardId: string, reason: string) {
     const card = this.cards.find((c) => c.id === cardId);
@@ -265,6 +286,7 @@ export class MemoryApi implements Api {
     if (card.status !== 'submitted') throw new ApiError('locked', 'That scorecard is not submitted');
     card.status = 'draft';
     card.reopenedCount += 1;
+    this.version += 1;
   }
   async listCards(eventId: string) {
     if (!this.me) return [];
@@ -298,6 +320,7 @@ export class MemoryApi implements Api {
     const existing = this.overrides.find((o) => o.eventId === eventId && o.teamId === teamId && o.areaId === areaId);
     if (existing) { existing.value = v; existing.reason = why; }
     else this.overrides.push({ eventId, teamId, areaId, value: v, reason: why });
+    this.version += 1;
   }
   async removeOverride(eventId: string, teamId: string, areaId: string) {
     const o = this.overrides.find((x) => x.eventId === eventId && x.teamId === teamId && x.areaId === areaId);
@@ -305,6 +328,7 @@ export class MemoryApi implements Api {
     if (!o || !this.has(eventId, 'chair')) throw new ApiError('forbidden', 'You do not have permission to do that');
     this.frozen(eventId, 'overrides');
     this.overrides = this.overrides.filter((x) => x !== o);
+    this.version += 1;
   }
   async listPenalties(eventId: string) {
     if (this.has(eventId, 'chair', 'organiser')) return copy(this.penalties.filter((p) => p.eventId === eventId));
@@ -321,6 +345,7 @@ export class MemoryApi implements Api {
     if (why.length < 3) throw new ApiError('invalid', 'A reason is required');
     this.teamOrThrow(eventId, teamId);
     this.penalties.push({ id: nid('penalty'), eventId, teamId, points: Math.round(points * 10) / 10, reason: why });
+    this.version += 1;
   }
   async removePenalty(penaltyId: string) {
     const p = this.penalties.find((x) => x.id === penaltyId);
@@ -328,6 +353,7 @@ export class MemoryApi implements Api {
     if (!p || !this.has(p.eventId, 'chair')) throw new ApiError('forbidden', 'You do not have permission to do that');
     this.frozen(p.eventId, 'penalties');
     this.penalties = this.penalties.filter((x) => x.id !== penaltyId);
+    this.version += 1;
   }
   async publishSnapshot(eventId: string, s: NewSnapshot) {
     this.require(eventId, 'chair');
@@ -341,6 +367,7 @@ export class MemoryApi implements Api {
       inputHash: s.inputHash, rows: copy(s.rows), released: s.released ?? true,
     };
     this.snapshots.push(row);
+    this.snapshotVersion.set(row.id, this.version);
     this.snapshotInputs.set(row.id, copy(s.inputs));
     return copy(row);
   }

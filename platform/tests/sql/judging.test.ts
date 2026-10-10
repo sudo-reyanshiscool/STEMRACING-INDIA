@@ -210,13 +210,13 @@ describe('who can read a scorecard', () => {
       scores: (await q('select scorecard_id from scorecard_scores where scorecard_id = any($1)', [[c.id, other.id]])).rows,
     }));
     expect(await read()).toEqual({ cards: [], scores: [] });
-    await as(w.db, 'chair', (q) => q('update events set results_released = true where id = $1', [w.eventId]));
+    await w.db.query('update events set results_released = true where id = $1', [w.eventId]);
     try {
       const after = await read();
       expect(after.cards).toEqual([{ id: c.id }]);
       expect(after.scores).toEqual(crits.map(() => ({ scorecard_id: c.id })));
     } finally {
-      await as(w.db, 'chair', (q) => q('update events set results_released = false where id = $1', [w.eventId]));
+      await w.db.query('update events set results_released = false where id = $1', [w.eventId]);
     }
     expect(await read()).toEqual({ cards: [], scores: [] });
   });
@@ -326,7 +326,7 @@ describe('hardening', () => {
 });
 
 
-const setRelease = (v: boolean) => as(w.db, 'chair', (q) => q('update events set results_released = $2 where id = $1', [w.eventId, v]));
+const setRelease = (v: boolean) => w.db.query('update events set results_released = $2 where id = $1', [w.eventId, v]);
 
 describe('released results (review fixes)', () => {
   it('never shows a team manager a draft card or its scores, even after release', async () => {

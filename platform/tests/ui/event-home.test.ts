@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import { eventHomeScreen } from '../../src/ui/event-home';
-import { EMAILS, makeCtx, text, world } from './helpers';
+import { EMAILS, makeCtx, releaseResults, text, world } from './helpers';
 
 const tiles = async (email: string | null) => {
   const { api, ev } = await world();
@@ -26,7 +26,7 @@ describe('eventHomeScreen', () => {
     await api.signOut();
     expect(text(await eventHomeScreen(ctx, ev.id))).toContain('not found');
     await api.signIn(EMAILS.chair);
-    await api.setReleased(ev.id, true);
+    await releaseResults(api, ev.id);
     await api.signOut();
     const el = await eventHomeScreen(ctx, ev.id);
     expect([...el.querySelectorAll('a.tile h3')].map(text)).toEqual(['Results']);
@@ -48,7 +48,7 @@ describe('eventHomeScreen', () => {
     const hrefs = [...el.querySelectorAll('a.tile')].map((a) => a.getAttribute('href'));
     expect(hrefs).toEqual(['teams', 'people', 'rankings', 'results'].map((s) => `#/event/${ev.id}/${s}`));
     expect(text(el)).toContain('Not released yet');
-    await api.setReleased(ev.id, true);
+    await releaseResults(api, ev.id);
     expect(text(await eventHomeScreen(ctx, ev.id))).toContain('Results released');
   });
 

@@ -153,10 +153,19 @@ describe.skipIf(!run)('local Supabase smoke test', () => {
       const snap = await chair.publishSnapshot(ev.id, { rulesetId: ev.ruleset.id, inputHash: hash, inputs, rows: ranking.rows, released });
       return { snap, inputs, ranking, hash };
     };
-    const first = await publish(true);
+    let first = await publish(true);
     expect(first.ranking.rows.find((r) => r.teamId === t1.id)!.total).toBe(27 - 15);
     expect(first.snap.inputHash).toBe(first.hash);
     expect(Object.keys(first.snap)).not.toContain('inputs');
+
+    // Release is decided by the server: a direct update is not granted, and a ranking that is out of date is refused.
+    const direct = await clients[emails.chair].from('events').update({ results_released: true }).eq('id', ev.id).select('id');
+    expect(direct.error?.code).toBe('42501');
+    await chair.setOverride(ev.id, t2.id, 'pit-display', 42, 'Late correction');
+    expect(await code(chair.setReleased(ev.id, true))).toBe('locked');
+    expect(await code(org.setReleased(ev.id, true))).toBe('forbidden');
+    first = await publish(true);
+    expect(first.ranking.rows.find((r) => r.teamId === t1.id)!.total).toBe(27 - 15);
 
     // Not released yet: the public sees nothing, the team manager sees no cards.
     expect(await anon.latestSnapshot(ev.id)).toBeNull();

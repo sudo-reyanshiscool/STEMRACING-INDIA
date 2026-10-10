@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../src/api';
 import { parseScore, scorecardScreen } from '../../src/ui/scorecard';
-import { EMAILS, makeCtx, text, world } from './helpers';
+import { EMAILS, makeCtx, releaseResults, text, world } from './helpers';
 
 const ENGAGE = 'Engagement & Presentation Dynamics';
 const TEAM = 'Team Contribution';
@@ -286,7 +286,7 @@ describe('scorecardScreen', () => {
     const card = await api.openCard(ev.id, t1.id, 'verbal-technique');
     await api.saveScore(card.id, 'team-contribution', 12);
     await api.signIn(EMAILS.org);
-    await api.setReleased(ev.id, true);
+    await releaseResults(api, ev.id);
     await api.signIn(EMAILS.judge);
     const el = await scorecardScreen(ctx, ev.id, t1.id, 'verbal-technique');
     expect(text(el)).toContain('Results are released');

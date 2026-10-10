@@ -38,12 +38,17 @@ describe('events', () => {
   });
 
   it('freezes the pinned ruleset', async () => {
-    await expect(as(w.db, 'organiser', (q) => q(`update events set ruleset = '{"areas":[]}'::jsonb where id = $1`, [w.eventId]))).rejects.toThrow(/ruleset/);
+    // The API roles no longer have the column at all (0004); the trigger still holds against a privileged session.
+    await expect(as(w.db, 'organiser', (q) => q(`update events set ruleset = '{"areas":[]}'::jsonb where id = $1`, [w.eventId]))).rejects.toThrow(/permission denied/);
+    await expect(w.db.query(`update events set ruleset = '{"areas":[]}'::jsonb where id = $1`, [w.eventId])).rejects.toThrow(/ruleset/);
   });
 
-  it('lets only the Chair or Organiser release results, and hides them again when withdrawn', async () => {
+  it('releases only through the Chair-only functions, and hides results again when withdrawn', async () => {
     await denied(as(w.db, 'judgeV', (q) => q('update events set results_released = true where id = $1', [w.eventId])));
-    await as(w.db, 'chair', (q) => q('update events set results_released = true where id = $1', [w.eventId]));
+    await denied(as(w.db, 'organiser', (q) => q('update events set results_released = true where id = $1', [w.eventId])));
+    // A matching published snapshot is what release_results() needs (it is exercised in full in final.test.ts).
+    await as(w.db, 'chair', (q) => q(`insert into ranking_snapshots(event_id, ruleset_id, input_hash, inputs, rows) values ($1, 'india-national-finals-2026', $2, '{}', '[]')`, [w.eventId, 'd'.repeat(64)]));
+    await as(w.db, 'chair', (q) => q('select release_results($1)', [w.eventId]));
     try {
       for (const who of ['outsider', null] as const) {
         const ev = await as(w.db, who, async (q) => (await q('select id from events where id = $1', [w.eventId])).rows);
@@ -52,7 +57,7 @@ describe('events', () => {
         expect(teams.length, String(who)).toBeGreaterThanOrEqual(2);
       }
     } finally {
-      await as(w.db, 'organiser', (q) => q('update events set results_released = false where id = $1', [w.eventId]));
+      await as(w.db, 'chair', (q) => q('select withdraw_results($1)', [w.eventId]));
     }
     const hidden = await as(w.db, null, async (q) => (await q('select id from teams where event_id = $1', [w.eventId])).rows);
     expect(hidden).toEqual([]);

@@ -256,7 +256,7 @@ export async function rankingsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
   };
 
   /** One write at a time. The write's own failure and a failed redraw afterwards are told apart. */
-  const act = async (button: HTMLButtonElement, work: () => Promise<void>, done: string | null, redraw = true) => {
+  const act = async (button: HTMLButtonElement, work: () => Promise<void>, done: string | null, redraw = true, lockedText = RELEASED_LOCK) => {
     busy = true;
     button.disabled = true;
     try {
@@ -265,7 +265,7 @@ export async function rankingsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
       } catch (err) {
         if (!alive) return;
         if (err instanceof ApiError && err.code === 'locked') await refresh().catch(() => undefined);
-        reportActionError(ctx, error, err, { locked: RELEASED_LOCK });
+        reportActionError(ctx, error, err, { locked: lockedText });
         return;
       }
       if (redraw) {
@@ -440,7 +440,7 @@ export async function rankingsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
         await ctx.api.setReleased(eventId, true);
         await refresh();
         say('Results are released. Teams and the public can now see the published ranking.');
-      }, null, false);
+      }, null, false, 'The server says the published ranking is out of date, so nothing was released. The screen has been refreshed: check it, publish the ranking again, then release.');
     });
 
     return h('div', { class: 'stack' },

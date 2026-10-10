@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import type { RankRow } from '../../src/engine';
 import { resultsScreen } from '../../src/ui/results';
-import { EMAILS, makeCtx, text, world } from './helpers';
+import { EMAILS, makeCtx, releaseResults, text, world } from './helpers';
 
 const HASH = 'c'.repeat(64);
 const row = (over: Partial<RankRow>): RankRow => ({
@@ -34,12 +34,13 @@ describe('resultsScreen', () => {
     expect(el.querySelector('table')).toBeNull();
   });
 
-  it('says results are not published yet when released without a snapshot', async () => {
+  it('says results are not published yet if a released event has no visible snapshot', async () => {
+    // The server refuses to release without a ranking, so this is a defensive state: the screen must still say so.
     const { api, ev } = await world();
-    await api.signIn(EMAILS.chair);
-    await api.setReleased(ev.id, true);
+    await releaseResults(api, ev.id);
     await api.signOut();
-    const { ctx } = makeCtx(api);
+    const none = new Proxy(api, { get: (t, k) => (k === 'latestSnapshot' ? async () => null : (t as never)[k]) });
+    const { ctx } = makeCtx(none as typeof api);
     expect(text(await resultsScreen(ctx, ev.id))).toContain('not been published');
   });
 
@@ -50,7 +51,7 @@ describe('resultsScreen', () => {
       rulesetId: 'india-national-finals-2026', inputHash: HASH, inputs: { secret: 'judge-private' },
       rows: [row({ teamId: t1.id, name: '<img src=x onerror=alert(1)> 🚗', judgedComplete: false }), row({ rank: 2, teamId: 'x', number: '2', name: 'Two', total: 20, categories: { verbal: 20 } })],
     });
-    await api.setReleased(ev.id, true);
+    await releaseResults(api, ev.id);
     await api.signOut();
     const { ctx } = makeCtx(api);
     const el = await resultsScreen(ctx, ev.id);
@@ -69,18 +70,18 @@ describe('resultsScreen', () => {
     expect(t).not.toContain('Not released');
   });
 
-  it('shows the latest released snapshot, not a later unreleased one, to the public', async () => {
+  it('shows the latest snapshot to the public', async () => {
     const { api, ev, t1 } = await world();
     await api.signIn(EMAILS.chair);
     await api.publishSnapshot(ev.id, { rulesetId: 'india-national-finals-2026', inputHash: HASH, inputs: {}, rows: [row({ teamId: t1.id, name: 'Released' })] });
-    await api.publishSnapshot(ev.id, { rulesetId: 'india-national-finals-2026', inputHash: 'd'.repeat(64), inputs: {}, rows: [row({ teamId: t1.id, name: 'Draft run' })], released: false });
-    await api.setReleased(ev.id, true);
+    await api.publishSnapshot(ev.id, { rulesetId: 'india-national-finals-2026', inputHash: 'd'.repeat(64), inputs: {}, rows: [row({ teamId: t1.id, name: 'Second run' })] });
+    await releaseResults(api, ev.id);
     await api.signOut();
     const { ctx } = makeCtx(api);
     const el = await resultsScreen(ctx, ev.id);
-    expect(text(el)).toContain('Released');
-    expect(text(el)).not.toContain('Draft run');
-    expect(text(el)).toContain(HASH);
+    expect(text(el)).toContain('Second run');
+    expect(text(el)).not.toContain('Released');
+    expect(text(el)).toContain('d'.repeat(64));
   });
 
   it('shows a team manager their own breakdown with comments after release, and nothing of other teams', async () => {
@@ -106,7 +107,7 @@ describe('resultsScreen', () => {
       rulesetId: 'india-national-finals-2026', inputHash: HASH, inputs: {},
       rows: [row({ teamId: t1.id, areas: { 'verbal-technique': 26 }, penalties: 2, total: 24 }), row({ rank: 2, teamId: t2.id, number: '2', name: 'Two', areas: { 'verbal-technique': 26 }, penalties: 3, total: 23 })],
     });
-    await api.setReleased(ev.id, true);
+    await releaseResults(api, ev.id);
     await api.signIn(EMAILS.mgr);
     const el = await resultsScreen(ctx, ev.id);
     const t = text(el);
@@ -132,7 +133,7 @@ describe('resultsScreen', () => {
     await api.submitCard(card.id);
     await api.signIn(EMAILS.chair);
     await api.publishSnapshot(ev.id, { rulesetId: 'india-national-finals-2026', inputHash: HASH, inputs: {}, rows: [row({ teamId: t1.id })] });
-    await api.setReleased(ev.id, true);
+    await releaseResults(api, ev.id);
     for (const who of [EMAILS.judge, EMAILS.chair]) {
       await api.signIn(who);
       const { ctx } = makeCtx(api);
@@ -156,7 +157,7 @@ describe('resultsScreen', () => {
     const { api, ev } = await world();
     await api.signIn(EMAILS.chair);
     await api.publishSnapshot(ev.id, { rulesetId: 'india-national-finals-2026', inputHash: HASH, inputs: {}, rows: [row({ tied: true }), row({ number: '2', name: 'Two', teamId: 'x', tied: true }), row({ rank: 3, number: '3', name: 'Three', teamId: 'y', total: 5 })] });
-    await api.setReleased(ev.id, true);
+    await releaseResults(api, ev.id);
     await api.signOut();
     const { ctx } = makeCtx(api);
     const el = await resultsScreen(ctx, ev.id);
@@ -172,7 +173,7 @@ describe('resultsScreen', () => {
     const rows = Array.from({ length: 40 }, (_, i) => row({ rank: i + 1, teamId: `t${i}`, number: String(i + 1), name: `${long} ${i}`, total: 100 - i }));
     await api.signIn(EMAILS.chair);
     await api.publishSnapshot(ev.id, { rulesetId: 'india-national-finals-2026', inputHash: HASH, inputs: {}, rows });
-    await api.setReleased(ev.id, true);
+    await releaseResults(api, ev.id);
     await api.signOut();
     const { ctx } = makeCtx(api);
     const el = await resultsScreen(ctx, ev.id);
@@ -187,7 +188,7 @@ describe('resultsScreen', () => {
     const { api, ev, t1 } = await world();
     await api.signIn(EMAILS.chair);
     await api.publishSnapshot(ev.id, { rulesetId: 'india-national-finals-2026', inputHash: HASH, inputs: {}, rows: [row({ teamId: t1.id })] });
-    await api.setReleased(ev.id, true);
+    await releaseResults(api, ev.id);
     await api.signIn(EMAILS.mgr);
     const { ApiError } = await import('../../src/api');
     const failing = Object.create(api) as typeof api;
