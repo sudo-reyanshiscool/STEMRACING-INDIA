@@ -198,6 +198,16 @@ describe.skipIf(!run)('local Supabase smoke test', () => {
     expect((await anon.latestSnapshot(ev.id))?.id).toBe(second.snap.id);
     expect(await chair.getSnapshotInputs(first.snap.id)).toEqual(JSON.parse(JSON.stringify(first.inputs)));
 
+    // Paging: a page size of 1 forces several requests per list; nothing may be lost or repeated.
+    const paged = createSupabaseApi(URL_!, ANON!, clients[emails.chair], { pageSize: 1 });
+    const whole = await chair.listCards(ev.id);
+    const viaPages = await paged.listCards(ev.id);
+    expect(whole.length).toBeGreaterThanOrEqual(2);
+    expect(viaPages.map((c) => c.id).sort()).toEqual(whole.map((c) => c.id).sort());
+    expect(new Set(viaPages.map((c) => c.id)).size).toBe(viaPages.length);
+    expect((await paged.listTeams(ev.id)).map((t) => t.id).sort()).toEqual((await chair.listTeams(ev.id)).map((t) => t.id).sort());
+    expect((await paged.listRoles(ev.id)).length).toBe((await chair.listRoles(ev.id)).length);
+
     // Sign-in link: Auth accepts the request (the message lands in the local mail catcher, not on the internet).
     await anon.signIn(emails.org);
     expect(await code(anon.signIn('not-an-email'))).toBe('invalid');

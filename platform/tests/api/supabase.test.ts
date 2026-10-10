@@ -8,7 +8,7 @@ interface Call { kind: 'from' | 'rpc'; name: string; args?: unknown; steps: Step
 interface Res { data?: unknown; error?: { message: string; code?: string } | null }
 
 /** A scripted stand-in for supabase-js: records each query chain and answers it from `handler`. */
-function fake(handler: (c: Call) => Res | Promise<Res>, user: { id: string; email: string } | null = { id: 'me', email: 'Me@X.test' }, getSession?: (n: number) => Promise<unknown>) {
+function fake(handler: (c: Call) => Res | Promise<Res>, user: { id: string; email: string } | null = { id: 'me', email: 'Me@X.test' }, getSession?: (n: number) => Promise<unknown>, pageSize?: number) {
   let sessionCalls = 0;
   const calls: Call[] = [];
   const chain = (call: Call) => {
@@ -32,7 +32,7 @@ function fake(handler: (c: Call) => Res | Promise<Res>, user: { id: string; emai
       getSession: async () => (getSession ? getSession(++sessionCalls) : { data: { session: user ? { user } : null }, error: null }),
     },
   } as unknown as SupabaseClient;
-  return { api: createApiFromClient(sb), calls };
+  return { api: createApiFromClient(sb, pageSize === undefined ? undefined : { pageSize }), calls };
 }
 const arg = (c: Call, method: string, i = 0) => c.steps.find((s) => s[0] === method)?.[i + 1];
 const has = (c: Call, method: string) => c.steps.some((s) => s[0] === method);
@@ -246,5 +246,50 @@ describe('removePenalty', () => {
     expect(ok.calls[0].steps.find((s) => s[0] === 'eq')).toEqual(['eq', 'id', 'p']);
     expect(await fail(fake(() => ({ data: [] })).api.removePenalty('p'))).toBe('forbidden');
     expect(await fail(fake(() => ({ error: { message: 'results are released', code: '55000' } })).api.removePenalty('p'))).toBe('locked');
+  });
+});
+
+describe('paging (PostgREST max_rows cuts a list off silently)', () => {
+  const range = (c: Call) => c.steps.find((s) => s[0] === 'range') as [string, number, number] | undefined;
+  /** Serves `rows` the way PostgREST does: whatever the requested range covers. */
+  const serve = (rows: unknown[]) => (c: Call): Res => {
+    const r = range(c);
+    return { data: r ? rows.slice(r[1], r[2] + 1) : rows };
+  };
+  const team = (n: number) => ({ id: `t${n}`, event_id: 'e', number: String(n), name: `T${n}`, school: '' });
+  const lists: Array<[string, (a: ReturnType<typeof fake>['api']) => Promise<unknown[]>, (n: number) => unknown]> = [
+    ['listTeams', (a) => a.listTeams('e'), team],
+    ['listCards', (a) => a.listCards('e'), (n) => ({ id: `c${n}`, event_id: 'e', team_id: 't', area_id: 'a', panel: 'verbal', judge_id: 'j', status: 'draft', reopened_count: 0, scorecard_scores: [] })],
+    ['listOverrides', (a) => a.listOverrides('e'), (n) => ({ event_id: 'e', team_id: `t${n}`, area_id: 'pit-display', value: 1, reason: 'abc' })],
+    ['listPenalties', (a) => a.listPenalties('e'), (n) => ({ id: `p${n}`, event_id: 'e', team_id: 't', points: 1, reason: 'abc' })],
+    ['listRoles', (a) => a.listRoles('e'), (n) => ({ id: `r${n}`, event_id: 'e', user_id: `u${n}`, role: 'judge', panel: 'verbal', team_id: null, email: null })],
+    ['listInvitations', (a) => a.listInvitations('e'), (n) => ({ id: `i${n}`, event_id: 'e', email: `a${n}@x.test`, role: 'judge', panel: 'verbal', team_id: null })],
+    ['listEvents', (a) => a.listEvents(), (n) => ({ id: `e${n}`, name: 'E', starts_on: null, ruleset: {}, results_released: false })],
+    ['myConflicts', (a) => a.myConflicts('e'), (n) => ({ team_id: `t${n}` })],
+  ];
+  for (const [name, call, make] of lists) {
+    it(`${name} reads every page, in a stable order, until a short page`, async () => {
+      const rows = Array.from({ length: 7 }, (_, i) => make(i));
+      const { api, calls } = fake(serve(rows), undefined, undefined, 3);
+      const out = await call(api);
+      expect(out).toHaveLength(7);
+      expect(calls.map((c) => range(c)!.slice(1))).toEqual([[0, 2], [3, 5], [6, 8]]);
+      for (const c of calls) expect(has(c, 'order'), 'ordered').toBe(true);
+    });
+  }
+
+  it('stops after a full last page with one more (empty) request, and after a single short page with no more', async () => {
+    const full = fake(serve(Array.from({ length: 6 }, (_, i) => team(i))), undefined, undefined, 3);
+    expect(await full.api.listTeams('e')).toHaveLength(6);
+    expect(full.calls).toHaveLength(3);
+    const short = fake(serve([team(1)]), undefined, undefined, 3);
+    expect(await short.api.listTeams('e')).toHaveLength(1);
+    expect(short.calls).toHaveLength(1);
+  });
+
+  it('fails the whole list if any page fails', async () => {
+    let n = 0;
+    const { api } = fake(() => (++n === 2 ? { error: { message: 'boom', code: '57014' } } : { data: Array.from({ length: 3 }, (_, i) => team(i)) }), undefined, undefined, 3);
+    expect(await fail(api.listTeams('e'))).toBe('unknown');
   });
 });

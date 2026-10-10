@@ -42,16 +42,25 @@ const OVERRIDE_COLS = 'event_id,team_id,area_id,value,reason';
 const PENALTY_COLS = 'id,event_id,team_id,points,reason';
 const SNAPSHOT_COLS = 'id,event_id,created_at,ruleset_id,input_hash,rows,released';
 
+/** PostgREST caps every response at `max_rows` (1000 by default) and says nothing when it cuts a list off. */
+export const PAGE_SIZE = 1000;
+
 const EMAIL = /^[^@\s]+@[^@\s]+$/;
 const FORBIDDEN = 'You do not have permission to do that';
 
 /** `client` lets tests pass an already signed-in client; the app passes none and gets a persistent-session client. */
-export function createSupabaseApi(url: string, anonKey: string, client?: SupabaseClient): Api {
-  return createApiFromClient(client ?? createClient(url, anonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }));
+export function createSupabaseApi(url: string, anonKey: string, client?: SupabaseClient, options?: SupabaseApiOptions): Api {
+  return createApiFromClient(client ?? createClient(url, anonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }), options);
+}
+
+export interface SupabaseApiOptions {
+  /** Rows per request. Must not exceed the server's max_rows, or a short page is mistaken for the last one. */
+  pageSize?: number;
 }
 
 /** The adapter over an existing client. Split from createSupabaseApi so tests can drive it with a scripted client. */
-export function createApiFromClient(sb: SupabaseClient): Api {
+export function createApiFromClient(sb: SupabaseClient, options: SupabaseApiOptions = {}): Api {
+  const pageSize = options.pageSize ?? PAGE_SIZE;
   const toSession = (u: { id: string; email?: string | null } | null | undefined): Session | null =>
     u ? { userId: u.id, email: (u.email ?? '').toLowerCase() } : null;
   // Closures, not `this`: the returned object can be destructured safely.
@@ -62,6 +71,19 @@ export function createApiFromClient(sb: SupabaseClient): Api {
 
   const findCard = async (eventId: string, teamId: string, areaId: string, judgeId: string) =>
     ok(await guard(() => sb.from('scorecards').select(CARD_COLS).eq('event_id', eventId).eq('team_id', teamId).eq('area_id', areaId).eq('judge_id', judgeId).maybeSingle()));
+
+  /**
+   * Every row of a list, page by page, until a short page. `build` must carry a total order (a unique key last), or
+   * rows could repeat or be skipped between pages. RLS applies to each page as to any request.
+   */
+  const pages = async <T>(build: (from: number, to: number) => PromiseLike<{ data: unknown; error: Failure }>): Promise<T[]> => {
+    const out: T[] = [];
+    for (let from = 0; ; from += pageSize) {
+      const rows = ok(await guard(() => build(from, from + pageSize - 1))) as T[];
+      out.push(...rows);
+      if (rows.length < pageSize) return out;
+    }
+  };
 
   /** Delete by id. Row-level security hides rows silently, so no row deleted means missing or not permitted. */
   const removeById = async (table: string, id: string) => {
@@ -112,7 +134,7 @@ export function createApiFromClient(sb: SupabaseClient): Api {
     },
 
     async listEvents() {
-      return (ok(await guard(() => sb.from('events').select(EVENT_COLS).order('created_at', { ascending: false }))) as never[]).map(toEventRow);
+      return (await pages<never>((a, b) => sb.from('events').select(EVENT_COLS).order('created_at', { ascending: false }).order('id').range(a, b))).map(toEventRow);
     },
     async createEvent(i) {
       const data = ok(await guard(() => sb.rpc('create_event', { p_name: i.name, p_starts_on: i.startsOn ?? null, p_ruleset: INDIA_2026 })));
@@ -130,15 +152,15 @@ export function createApiFromClient(sb: SupabaseClient): Api {
     async myRoles(eventId) {
       const s = await session();
       if (!s) return [];
-      return (ok(await guard(() => sb.from('event_roles').select(ROLE_COLS).eq('event_id', eventId).eq('user_id', s.userId))) as never[]).map(toRoleRow);
+      return (await pages<never>((a, b) => sb.from('event_roles').select(ROLE_COLS).eq('event_id', eventId).eq('user_id', s.userId).order('id').range(a, b))).map(toRoleRow);
     },
     async listRoles(eventId) {
       if (!(await session())) return [];
-      return (ok(await guard(() => sb.from('event_roles').select(ROLE_COLS).eq('event_id', eventId))) as never[]).map(toRoleRow);
+      return (await pages<never>((a, b) => sb.from('event_roles').select(ROLE_COLS).eq('event_id', eventId).order('id').range(a, b))).map(toRoleRow);
     },
     async listInvitations(eventId) {
       if (!(await session())) return [];
-      return (ok(await guard(() => sb.from('invitations').select(INVITE_COLS).eq('event_id', eventId))) as never[]).map(toInviteRow);
+      return (await pages<never>((a, b) => sb.from('invitations').select(INVITE_COLS).eq('event_id', eventId).order('id').range(a, b))).map(toInviteRow);
     },
     async invite(eventId, i) {
       ok(await guard(() => sb.from('invitations').insert({
@@ -153,7 +175,7 @@ export function createApiFromClient(sb: SupabaseClient): Api {
     },
 
     async listTeams(eventId) {
-      return (ok(await guard(() => sb.from('teams').select(TEAM_COLS).eq('event_id', eventId))) as never[]).map(toTeamRow)
+      return (await pages<never>((a, b) => sb.from('teams').select(TEAM_COLS).eq('event_id', eventId).order('id').range(a, b))).map(toTeamRow)
         .sort((a, b) => a.number.localeCompare(b.number, 'en', { numeric: true }));
     },
     async createTeam(eventId, i) {
@@ -171,7 +193,7 @@ export function createApiFromClient(sb: SupabaseClient): Api {
     async myConflicts(eventId) {
       const s = await session();
       if (!s) return [];
-      return (ok(await guard(() => sb.from('judge_conflicts').select('team_id').eq('event_id', eventId).eq('judge_id', s.userId))) as { team_id: string }[])
+      return (await pages<{ team_id: string }>((a, b) => sb.from('judge_conflicts').select('team_id').eq('event_id', eventId).eq('judge_id', s.userId).order('team_id').range(a, b)))
         .map((r) => r.team_id);
     },
 
@@ -217,12 +239,12 @@ export function createApiFromClient(sb: SupabaseClient): Api {
     },
     async listCards(eventId) {
       if (!(await session())) return [];
-      return (ok(await guard(() => sb.from('scorecards').select(CARD_COLS).eq('event_id', eventId))) as never[]).map(toCardRow);
+      return (await pages<never>((a, b) => sb.from('scorecards').select(CARD_COLS).eq('event_id', eventId).order('id').range(a, b))).map(toCardRow);
     },
 
     async listOverrides(eventId) {
       if (!(await session())) return [];
-      return (ok(await guard(() => sb.from('score_overrides').select(OVERRIDE_COLS).eq('event_id', eventId))) as never[]).map(toOverrideRow);
+      return (await pages<never>((a, b) => sb.from('score_overrides').select(OVERRIDE_COLS).eq('event_id', eventId).order('team_id').order('area_id').range(a, b))).map(toOverrideRow);
     },
     async setOverride(eventId, teamId, areaId, value, reason) {
       // Same shape as saveScore: only (value, reason) are updatable by the API role.
@@ -239,7 +261,7 @@ export function createApiFromClient(sb: SupabaseClient): Api {
     },
     async listPenalties(eventId) {
       if (!(await session())) return [];
-      return (ok(await guard(() => sb.from('penalties').select(PENALTY_COLS).eq('event_id', eventId))) as never[]).map(toPenaltyRow);
+      return (await pages<never>((a, b) => sb.from('penalties').select(PENALTY_COLS).eq('event_id', eventId).order('id').range(a, b))).map(toPenaltyRow);
     },
     async addPenalty(eventId, teamId, points, reason) {
       ok(await guard(() => sb.from('penalties').insert({ event_id: eventId, team_id: teamId, points, reason: reason.trim() })));
