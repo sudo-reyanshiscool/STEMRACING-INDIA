@@ -1,10 +1,44 @@
-/** JSON with object keys sorted at every depth, so equal data always gives equal text. */
+/**
+ * JSON with object keys sorted at every depth, so equal data always gives equal text.
+ * Refuses (throws) anything that JSON would silently collapse or lose: NaN/Infinity, bigint, symbol,
+ * function or undefined values at top level or in arrays, sparse holes, non-plain objects (Date, Map,
+ * Set, ...) and cycles. Undefined and function object members are dropped, as JSON does.
+ */
 export function canonicalJson(value: unknown): string {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? 'null';
-  if (Array.isArray(value)) return `[${value.map((v) => canonicalJson(v === undefined ? null : v)).join(',')}]`;
-  const obj = value as Record<string, unknown>;
-  const keys = Object.keys(obj).filter((k) => obj[k] !== undefined).sort();
-  return `{${keys.map((k) => `${JSON.stringify(k)}:${canonicalJson(obj[k])}`).join(',')}}`;
+  return encode(value, new Set<object>());
+}
+
+function encode(value: unknown, ancestors: Set<object>): string {
+  switch (typeof value) {
+    case 'string':
+    case 'boolean':
+      return JSON.stringify(value);
+    case 'number':
+      if (!Number.isFinite(value)) throw new TypeError(`canonicalJson: cannot serialise ${value}`);
+      return JSON.stringify(value);
+    case 'object':
+      break;
+    default:
+      throw new TypeError(`canonicalJson: cannot serialise a ${typeof value} value`);
+  }
+  if (value === null) return 'null';
+  const obj = value as object;
+  if (ancestors.has(obj)) throw new TypeError('canonicalJson: circular reference');
+  ancestors.add(obj);
+  try {
+    if (Array.isArray(obj)) {
+      return `[${Array.from(obj as unknown[]).map((v) => encode(v, ancestors)).join(',')}]`;
+    }
+    const proto = Object.getPrototypeOf(obj);
+    if (proto !== Object.prototype && proto !== null) {
+      throw new TypeError('canonicalJson: only plain objects and arrays can be serialised');
+    }
+    const rec = obj as Record<string, unknown>;
+    const keys = Object.keys(rec).filter((k) => rec[k] !== undefined && typeof rec[k] !== 'function').sort();
+    return `{${keys.map((k) => `${JSON.stringify(k)}:${encode(rec[k], ancestors)}`).join(',')}}`;
+  } finally {
+    ancestors.delete(obj);
+  }
 }
 
 const K = Uint32Array.of(
