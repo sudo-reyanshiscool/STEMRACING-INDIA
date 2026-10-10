@@ -142,12 +142,17 @@ describe('rankingsScreen', () => {
     expect(snap?.rows[0]).toMatchObject({ teamId: t1.id, total: 26, rank: 1 });
     await vi.waitFor(() => expect(text(el)).toContain('Published'));
 
-    button(el, 'Release results to teams and the public').click();
-    await vi.waitFor(async () => expect((await api.getEvent(ev.id))?.resultsReleased).toBe(true));
+    // A click while the previous action is still finishing is ignored by design, so click until it takes.
+    await vi.waitFor(async () => {
+      button(el, 'Release results to teams and the public')?.click();
+      expect((await api.getEvent(ev.id))?.resultsReleased).toBe(true);
+    });
     await vi.waitFor(() => expect(button(el, 'Withdraw released results')).toBeDefined());
     expect(text(el)).toContain('Results are released');
-    button(el, 'Withdraw released results').click();
-    await vi.waitFor(async () => expect((await api.getEvent(ev.id))?.resultsReleased).toBe(false));
+    await vi.waitFor(async () => {
+      button(el, 'Withdraw released results')?.click();
+      expect((await api.getEvent(ev.id))?.resultsReleased).toBe(false);
+    });
   });
 
   it('keeps comments and drafts out of the snapshot inputs', async () => {
@@ -407,8 +412,7 @@ describe('rankingsScreen conflicted cards', () => {
     expect(await api.latestSnapshot(ev.id)).toBeNull();
     tick(el);
     button(el, 'Publish ranking').click();
-    await wait(); await wait();
-    expect(await api.latestSnapshot(ev.id)).not.toBeNull();
+    await vi.waitFor(async () => expect(await api.latestSnapshot(ev.id)).not.toBeNull());
   });
 });
 
@@ -422,7 +426,7 @@ describe('rankingsScreen after an override is removed', () => {
     const { ctx } = makeCtx(api);
     let el = await rankingsScreen(ctx, ev.id);
     button(el, 'Publish ranking').click();
-    await wait(); await wait();
+    await vi.waitFor(async () => expect(await api.latestSnapshot(ev.id)).not.toBeNull());
     el = await rankingsScreen(makeCtx(api).ctx, ev.id);
     expect(text(el)).toContain('matches the ranking above');
     await api.removeOverride(ev.id, t2.id, 'verbal-technique');
@@ -441,10 +445,10 @@ describe('rankingsScreen when the server refuses a release', () => {
     const { ctx } = makeCtx(refusing);
     let el = await rankingsScreen(ctx, ev.id);
     button(el, 'Publish ranking').click();
-    await wait(); await wait();
+    await vi.waitFor(async () => expect(await api.latestSnapshot(ev.id)).not.toBeNull());
     el = await rankingsScreen(makeCtx(refusing).ctx, ev.id);
     button(el, 'Release results to teams and the public').click();
-    await wait(); await wait();
+    await vi.waitFor(() => expect(alertText(el)).toContain('out of date'));
     const t = alertText(el);
     expect(t).toContain('out of date');
     expect(t).not.toContain('Results are released, so');
