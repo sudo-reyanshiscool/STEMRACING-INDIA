@@ -13,13 +13,14 @@ export const ids = {
   mgr2: '00000000-0000-4000-8000-000000000007',
   outsider: '00000000-0000-4000-8000-000000000008',
   invitee: '00000000-0000-4000-8000-000000000009',
+  unverified: '00000000-0000-4000-8000-00000000000a',
 } as const;
 export type Who = keyof typeof ids;
 
 export const EMAIL: Record<Who, string> = {
   organiser: 'organiser@x.test', chair: 'chair@x.test', judgeV: 'judgev@x.test', judgeD: 'judged@x.test',
   leadV: 'leadv@x.test', mgr1: 'mgr1@x.test', mgr2: 'mgr2@x.test', outsider: 'outsider@x.test',
-  invitee: 'New.Judge@X.TEST',
+  invitee: 'New.Judge@X.TEST', unverified: 'unverified@x.test',
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -32,7 +33,7 @@ export async function makeDb(): Promise<PGlite> {
   // Stand-ins for what Supabase provides: the auth schema, its helpers and the two API roles.
   await db.exec(`
     create schema auth;
-    create table auth.users (id uuid primary key, email text);
+    create table auth.users (id uuid primary key, email text, email_confirmed_at timestamptz);
     create function auth.jwt() returns jsonb language sql stable as
       $$ select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $$;
     create function auth.uid() returns uuid language sql stable as
@@ -43,9 +44,14 @@ export async function makeDb(): Promise<PGlite> {
     grant usage on schema auth to anon, authenticated;
     alter default privileges in schema public grant all on tables to anon, authenticated;
     alter default privileges in schema public grant all on sequences to anon, authenticated;
+    -- Supabase also grants execute on every new function to the API roles; migrations must revoke what they do not expose.
+    alter default privileges in schema public grant execute on functions to anon, authenticated;
   `);
   for (const [who, id] of Object.entries(ids)) {
-    await db.query('insert into auth.users(id, email) values ($1, $2)', [id, EMAIL[who as Who]]);
+    // Everyone is a confirmed user except `unverified`, whose email address was never confirmed.
+    await db.query('insert into auth.users(id, email, email_confirmed_at) values ($1, $2, $3)', [
+      id, EMAIL[who as Who], who === 'unverified' ? null : new Date().toISOString(),
+    ]);
   }
   const dir = new URL('../../supabase/migrations/', import.meta.url);
   for (const file of readdirSync(dir).filter((f) => f.endsWith('.sql')).sort()) {

@@ -22,7 +22,7 @@ describe('create_event', () => {
   });
 
   it('needs a signed-in user and a ruleset with areas', async () => {
-    await expect(as(w.db, null, (q) => q(`select * from create_event('x', null, '{"areas":[]}'::jsonb)`))).rejects.toThrow(/sign in/);
+    await expect(as(w.db, null, (q) => q(`select * from create_event('x', null, '{"areas":[]}'::jsonb)`))).rejects.toThrow(/permission denied/);
     await expect(as(w.db, 'judgeV', (q) => q(`select * from create_event('x', null, '{}'::jsonb)`))).rejects.toThrow();
   });
 });
@@ -138,5 +138,78 @@ describe('audit log', () => {
   it('cannot be written or changed by users', async () => {
     await denied(as(w.db, 'chair', (q) => q(`insert into audit_log(event_id, action, entity) values ($1, 'x', 'y')`, [w.eventId])));
     await denied(as(w.db, 'chair', (q) => q('delete from audit_log')));
+  });
+});
+
+describe('function privileges', () => {
+  it('stops anyone from forging audit entries through audit_write', async () => {
+    const call = `select audit_write($1, 'forged', 'events', null, null)`;
+    await expect(as(w.db, null, (q) => q(call, [w.eventId]))).rejects.toThrow(/permission denied/);
+    await expect(as(w.db, 'outsider', (q) => q(call, [w.eventId]))).rejects.toThrow(/permission denied/);
+    await expect(as(w.db, 'chair', (q) => q(call, [w.eventId]))).rejects.toThrow(/permission denied/);
+  });
+
+  it('keeps the RPCs away from anon but open to signed-in users', async () => {
+    await expect(as(w.db, null, (q) => q('select claim_invitations()'))).rejects.toThrow(/permission denied/);
+    await expect(as(w.db, null, (q) => q(`select * from create_event('x', null, '{"areas":[]}'::jsonb)`))).rejects.toThrow(/permission denied/);
+    expect(await as(w.db, 'outsider', async (q) => (await q('select claim_invitations() as n')).rows[0].n)).toBe(0);
+  });
+
+  it('is not fooled by a temp table that shadows event_roles', async () => {
+    const answer = await as(w.db, 'outsider', async (q) => {
+      await q('create temp table event_roles (event_id uuid, user_id uuid, role app_role)');
+      try {
+        await q(`insert into pg_temp.event_roles values ($1, $2, 'organiser')`, [w.eventId, ids.outsider]);
+        return (await q('select is_chair_or_organiser($1) as ok', [w.eventId])).rows[0].ok;
+      } finally {
+        await q('drop table pg_temp.event_roles');
+      }
+    });
+    expect(answer).toBe(false);
+  });
+});
+
+describe('invitation claiming needs a verified email', () => {
+  it('lets an unconfirmed address claim nothing', async () => {
+    await as(w.db, 'organiser', (q) => q(`insert into invitations(event_id, email, role, panel) values ($1, 'unverified@x.test', 'judge', 'verbal')`, [w.eventId]));
+    expect(await as(w.db, 'unverified', async (q) => (await q('select claim_invitations() as n')).rows[0].n)).toBe(0);
+    const roles = await as(w.db, 'unverified', async (q) => (await q('select 1 from event_roles where user_id = $1', [ids.unverified])).rows);
+    expect(roles).toEqual([]);
+  });
+
+  it('matches on the account email, not on a claim in the token', async () => {
+    await as(w.db, 'organiser', (q) => q(`insert into invitations(event_id, email, role, panel) values ($1, 'victim@x.test', 'judge', 'verbal')`, [w.eventId]));
+    await w.db.exec(`set role authenticated`);
+    await w.db.query(`select set_config('request.jwt.claims', $1, false)`, [JSON.stringify({ sub: ids.outsider, email: 'victim@x.test' })]);
+    try {
+      expect((await w.db.query<{ n: number }>('select claim_invitations() as n')).rows[0].n).toBe(0);
+    } finally {
+      await w.db.exec('reset role');
+      await w.db.query(`select set_config('request.jwt.claims', '', false)`);
+    }
+  });
+});
+
+describe('teams belong to the event of the role or invitation that names them', () => {
+  it('refuses a team_manager role or invitation pointing at another event\'s team', async () => {
+    const e2 = await as(w.db, 'invitee', async (q) =>
+      (await q('select * from create_event($1, null, $2::jsonb)', ['Second', JSON.stringify(INDIA_2026)])).rows[0]);
+    await expect(as(w.db, 'invitee', (q) =>
+      q(`insert into event_roles(event_id, user_id, role, team_id) values ($1, $2, 'team_manager', $3)`, [e2.id, ids.outsider, w.team1]))).rejects.toThrow(/foreign key|violates/);
+    await expect(as(w.db, 'invitee', (q) =>
+      q(`insert into invitations(event_id, email, role, team_id) values ($1, 'm@x.test', 'team_manager', $2)`, [e2.id, w.team1]))).rejects.toThrow(/foreign key|violates/);
+  });
+});
+
+describe('audit log is append-only and retained', () => {
+  it('refuses a TRUNCATE from the Chair', async () => {
+    await expect(as(w.db, 'chair', (q) => q('truncate audit_log'))).rejects.toThrow(/permission denied/);
+    await denied(as(w.db, 'organiser', (q) => q('update audit_log set action = $1', ['x'])));
+  });
+
+  it('keeps audit rows when someone tries to delete their event', async () => {
+    await expect(w.db.query('delete from events where id = $1', [w.eventId])).rejects.toThrow(/audit_log|foreign key|violates/);
+    const n = (await w.db.query<{ n: number }>('select count(*)::int as n from audit_log where event_id = $1', [w.eventId])).rows[0].n;
+    expect(n).toBeGreaterThan(0);
   });
 });
