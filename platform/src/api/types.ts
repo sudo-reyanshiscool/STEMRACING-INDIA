@@ -56,6 +56,8 @@ export interface Api {
   setOverride(eventId: string, teamId: string, areaId: string, value: number, reason: string): Promise<void>;
   listPenalties(eventId: string): Promise<PenaltyRow[]>;
   addPenalty(eventId: string, teamId: string, points: number, reason: string): Promise<void>;
+  /** Chair only. 'locked' while results are released. A row that does not exist or is not yours to remove is 'forbidden'. */
+  removePenalty(penaltyId: string): Promise<void>;
   publishSnapshot(eventId: string, s: NewSnapshot): Promise<SnapshotRow>;
   latestSnapshot(eventId: string): Promise<SnapshotRow | null>;
   /** The inputs a snapshot was computed from (every judge's cards, overrides, penalties). Chair and Organiser only. */

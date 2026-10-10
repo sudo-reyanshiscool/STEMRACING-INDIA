@@ -236,3 +236,15 @@ describe('signed-out scoring', () => {
     expect(await fail(api.saveScore('c', 'k', 5))).toBe('forbidden');
   });
 });
+
+describe('removePenalty', () => {
+  it('deletes the penalty by id, and reports a missing row as forbidden and a freeze as locked', async () => {
+    const ok = fake(() => ({ data: [{ id: 'p' }] }));
+    await ok.api.removePenalty('p');
+    expect(ok.calls[0].name).toBe('penalties');
+    expect(has(ok.calls[0], 'delete')).toBe(true);
+    expect(ok.calls[0].steps.find((s) => s[0] === 'eq')).toEqual(['eq', 'id', 'p']);
+    expect(await fail(fake(() => ({ data: [] })).api.removePenalty('p'))).toBe('forbidden');
+    expect(await fail(fake(() => ({ error: { message: 'results are released', code: '55000' } })).api.removePenalty('p'))).toBe('locked');
+  });
+});

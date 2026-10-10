@@ -75,8 +75,12 @@ export async function moderationScreen(ctx: Ctx, eventId: string): Promise<HTMLE
     const released = data.event?.resultsReleased ?? false;
     releasedNote.hidden = !released;
     releasedNote.textContent = released ? 'Results are released, so scores cannot be changed or reopened. Withdraw the release to change this.' : '';
-    const who = (judgeId: string, i: number) => data.allRoles.find((r) => r.userId === judgeId && r.email)?.email ?? `Judge ${i + 1}`;
+    // Fallback labels come from one sorted list of every judge with a card in this event, so the same person has the
+    // same "Judge N" in every row and every area.
+    const judgeIds = [...new Set(data.cards.map((c) => c.judgeId))].sort();
+    const who = (judgeId: string) => data.allRoles.find((r) => r.userId === judgeId && r.email)?.email ?? `Judge ${judgeIds.indexOf(judgeId) + 1}`;
     const canChange = isChair && !released;
+    const drafts = (r: ModerationRow) => r.judges.filter((j) => j.status === 'draft').length;
     const rows = buildModeration(area, [...data.teams].sort((a, b) => a.number.localeCompare(b.number, 'en', { numeric: true })), data.cards, data.overrides);
 
     const reopenForm = (cardId: string, judge: string, teamLabel: string) => {
@@ -102,7 +106,7 @@ export async function moderationScreen(ctx: Ctx, eventId: string): Promise<HTMLE
 
     const overrideForm = (row: ModerationRow) => {
       const value = h('input', { name: 'value', inputmode: 'decimal', autocomplete: 'off', value: row.override ? String(row.override.value) : '', 'aria-label': `Override score for ${row.teamLabel}, 0 to ${area.max}` });
-      const reason = h('input', { name: 'reason', autocomplete: 'off', maxlength: 500, 'aria-label': `Reason for the override for ${row.teamLabel}` });
+      const reason = h('input', { name: 'reason', autocomplete: 'off', maxlength: 500, value: row.override?.reason ?? '', 'aria-label': `Reason for the override for ${row.teamLabel}` });
       const submit = h('button', { class: 'btn btn--ghost btn--small', type: 'submit' }, row.override ? 'Change override' : 'Set override');
       const form = h('form', { class: 'inline-form', 'data-override': row.teamId, novalidate: true },
         h('label', { class: 'field' }, h('span', { class: 'field__label' }, `Score (0 to ${area.max})`), value),
@@ -134,16 +138,20 @@ export async function moderationScreen(ctx: Ctx, eventId: string): Promise<HTMLE
       h('thead', null, h('tr', null, ['Team', 'Judges', 'Mean of submitted', 'Chair override'].map((c) => h('th', { scope: 'col' }, c)))),
       h('tbody', null, rows.map((r) => h('tr', null,
         h('th', { scope: 'row' }, r.teamLabel),
-        h('td', null, r.judges.length === 0 ? h('span', { class: 'muted' }, 'No cards yet') : h('ul', { class: 'list' }, r.judges.map((j, i) => {
-          const judge = who(j.judgeId, i);
+        h('td', null, r.judges.length === 0 ? h('span', { class: 'muted' }, 'No cards yet') : h('ul', { class: 'list' }, [...r.judges.map((j) => {
+          const judge = who(j.judgeId);
           return h('li', null,
             j.status === 'submitted' ? `${judge}: ${j.total ?? 'incomplete'} ` : `${judge}: draft, not counted `,
             tag(j.status, j.status === 'submitted' ? 'pass' : 'risk'),
             canChange && j.status === 'submitted' ? reopenForm(j.cardId, judge, r.teamLabel) : null);
-        }))),
+        }),
+          drafts(r) > 0 ? h('li', { class: 'small' }, `${drafts(r)} card${drafts(r) === 1 ? '' : 's'} still in draft, not counted`) : null])),
         h('td', { class: 'num' }, r.mean === null ? '—' : String(r.mean)),
         h('td', null,
           r.override ? h('p', { class: 'small' }, `Override: ${r.override.value} (${r.override.reason})`) : null,
+          r.override ? h('p', { class: 'small muted' },
+            r.mean === null ? "Override replaces the judges' scores: no submitted judge scores yet."
+              : `Override replaces the judges' mean of ${r.mean}.`) : null,
           canChange ? overrideForm(r) : null))))));
   };
 

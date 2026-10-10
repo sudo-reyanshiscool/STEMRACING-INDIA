@@ -57,6 +57,22 @@ describe('penalties', () => {
     await expect(as(w.db, 'chair', (q) => q(`insert into penalties(event_id, team_id, points, reason) values ($1, $2, 5, '')`, [w.eventId, w.team1]))).rejects.toThrow();
   });
 
+  it('lets the Chair delete a penalty, audits the delete, and freezes it while results are released', async () => {
+    const mk = () => as(w.db, 'chair', async (q) => (await q(`insert into penalties(event_id, team_id, points, reason) values ($1, $2, 5, 'Entered by mistake') returning id`, [w.eventId, w.team2])).rows[0].id as string);
+    const id = await mk();
+    await release(true);
+    try {
+      await expect(as(w.db, 'chair', (q) => q('delete from penalties where id = $1', [id]))).rejects.toThrow(/released/);
+    } finally {
+      await release(false);
+    }
+    const gone = await as(w.db, 'chair', async (q) => (await q('delete from penalties where id = $1 returning id', [id])).rows);
+    expect(gone).toHaveLength(1);
+    const audit = await as(w.db, 'chair', async (q) => (await q(`select action from audit_log where entity = 'penalties' and entity_id = $1`, [id])).rows.map((r: { action: string }) => r.action));
+    expect(audit).toHaveLength(2);
+    expect(audit.some((a: string) => /delete/i.test(a))).toBe(true);
+  });
+
   it('shows a team manager only their own team penalties and only after release', async () => {
     const read = (who: Who) => as(w.db, who, async (q) => (await q('select team_id from penalties')).rows.map((r: { team_id: string }) => r.team_id));
     expect(await read('mgr1')).toEqual([]);

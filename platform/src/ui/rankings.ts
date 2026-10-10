@@ -71,6 +71,8 @@ interface Computed {
   event: EventRow;
   teams: TeamRow[];
   penalties: PenaltyRow[];
+  /** Submitted-or-not: cards still in draft, which the ranking never counts. */
+  drafts: number;
   inputs: Inputs;
   latest: SnapshotRow | null;
   outcome: Outcome;
@@ -93,6 +95,10 @@ export async function rankingsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
   let seq = 0;
   /** Hash of the ranking currently on screen: publishing refuses to go ahead if the data has moved on since. */
   let shownHash: string | null = null;
+  /** The draft/tie situation the Chair has acknowledged, as a key. Only valid while the situation stays the same. */
+  let ackedKey: string | null = null;
+  /** The remove button waiting for its confirming second click. */
+  let armed: { id: string; button: HTMLButtonElement } | null = null;
 
   const say = (text: string) => { notice.textContent = text; notice.hidden = false; };
   const clear = () => { notice.hidden = true; error.hidden = true; };
@@ -116,7 +122,7 @@ export async function rankingsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
           : ['Some scorecards, overrides or penalties do not fit the scoring rules. Review the scorecards and overrides in Moderation.'],
       };
     }
-    return { event, teams, penalties, inputs, latest, outcome };
+    return { event, teams, penalties, drafts: cards.filter((c) => c.status === 'draft').length, inputs, latest, outcome };
   };
 
   /**
@@ -138,6 +144,7 @@ export async function rankingsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
     const { event, teams, penalties, inputs, latest } = c;
     const outcome = c.outcome;
     drawn = c;
+    armed = null;
     const released = event.resultsReleased;
     const team = (id: string) => teams.find((t) => t.id === id);
     const label = (id: string) => { const t = team(id); return t ? `Team ${t.number} · ${t.name}` : 'Unknown team'; };
@@ -201,7 +208,9 @@ export async function rankingsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
     if (penalties.length > 0) {
       parts.push(h('section', { class: 'section' }, h('h2', null, 'Penalties'),
         h('ul', { class: 'list' }, penalties.map((p) => h('li', null,
-          h('strong', null, `${label(p.teamId)}: −${p.points}`), h('span', { class: 'small' }, p.reason))))));
+          h('strong', null, `${label(p.teamId)}: −${p.points}`), h('span', { class: 'small' }, p.reason),
+          isChair && !released ? removeButton(p, label(p.teamId)) : null))),
+        isChair && released ? h('p', { class: 'small muted' }, 'Penalties are locked while results are released. Withdraw the release to change this.') : null));
     }
 
     if (isChair) {
@@ -271,6 +280,23 @@ export async function rankingsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
     }
   };
 
+  const removeButton = (p: PenaltyRow, teamLabel: string) => {
+    const btn = h('button', { class: 'btn btn--ghost btn--small', type: 'button', 'aria-label': `Remove the penalty of ${p.points} points from ${teamLabel}: ${p.reason}` }, 'Remove penalty');
+    btn.addEventListener('click', () => {
+      if (busy) return;
+      clear();
+      if (!armed || armed.id !== p.id) {
+        if (armed) armed.button.textContent = 'Remove penalty';
+        armed = { id: p.id, button: btn };
+        btn.textContent = 'Confirm: remove this penalty';
+        return;
+      }
+      armed = null;
+      void act(btn, () => ctx.api.removePenalty(p.id), `Penalty removed from ${teamLabel}: ${p.reason}.`);
+    });
+    return btn;
+  };
+
   const penaltySection = (c: Computed): HTMLElement => {
     const { event, teams } = c;
     if (event.resultsReleased) return h('p', { class: 'muted' }, 'Penalties are locked while results are released. Withdraw the release to change this.');
@@ -312,6 +338,24 @@ export async function rankingsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
     return form;
   };
 
+  const needsAck = (c: Computed) => c.drafts > 0 || (c.outcome.ok && c.outcome.ranking.ties.length > 0);
+  const ackKey = (c: Computed) => `${c.drafts}|${c.outcome.ok ? c.outcome.ranking.ties.length : 0}`;
+  const ackLabel = (c: Computed) => {
+    const ties = c.outcome.ok ? c.outcome.ranking.ties.length : 0;
+    const parts = [
+      c.drafts > 0 ? `${c.drafts} card${c.drafts === 1 ? '' : 's'} still in draft` : null,
+      ties > 0 ? `${ties} tie${ties === 1 ? '' : 's'} not settled` : null,
+    ].filter(Boolean);
+    return `Publish with ${parts.join(' and ')}`;
+  };
+
+  const ackBox = (c: Computed) => {
+    const box = h('input', { type: 'checkbox', name: 'ack' });
+    box.checked = ackedKey === ackKey(c);
+    box.addEventListener('change', () => { ackedKey = box.checked ? ackKey(c) : null; });
+    return h('label', { class: 'field' }, box, ' ', ackLabel(c), h('span', { class: 'small muted' }, ' This also covers releasing.'));
+  };
+
   const publishSection = (c: Computed): HTMLElement => {
     const { event, latest, outcome, teams } = c;
     const released = event.resultsReleased;
@@ -330,15 +374,31 @@ export async function rankingsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
         : !current ? 'The published ranking is out of date. Publish it again before releasing.' : null);
     release.disabled = releaseWhy !== null;
 
+    /** Validated before anything is disabled or sent: unacknowledged drafts or ties stop the click with an explanation. */
+    const ackMissing = () => {
+      if (!needsAck(c) || ackedKey === ackKey(c)) return false;
+      error.textContent = `Tick "${ackLabel(c)}" to continue. Drafts are not counted, and tied teams still need the Chair's decision.`;
+      error.hidden = false;
+      return true;
+    };
+    const ackChanged = (fresh: Computed) => {
+      if (!needsAck(fresh) || ackedKey === ackKey(fresh)) return false;
+      draw(fresh);
+      say('The number of draft cards or ties changed since you last looked. Check the summary, tick the box again, then continue.');
+      return true;
+    };
+
     publish.addEventListener('click', () => {
       if (busy) return;
       clear();
+      if (ackMissing()) return;
       void act(publish, async () => {
         const fresh = await compute();
         if (fresh) await settleHash(fresh);
         if (!alive || !fresh) return;
         if (fresh.event.resultsReleased) { draw(fresh); say('Results were released in the meantime, so nothing was published. Withdraw the release first.'); return; }
         if (!fresh.outcome.ok || fresh.outcome.hash === null) { draw(fresh); return; }
+        if (ackChanged(fresh)) return;
         if (fresh.outcome.hash !== shownHash) {
           draw(fresh);
           say('Scores, overrides or penalties changed since you last looked. The ranking above has been refreshed. Check it, then publish again.');
@@ -355,6 +415,7 @@ export async function rankingsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
     release.addEventListener('click', () => {
       if (busy) return;
       clear();
+      if (!released && ackMissing()) return;
       void act(release, async () => {
         if (released) {
           await ctx.api.setReleased(eventId, false);
@@ -365,6 +426,7 @@ export async function rankingsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
         const fresh = await compute();
         if (fresh) await settleHash(fresh);
         if (!alive || !fresh) return;
+        if (ackChanged(fresh)) return;
         if (!fresh.outcome.ok || fresh.latest === null || fresh.latest.inputHash !== fresh.outcome.hash) {
           draw(fresh);
           say('The published ranking no longer matches the current scores, so nothing was released. Publish the ranking again first.');
@@ -380,6 +442,9 @@ export async function rankingsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
       h('p', null, released ? 'Results are released.' : 'Results are hidden from teams and the public until you release them.'),
       outcome.ok && outcome.ranking.provisional && !released
         ? h('p', { class: 'small' }, 'This ranking is provisional: releasing it shows results while some areas are still not judged.') : null,
+      !released && c.drafts > 0 ? h('p', { class: 'notice' }, `${c.drafts} scorecard${c.drafts === 1 ? ' is still a draft and is' : 's are still drafts and are'} not counted in this ranking.`) : null,
+      !released && outcome.ok && outcome.ranking.ties.length > 0 ? h('p', { class: 'notice' }, 'Settle ties before releasing: the tied teams are listed above and the ranking does not decide between them.') : null,
+      !released && needsAck(c) ? ackBox(c) : null,
       released ? h('p', { class: 'small' }, 'Publishing is paused while results are released. Withdraw the release to publish again.') : null,
       why !== null ? h('p', { class: 'small' }, why) : null,
       releaseWhy !== null && releaseWhy !== why ? h('p', { class: 'small' }, releaseWhy) : null,

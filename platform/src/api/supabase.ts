@@ -243,6 +243,9 @@ export function createApiFromClient(sb: SupabaseClient): Api {
     async addPenalty(eventId, teamId, points, reason) {
       ok(await guard(() => sb.from('penalties').insert({ event_id: eventId, team_id: teamId, points, reason: reason.trim() })));
     },
+    async removePenalty(penaltyId) {
+      await removeById('penalties', penaltyId);
+    },
     async publishSnapshot(eventId, s) {
       // `inputs` goes in but is not selectable, so the returning list names the readable columns explicitly.
       const row = one(await guard(() => sb.from('ranking_snapshots').insert({

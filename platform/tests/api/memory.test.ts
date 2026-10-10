@@ -424,3 +424,21 @@ describe('score comments', () => {
     expect((await api.listCards(ev.id))[0].comments['team-contribution']).toBe('');
   });
 });
+
+describe('removePenalty', () => {
+  it('is Chair only, removes the row, and is frozen while results are released', async () => {
+    const { api, ev, t1 } = await world();
+    await api.signIn(CHAIR);
+    await api.addPenalty(ev.id, t1.id, 15, 'Mistaken entry');
+    const [p] = await api.listPenalties(ev.id);
+    await api.signIn('org@x.test');
+    expect(await code(api.removePenalty(p.id))).toBe('forbidden');
+    await api.signIn(CHAIR);
+    expect(await code(api.removePenalty('penalty-nope'))).toBe('forbidden');
+    await api.setReleased(ev.id, true);
+    expect(await code(api.removePenalty(p.id))).toBe('locked');
+    await api.setReleased(ev.id, false);
+    await api.removePenalty(p.id);
+    expect(await api.listPenalties(ev.id)).toEqual([]);
+  });
+});

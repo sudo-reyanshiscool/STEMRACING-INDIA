@@ -17,6 +17,11 @@ const scoreTeam = async (api: World['api'], evId: string, teamId: string, a: num
 const button = (el: HTMLElement, label: string) => [...el.querySelectorAll('button')].find((b) => b.textContent === label) as HTMLButtonElement;
 const alertText = (el: HTMLElement) => text(el.querySelector('[role=alert]:not([hidden])') ?? document.createElement('i'));
 const wrap = (api: Api, over: Partial<Record<keyof Api, unknown>>): Api => new Proxy(api, { get: (t, k) => (k in over ? over[k as keyof Api] : (t as never)[k]) });
+const tick = (el: HTMLElement, on = true) => {
+  const box = el.querySelector('input[name=ack]') as HTMLInputElement;
+  box.checked = on;
+  box.dispatchEvent(new Event('change'));
+};
 const setPenalty = (el: HTMLElement, o: { team?: string; points?: string; reason?: string }) => {
   const form = el.querySelector('form[data-penalty]') as HTMLFormElement;
   if (o.team !== undefined) (form.querySelector('select[name=team]') as HTMLSelectElement).value = o.team;
@@ -142,6 +147,7 @@ describe('rankingsScreen', () => {
     await api.signIn(EMAILS.chair);
     const { ctx } = makeCtx(api);
     const el = await rankingsScreen(ctx, ev.id);
+    tick(el);
     button(el, 'Publish ranking').click();
     await vi.waitFor(async () => expect(await api.latestSnapshot(ev.id)).not.toBeNull());
     const snap = (await api.latestSnapshot(ev.id))!;
@@ -265,6 +271,99 @@ describe('rankingsScreen', () => {
     await vi.waitFor(() => expect(alertText(el)).toContain('Something went wrong'));
     expect(alertText(el)).not.toContain('relation');
     expect(button(el, 'Publish ranking').disabled).toBe(false);
+  });
+
+  it('removes a mistaken penalty only after a second, confirming click, and re-ranks', async () => {
+    const { api, ev, t1 } = await world();
+    await scoreTeam(api, ev.id, t1.id, 14, 12);
+    await api.signIn(EMAILS.chair);
+    await api.addPenalty(ev.id, t1.id, 15, 'Entered by mistake');
+    const { ctx } = makeCtx(api);
+    const el = await rankingsScreen(ctx, ev.id);
+    expect(text(el)).toContain('Entered by mistake');
+    expect([...el.querySelectorAll('tbody tr')][0].lastElementChild!.textContent).toBe('11');
+    button(el, 'Remove penalty').click();
+    await wait();
+    expect(await api.listPenalties(ev.id)).toHaveLength(1);
+    button(el, 'Confirm: remove this penalty').click();
+    await vi.waitFor(async () => expect(await api.listPenalties(ev.id)).toEqual([]));
+    await vi.waitFor(() => expect([...el.querySelectorAll('tbody tr')][0].lastElementChild!.textContent).toBe('26'));
+  });
+
+  it('refuses a published fingerprint once a penalty has been removed', async () => {
+    const { api, ev, t1 } = await world();
+    await scoreTeam(api, ev.id, t1.id, 14, 12);
+    await api.signIn(EMAILS.chair);
+    await api.addPenalty(ev.id, t1.id, 5, 'Entered by mistake');
+    const { ctx } = makeCtx(api);
+    const el = await rankingsScreen(ctx, ev.id);
+    button(el, 'Publish ranking').click();
+    await vi.waitFor(async () => expect(await api.latestSnapshot(ev.id)).not.toBeNull());
+    const before = (await api.latestSnapshot(ev.id))!.inputHash;
+    await vi.waitFor(() => expect(button(el, 'Release results to teams and the public').disabled).toBe(false));
+    button(el, 'Remove penalty').click();
+    button(el, 'Confirm: remove this penalty').click();
+    await vi.waitFor(() => expect(text(el)).toContain('out of date'));
+    expect(button(el, 'Release results to teams and the public').disabled).toBe(true);
+    await vi.waitFor(() => expect(button(el, 'Publish ranking').disabled).toBe(false));
+    button(el, 'Publish ranking').click();
+    await vi.waitFor(async () => expect((await api.latestSnapshot(ev.id))!.inputHash).not.toBe(before));
+  });
+
+  it('shows no remove button while released, and explains a locked refusal', async () => {
+    const { api, ev, t1 } = await world();
+    await api.signIn(EMAILS.chair);
+    await api.addPenalty(ev.id, t1.id, 5, 'Late arrival');
+    const { ctx } = makeCtx(api);
+    const el = await rankingsScreen(ctx, ev.id);
+    button(el, 'Remove penalty').click();
+    await api.setReleased(ev.id, true);
+    button(el, 'Confirm: remove this penalty').click();
+    await vi.waitFor(() => expect(alertText(el)).toContain('Withdraw the release to change this'));
+    await vi.waitFor(() => expect(button(el, 'Remove penalty')).toBeUndefined());
+    expect(await api.listPenalties(ev.id)).toHaveLength(1);
+  });
+
+  it('needs an explicit acknowledgement to publish or release with cards still in draft', async () => {
+    const { api, ev, t1, t2 } = await world();
+    await scoreTeam(api, ev.id, t1.id, 14, 12);
+    await api.signIn(EMAILS.judge);
+    const d = await api.openCard(ev.id, t2.id, 'verbal-technique');
+    await api.saveScore(d.id, 'team-contribution', 5);
+    await api.signIn(EMAILS.chair);
+    const { ctx } = makeCtx(api);
+    const el = await rankingsScreen(ctx, ev.id);
+    expect(text(el)).toContain('1 scorecard is still a draft');
+    expect(text(el.querySelector('label:has(input[name=ack])')!)).toContain('Publish with 1 card still in draft');
+    button(el, 'Publish ranking').click();
+    await vi.waitFor(() => expect(alertText(el)).toContain('still in draft'));
+    expect(await api.latestSnapshot(ev.id)).toBeNull();
+    tick(el);
+    button(el, 'Publish ranking').click();
+    await vi.waitFor(async () => expect(await api.latestSnapshot(ev.id)).not.toBeNull());
+    await vi.waitFor(() => expect(button(el, 'Release results to teams and the public').disabled).toBe(false));
+    tick(el, false);
+    button(el, 'Release results to teams and the public').click();
+    await vi.waitFor(() => expect(alertText(el)).toContain('still in draft'));
+    expect((await api.getEvent(ev.id))?.resultsReleased).toBe(false);
+    tick(el);
+    button(el, 'Release results to teams and the public').click();
+    await vi.waitFor(async () => expect((await api.getEvent(ev.id))?.resultsReleased).toBe(true));
+  });
+
+  it('asks the Chair to settle ties before releasing and needs the same acknowledgement', async () => {
+    const { api, ev } = await world();
+    await api.signIn(EMAILS.chair);
+    const { ctx } = makeCtx(api);
+    const el = await rankingsScreen(ctx, ev.id);
+    expect(text(el)).toContain('Settle ties before releasing');
+    expect(text(el.querySelector('label:has(input[name=ack])')!)).toContain('tie');
+    button(el, 'Publish ranking').click();
+    await vi.waitFor(() => expect(alertText(el)).toContain('tie'));
+    expect(await api.latestSnapshot(ev.id)).toBeNull();
+    tick(el);
+    button(el, 'Publish ranking').click();
+    await vi.waitFor(async () => expect(await api.latestSnapshot(ev.id)).not.toBeNull());
   });
 
   it('lets the organiser read the ranking but not publish, and refuses everyone else', async () => {

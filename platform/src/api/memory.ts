@@ -305,6 +305,13 @@ export class MemoryApi implements Api {
     this.teamOrThrow(eventId, teamId);
     this.penalties.push({ id: nid('penalty'), eventId, teamId, points: Math.round(points * 10) / 10, reason: why });
   }
+  async removePenalty(penaltyId: string) {
+    const p = this.penalties.find((x) => x.id === penaltyId);
+    // As row-level security: a missing row and a row you may not delete look the same.
+    if (!p || !this.has(p.eventId, 'chair')) throw new ApiError('forbidden', 'You do not have permission to do that');
+    this.frozen(p.eventId, 'penalties');
+    this.penalties = this.penalties.filter((x) => x.id !== penaltyId);
+  }
   async publishSnapshot(eventId: string, s: NewSnapshot) {
     this.require(eventId, 'chair');
     const ev = this.eventOrThrow(eventId);

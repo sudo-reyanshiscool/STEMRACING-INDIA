@@ -225,6 +225,54 @@ describe('moderationScreen', () => {
     expect(ctx.rerender).toHaveBeenCalled();
   });
 
+  it('says in words that an override replaces the judges mean and prefills the reason when editing', async () => {
+    const { api, ev, t1 } = await world();
+    await submitOne(api, ev.id, t1.id);
+    await api.signIn(EMAILS.chair);
+    await api.setOverride(ev.id, t1.id, 'verbal-technique', 31, 'Cross-moderated with the panel');
+    const { ctx } = makeCtx(api);
+    const el = await moderationScreen(ctx, ev.id);
+    expect(text(el)).toContain("Override replaces the judges' mean of 26");
+    expect((overrideForm(el).querySelector('input[name=reason]') as HTMLInputElement).value).toBe('Cross-moderated with the panel');
+  });
+
+  it('counts cards still in draft per team and says they are not counted', async () => {
+    const { api, ev, t1, t2 } = await world();
+    await api.signIn(EMAILS.judge);
+    const d = await api.openCard(ev.id, t1.id, 'verbal-technique');
+    await api.saveScore(d.id, 'team-contribution', 5);
+    await submitOne(api, ev.id, t2.id);
+    await api.signIn(EMAILS.chair);
+    const { ctx } = makeCtx(api);
+    const el = await moderationScreen(ctx, ev.id);
+    const rows = [...el.querySelectorAll('tbody tr')].map(text);
+    expect(rows[0]).toContain('1 card still in draft, not counted');
+    expect(rows[1]).not.toContain('still in draft');
+  });
+
+  it('gives the same judge the same label in every row', async () => {
+    const { api, ev, t1, t2 } = await world();
+    await api.signIn(EMAILS.org);
+    await api.invite(ev.id, { email: 'judge2@x.test', role: 'judge', panel: 'verbal' });
+    await api.signIn('judge2@x.test');
+    await api.claimInvitations();
+    const c = await api.openCard(ev.id, t1.id, 'verbal-technique');
+    await api.saveScore(c.id, 'engagement-presentation-dynamics', 10);
+    await api.saveScore(c.id, 'team-contribution', 10);
+    await api.submitCard(c.id);
+    await submitOne(api, ev.id, t1.id);
+    await submitOne(api, ev.id, t2.id);
+    await api.signIn(EMAILS.lead);
+    const { ctx } = makeCtx(api);
+    const el = await moderationScreen(ctx, ev.id);
+    const rows = [...el.querySelectorAll('tbody tr')].map(text);
+    // judge2 sorts first, so judge@ is "Judge 2" in both rows, not "Judge 1" in the row where it is alone.
+    expect(rows[0]).toContain('Judge 2: 26');
+    expect(rows[0]).toContain('Judge 1: 20');
+    expect(rows[1]).toContain('Judge 2: 26');
+    expect(rows[1]).not.toContain('Judge 1');
+  });
+
   it('is read-only for a lead judge and closed to everyone else', async () => {
     const { api, ev, t1 } = await world();
     await submitOne(api, ev.id, t1.id);
