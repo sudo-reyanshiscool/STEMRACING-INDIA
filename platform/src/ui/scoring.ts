@@ -7,8 +7,9 @@ import { PANEL_LABEL } from './labels';
 import { routeHref } from './router';
 
 export async function scoringScreen(ctx: Ctx, eventId: string): Promise<HTMLElement> {
-  const [event, roles, teams, cards, conflictList] = await Promise.all([
+  const [event, roles, teams, allCards, conflictList, session] = await Promise.all([
     ctx.api.getEvent(eventId), ctx.api.myRoles(eventId), ctx.api.listTeams(eventId), ctx.api.listCards(eventId), ctx.api.myConflicts(eventId),
+    ctx.api.getSession(),
   ]);
   if (!event) return notFound('That event was not found.', '#/', 'All events');
   const eventHref = routeHref({ name: 'event', eventId });
@@ -19,7 +20,8 @@ export async function scoringScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
   ctx.onLeave(() => { alive = false; });
 
   const conflicts = new Set(conflictList);
-  const myCards: CardRow[] = cards;
+  // listCards also returns other judges' cards to a Chair, Organiser or Lead Judge: only the person's own count here.
+  const myCards: CardRow[] = allCards.filter((c) => !!session && c.judgeId === session.userId);
   const error = h('p', { class: 'alert', role: 'alert', hidden: true });
   const body = h('div', { class: 'stack stack--lg' });
   /** Which team's declare button is armed (waiting for the second, confirming press). One at a time. */
@@ -60,7 +62,7 @@ export async function scoringScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
                 armed = null;
               } catch (e) {
                 armed = null;
-                if (alive) reportActionError(ctx, error, e);
+                if (alive) reportActionError(ctx, error, e, { locked: 'Results are released or this card is submitted — ask the Chair.' });
               } finally {
                 declaring = false;
                 if (alive) render();

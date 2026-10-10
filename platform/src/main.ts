@@ -50,7 +50,7 @@ async function boot(): Promise<void> {
   let token = 0;
   let leaves: Array<() => void> = [];
   const ctx: Ctx = {
-    api, queue: host, enqueueScore: (i) => host.enqueueScore(i), main: shell.main, demo,
+    api, queue: host, enqueueScore: (i) => host.enqueueScore(i), flush: () => host.flush(), main: shell.main, demo,
     rerender: () => void render(current),
     onLeave: (fn) => { leaves.push(fn); },
   };

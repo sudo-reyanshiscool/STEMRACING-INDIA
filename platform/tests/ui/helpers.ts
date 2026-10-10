@@ -27,7 +27,7 @@ export function makeCtx(api: Api, queueApi: Pick<Api, 'saveScore'> = api) {
   const leaves: Array<() => void> = [];
   const queue = new ScoreQueue(queueApi, memoryKV());
   const ctx: Ctx = {
-    api, queue, enqueueScore: async (i) => { queue.enqueue(i); await queue.flush(); }, main, demo: false,
+    api, queue, enqueueScore: async (i) => { queue.enqueue(i); await queue.flush(); }, flush: () => queue.flush(), main, demo: false,
     rerender: vi.fn(), onLeave: (f) => { leaves.push(f); },
   };
   return { ctx, leaves, queue };

@@ -1,7 +1,7 @@
 import { ApiError, type CardRow } from '../api';
 import { areaTotal, bandIndex, type Criterion } from '../engine';
 import { reportActionError } from './actions';
-import { codeText, errorText, notFound } from './common';
+import { codeText, errorText, notFound, rejectedText } from './common';
 import type { Ctx } from './ctx';
 import { h } from './dom';
 import { routeHref } from './router';
@@ -56,13 +56,20 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
   /** Comments the judge edited here and that have not been handed to the queue yet. Only these are ever sent. */
   const dirty = new Set<string>();
   const badEntries = new Set<string>();
-  for (const q of ctx.queue.pendingFor(card.id)) {
-    values[q.criterionId] = q.score;
-    if (q.comment !== undefined) comments[q.criterionId] = q.comment;
+  // Waiting changes are laid over a card that can still be edited. A locked card shows the server's values only:
+  // anything still waiting for it is listed as not saved instead (see refresh).
+  if (!locked) {
+    for (const q of ctx.queue.pendingFor(card.id)) {
+      values[q.criterionId] = q.score;
+      if (q.comment !== undefined) comments[q.criterionId] = q.comment;
+    }
   }
+  /** Criteria this page has handed to the queue, so a cleared box still explains that a value is held. */
+  const sent = new Set<string>();
 
   const status = h('p', { class: 'small', role: 'status' });
   const alertBox = h('p', { class: 'alert', role: 'alert', hidden: true });
+  const rejectedBox = h('p', { class: 'alert', role: 'alert', hidden: true });
   const notice = h('p', { class: 'notice', hidden: !locked }, lockNote);
   const missingNote = h('p', { class: 'small' });
   const total = h('strong', null);
@@ -70,7 +77,7 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
   const saveNow = h('button', { class: 'btn btn--ghost btn--small', type: 'button', hidden: true }, 'Try saving again');
   const submitRow = h('div', { class: 'stack' }, missingNote, submit);
   const submitHolder = h('div', null);
-  const blocks: { c: Criterion; bands: HTMLElement; note: HTMLElement; input: HTMLInputElement; comment: HTMLTextAreaElement }[] = [];
+  const blocks: { c: Criterion; bands: HTMLElement; note: HTMLElement; hint: HTMLElement; input: HTMLInputElement; comment: HTMLTextAreaElement }[] = [];
   let sessionNote = false;
   let submitting = false;
 
@@ -88,18 +95,38 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
     notice.hidden = !locked;
     notice.textContent = lockNote;
     if (locked) submitHolder.replaceChildren(); else if (!submitHolder.firstChild) submitHolder.append(submitRow);
-    for (const b of blocks) { b.input.disabled = locked; b.comment.disabled = locked; }
+    for (const b of blocks) {
+      b.input.disabled = locked || submitting;
+      b.comment.disabled = locked || submitting;
+    }
 
-    const pending = ctx.queue.pendingFor(card.id).length;
+    const waiting = ctx.queue.pendingFor(card.id);
+    const pending = waiting.length;
     const s = ctx.queue.status();
+    const rejectedHere = ctx.queue.rejected().filter((r) => r.item.cardId === card.id);
+    const nameOf = (id: string) => area.criteria.find((c) => c.id === id)?.name ?? id;
+    for (const b of blocks) {
+      const empty = b.input.value.trim() === '';
+      const held = card.scores[b.c.id] !== undefined || sent.has(b.c.id) || waiting.some((q) => q.criterionId === b.c.id);
+      b.hint.hidden = !(empty && held);
+    }
     const stillToScore = missing();
-    submit.disabled = locked || submitting || stillToScore.length > 0 || badEntries.size > 0 || pending > 0;
+    submit.disabled = locked || submitting || stillToScore.length > 0 || badEntries.size > 0 || pending > 0 || rejectedHere.length > 0;
     missingNote.textContent = stillToScore.length > 0 ? `Still to score: ${stillToScore.map((c) => c.name).join(', ')}.`
-      : pending > 0 ? `Waiting for ${changes(pending)} to save before you can submit.` : '';
+      : pending > 0 ? `Waiting for ${changes(pending)} to save before you can submit.`
+      : rejectedHere.length > 0 ? 'Enter the scores that were not saved again before you submit.' : '';
     saveNow.hidden = locked || pending === 0;
 
+    const notSaved = rejectedHere.map((r) => `${nameOf(r.item.criterionId)} (you entered ${r.item.score})`);
+    const codes = [...new Set(rejectedHere.map((r) => r.code))];
+    rejectedBox.hidden = rejectedHere.length === 0;
+    rejectedBox.textContent = rejectedHere.length === 0 ? ''
+      : `${codes.map(rejectedText).join(' ')} Not saved: ${notSaved.join(', ')}. Enter ${rejectedHere.length === 1 ? 'it' : 'them'} again to save.`;
+
     if (locked) {
-      status.textContent = '';
+      status.textContent = pending > 0
+        ? `Not saved: ${[...new Set(waiting.map((q) => nameOf(q.criterionId)))].join(', ')}. ${changes(pending)} waiting on this device cannot be applied to a locked scorecard.`
+        : '';
       return;
     }
     const parts: string[] = [];
@@ -107,9 +134,12 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
     else if (pending > 0 && s.lastError?.code === 'network') parts.push(`Offline: ${changes(pending)} will save when you reconnect`);
     else if (pending > 0 && s.lastError) parts.push(`${changes(pending)} waiting to save. The server had a problem; saving will be tried again.`);
     else if (pending > 0) parts.push(`${changes(pending)} waiting to save`);
-    else parts.push('All changes saved');
+    else if (rejectedHere.length === 0) parts.push('All changes saved');
+    if (rejectedHere.length > 0) parts.push(`Not saved: ${notSaved.join(', ')}. Enter ${rejectedHere.length === 1 ? 'it' : 'them'} again`);
     if (s.persistFailed) parts.push('Scores could not be stored on this device. Keep this page open until they have been sent.');
     if (badEntries.size > 0) parts.push(`${badEntries.size === 1 ? '1 entry is' : `${badEntries.size} entries are`} not a valid score and has not been saved.`);
+    const orphan = area.criteria.filter((c) => dirty.has(c.id) && values[c.id] === undefined);
+    if (orphan.length > 0) parts.push('Comment will be saved once a score is entered');
     status.textContent = parts.join('. ').replace(/\.\./g, '.');
   };
 
@@ -129,6 +159,7 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
     const hadComment = dirty.has(c.id);
     const comment = hadComment ? comments[c.id] ?? '' : undefined;
     dirty.delete(c.id);
+    sent.add(c.id);
     sessionNote = false;
     ctx.enqueueScore({ cardId: card.id, criterionId: c.id, score: values[c.id], comment })
       .catch((e) => onEnqueueError(e, c, hadComment));
@@ -145,15 +176,14 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
     const bands = h('div', { class: 'bands' }, c.bands.map((b) => h('span', { 'aria-current': 'false' }, `${b.min}–${b.max}`)));
     const note = h('p', { class: 'small' });
     const hint = h('p', { class: 'small muted', hidden: true }, 'A saved score cannot be removed. Enter a new score to change it.');
-    blocks.push({ c, bands, note, input, comment });
+    blocks.push({ c, bands, note, hint, input, comment });
 
     input.addEventListener('input', () => {
-      if (locked) return;
+      if (locked || submitting) return;
       const p = parseScore(input.value, c.max);
       err.hidden = p.kind !== 'bad';
       err.textContent = p.kind === 'bad' ? p.message : '';
       input.setAttribute('aria-invalid', String(p.kind === 'bad'));
-      hint.hidden = p.kind !== 'empty' || card.scores[c.id] === undefined;
       if (p.kind === 'bad') badEntries.add(c.id); else badEntries.delete(c.id);
       if (p.kind === 'ok') {
         values[c.id] = p.value;
@@ -163,8 +193,12 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
       }
       refresh();
     });
+    input.addEventListener('blur', () => {
+      const p = parseScore(input.value, c.max);
+      if (p.kind === 'ok' && input.value !== String(p.value)) input.value = String(p.value);
+    });
     comment.addEventListener('input', () => {
-      if (locked) return;
+      if (locked || submitting) return;
       comments[c.id] = comment.value;
       dirty.add(c.id);
       if (values[c.id] !== undefined && !badEntries.has(c.id)) sendScore(c);
@@ -182,32 +216,15 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
     );
   };
 
-  const droppedText = (item: { at: number; cardId: string; criterionId: string }): { text: string; lock: string | null } => {
-    const entry = ctx.queue.rejected().find((r) => r.item.at === item.at && r.item.cardId === item.cardId && r.item.criterionId === item.criterionId);
-    switch (entry?.code) {
-      case 'locked':
-        return {
-          text: 'This scorecard was submitted or reopened elsewhere, or results have been released, so your latest change was not saved. The scores you typed are still shown here.',
-          lock: 'This scorecard can no longer be changed here. Go back and open it again to see its current state.',
-        };
-      case 'forbidden':
-        return { text: 'You can no longer score this team, so your latest change was not saved. The scores you typed are still shown here.', lock: 'You can no longer score this team.' };
-      case 'not-found':
-        return { text: 'This scorecard no longer exists, so your latest change was not saved.', lock: 'This scorecard no longer exists.' };
-      case 'invalid':
-        return { text: 'A score or comment was not valid, so your latest change was not saved. Check it and try again.', lock: null };
-      default:
-        return { text: 'A change could not be saved after several attempts. It is kept on this device and listed at the top of the page with a Try again button.', lock: null };
-    }
-  };
-
   const unsubscribe = ctx.queue.subscribe((e) => {
     if (!alive) return;
     if (e.kind === 'dropped') {
       if (e.item.cardId !== card.id) return;
-      const d = droppedText(e.item);
-      showAlert(d.text);
-      if (d.lock) lock(d.lock);
+      const entry = ctx.queue.rejected().find((r) => r.item.at === e.item.at && r.item.cardId === e.item.cardId && r.item.criterionId === e.item.criterionId);
+      // The words come from the rejected ledger (see refresh); a refusal that means "no longer yours" also locks the form.
+      if (entry?.code === 'locked') lock('This scorecard can no longer be changed here. Go back and open it again to see its current state.');
+      else if (entry?.code === 'forbidden') lock('You can no longer score this team.');
+      else if (entry?.code === 'not-found') lock('This scorecard no longer exists.');
     } else if (e.kind === 'saved') {
       sessionNote = false;
     }
@@ -216,11 +233,8 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
   ctx.onLeave(() => { alive = false; unsubscribe(); });
 
   saveNow.addEventListener('click', () => {
-    const first = ctx.queue.pendingFor(card.id)[0];
-    if (!first) return;
-    // Re-recording the first waiting change makes the host send the whole queue again, with exactly the same values.
-    ctx.enqueueScore({ cardId: first.cardId, criterionId: first.criterionId, score: first.score, comment: first.comment })
-      .catch((e) => { if (alive) reportActionError(ctx, alertBox, e); });
+    // Plain flush: sends what is queued, as queued. Re-recording a value here could put an older one over a newer one.
+    ctx.flush().catch((e) => { if (alive) reportActionError(ctx, alertBox, e); });
   });
 
   submit.addEventListener('click', async () => {
@@ -274,6 +288,7 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
       h('p', { class: 'lead' }, `Team ${team.number} · ${team.name}`),
       notice,
     ),
+    rejectedBox,
     alertBox,
     ...area.criteria.map(criterionBlock),
     h('div', { class: 'stack' }, h('p', null, 'Total: ', total), status, saveNow, submitHolder),

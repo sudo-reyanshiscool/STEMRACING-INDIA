@@ -1,5 +1,5 @@
 import type { QueueStatus, Rejected, ScoreQueue } from '../api';
-import { codeText } from './common';
+import { codeText, rejectedText } from './common';
 import { h } from './dom';
 
 export const FLUSH_INTERVAL_MS = 30_000;
@@ -29,7 +29,7 @@ export function mountSyncBar(root: HTMLElement, queue: QueueLike): { refresh(): 
 
   const rejectedRow = (r: Rejected) =>
     h('div', { class: 'notice', role: 'alert' },
-      h('p', null, `A change was not saved: ${r.reason}`),
+      h('p', null, rejectedText(r.code)),
       h('div', { class: 'inline-form' },
         h('button', {
           class: 'btn btn--ghost btn--small', type: 'button',

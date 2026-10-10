@@ -14,6 +14,8 @@ export interface Ctx {
   queue: QueueView;
   /** Records a score: enqueue, then flush. Rejects with an 'unauthenticated' ApiError when nobody is signed in. */
   enqueueScore(i: { cardId: string; criterionId: string; score: number; comment?: string }): Promise<void>;
+  /** Sends whatever is waiting, exactly as queued. Never re-records a value. */
+  flush(): Promise<void>;
   main: HTMLElement;
   demo: boolean;
   /** Re-render the current route. */

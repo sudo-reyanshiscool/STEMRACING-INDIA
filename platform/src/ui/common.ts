@@ -35,3 +35,17 @@ export function notFound(message: string, backHref = '#/', backLabel = 'Back'): 
 /** Status is always a word, never colour alone. */
 export const tag = (label: string, tone: 'pass' | 'fail' | 'risk' | 'todo' | 'class' = 'todo') =>
   h('span', { class: `tag tag--${tone}` }, label);
+
+/**
+ * Fixed text for a score the queue gave up on, chosen by its code. The stored reason is never shown: on a real backend
+ * it can be a raw database message, and entries written by older versions may contain one.
+ */
+export function rejectedText(code: string): string {
+  switch (code) {
+    case 'invalid': return 'A score or comment was not valid, so this change was not saved.';
+    case 'locked': return 'This scorecard was submitted or reopened elsewhere, or results have been released, so this change was not saved.';
+    case 'forbidden': return 'You can no longer score this team, so this change was not saved.';
+    case 'not-found': return 'This scorecard no longer exists, so this change was not saved.';
+    default: return 'This change could not be saved after several tries.';
+  }
+}
