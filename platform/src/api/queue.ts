@@ -30,7 +30,9 @@ export type QueueEvent =
   /** No valid session: nothing was sent or dropped. The UI should say "Sign in again, your scores are safe". */
   | { kind: 'signed-out'; pending: number; reason: 'signed-out' }
   | { kind: 'dropped'; item: QueuedScore; reason: string }
-  | { kind: 'persist-failed' };
+  | { kind: 'persist-failed' }
+  /** The rejected ledger changed outside a flush (dismissed or requeued), so open screens should re-read it. */
+  | { kind: 'ledger' };
 
 export interface QueueStatus {
   pending: number;
@@ -138,6 +140,7 @@ export class ScoreQueue {
   clearRejected(id?: string) {
     this.ledger = id === undefined ? [] : this.ledger.filter((r) => r.id !== id);
     this.persistLedger();
+    this.emit({ kind: 'ledger' });
   }
 
   /**
@@ -153,6 +156,7 @@ export class ScoreQueue {
     this.persist(); // queue first: a crash between the two writes leaves a duplicate, never a loss
     this.ledger = this.ledger.filter((x) => x.id !== id);
     this.persistLedger();
+    this.emit({ kind: 'ledger' });
     return true;
   }
 

@@ -69,7 +69,9 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
 
   const status = h('p', { class: 'small', role: 'status' });
   const alertBox = h('p', { class: 'alert', role: 'alert', hidden: true });
-  const rejectedBox = h('p', { class: 'alert', role: 'alert', hidden: true });
+  const rejectedMsg = h('p', null);
+  const dismissRejected = h('button', { class: 'btn btn--ghost btn--small', type: 'button' }, 'Dismiss');
+  const rejectedBox = h('div', { class: 'alert stack', role: 'alert', hidden: true }, rejectedMsg, dismissRejected);
   const notice = h('p', { class: 'notice', hidden: !locked }, lockNote);
   const missingNote = h('p', { class: 'small' });
   const total = h('strong', null);
@@ -120,8 +122,8 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
     const notSaved = rejectedHere.map((r) => `${nameOf(r.item.criterionId)} (you entered ${r.item.score})`);
     const codes = [...new Set(rejectedHere.map((r) => r.code))];
     rejectedBox.hidden = rejectedHere.length === 0;
-    rejectedBox.textContent = rejectedHere.length === 0 ? ''
-      : `${codes.map(rejectedText).join(' ')} Not saved: ${notSaved.join(', ')}. Enter ${rejectedHere.length === 1 ? 'it' : 'them'} again to save.`;
+    const again = locked ? '' : ` Enter ${rejectedHere.length === 1 ? 'it' : 'them'} again to save.`;
+    rejectedMsg.textContent = rejectedHere.length === 0 ? '' : `${codes.map(rejectedText).join(' ')} Not saved: ${notSaved.join(', ')}.${again}`;
 
     if (locked) {
       status.textContent = pending > 0
@@ -231,6 +233,11 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
     refresh();
   });
   ctx.onLeave(() => { alive = false; unsubscribe(); });
+
+  dismissRejected.addEventListener('click', () => {
+    for (const r of ctx.queue.rejected()) if (r.item.cardId === card.id) ctx.queue.clearRejected(r.id);
+    refresh();
+  });
 
   saveNow.addEventListener('click', () => {
     // Plain flush: sends what is queued, as queued. Re-recording a value here could put an older one over a newer one.

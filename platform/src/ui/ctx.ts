@@ -5,7 +5,7 @@ import type { HostEvent } from './queuehost';
  * What a screen may do with the score queue: look, never enqueue or flush directly (use ctx.enqueueScore, which always
  * flushes). The queue behind it belongs to whoever is signed in.
  */
-export type QueueView = Pick<ScoreQueue, 'status' | 'rejected' | 'pending' | 'pendingFor'> & {
+export type QueueView = Pick<ScoreQueue, 'status' | 'rejected' | 'pending' | 'pendingFor' | 'clearRejected'> & {
   subscribe(cb: (e: HostEvent) => void): () => void;
 };
 

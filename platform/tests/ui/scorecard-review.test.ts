@@ -212,3 +212,57 @@ describe('review fixes: worklist and sync bar', () => {
     expect(text(root)).toContain('submitted or reopened elsewhere');
   });
 });
+
+describe('re-review fixes', () => {
+  const rejectedSetup = async () => {
+    const { api, ev, t1 } = await open();
+    const card = await api.openCard(ev.id, t1.id, 'verbal-technique');
+    await api.saveScore(card.id, ENGAGE_ID, 14);
+    await api.saveScore(card.id, 'team-contribution', 12);
+    const { ctx } = makeCtx(api);
+    const rejectedKv = memoryKV();
+    rejectedKv.set(JSON.stringify([{ id: 'r1', item: { cardId: card.id, criterionId: ENGAGE_ID, score: 14, at: 1 }, code: 'invalid', reason: 'raw', at: 2 }]));
+    const queue = new ScoreQueue(api, memoryKV(), undefined, { rejectedKv });
+    ctx.queue = queue;
+    const el = await scorecardScreen(ctx, ev.id, t1.id, 'verbal-technique');
+    return { api, ev, t1, ctx, queue, el, card };
+  };
+
+  it('N1: dismissing in the sync bar re-enables submit and clears the alert without any edit', async () => {
+    const { queue, el } = await rejectedSetup();
+    const root = document.createElement('div');
+    mountSyncBar(root, queue);
+    expect(button(el, 'Submit scorecard')!.disabled).toBe(true);
+    [...root.querySelectorAll('button')].find((b) => b.textContent === 'Dismiss')!.click();
+    expect(button(el, 'Submit scorecard')!.disabled).toBe(false);
+    expect(visible(el, 'Not saved')).toBe(false);
+    expect(el.querySelector('[role=alert]:not([hidden])')).toBeNull();
+  });
+
+  it('N1: a requeue from the sync bar is also reflected in the open scorecard', async () => {
+    const { queue, el, card } = await rejectedSetup();
+    queue.requeueRejected('r1');
+    expect(text(el.querySelector('[role=status]')!)).toContain('1 change waiting to save');
+    expect(queue.pendingFor(card.id)).toHaveLength(1);
+  });
+
+  it('N3: the alert has its own Dismiss button for this card’s entries', async () => {
+    const { queue, el } = await rejectedSetup();
+    button(el, 'Dismiss')!.click();
+    expect(queue.rejected()).toHaveLength(0);
+    expect(button(el, 'Submit scorecard')!.disabled).toBe(false);
+    expect(el.querySelector('[role=alert]:not([hidden])')).toBeNull();
+  });
+
+  it('N2: a locked card does not tell the judge to enter the score again', async () => {
+    const { api, ev, t1 } = await open();
+    const locked = { saveScore: async () => { throw new ApiError('locked', 'x'); } };
+    const { ctx, queue } = makeCtx(api, locked);
+    const el = await scorecardScreen(ctx, ev.id, t1.id, 'verbal-technique');
+    type(input(el, ENGAGE), '14');
+    await queue.flush();
+    expect(el.querySelector('[role=alert]:not([hidden])')!.textContent).toContain('Not saved');
+    expect(text(el)).not.toContain('again to save');
+    expect(text(el.querySelector('[role=status]')!)).not.toContain('Enter it again');
+  });
+});
