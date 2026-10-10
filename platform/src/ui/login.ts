@@ -6,12 +6,17 @@ export function loginScreen(ctx: Ctx): HTMLElement {
   const notice = h('p', { class: 'notice', role: 'status', hidden: true });
   const error = h('p', { class: 'alert', role: 'alert', hidden: true });
   const email = h('input', { type: 'email', name: 'email', required: true, autocomplete: 'email', inputmode: 'email' });
+  const submitBtn = h('button', { class: 'btn btn--primary', type: 'submit' }, 'Send sign-in link');
+  let busy = false;
   const form = h('form', { class: 'stack', novalidate: true },
     h('label', { class: 'field' }, h('span', { class: 'field__label' }, 'Email address'), email),
-    h('button', { class: 'btn btn--primary', type: 'submit' }, 'Send sign-in link'),
+    submitBtn,
   );
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (busy) return;
+    busy = true;
+    submitBtn.disabled = true;
     error.hidden = true;
     notice.hidden = true;
     try {
@@ -25,6 +30,9 @@ export function loginScreen(ctx: Ctx): HTMLElement {
     } catch (err) {
       error.textContent = errorText(err);
       error.hidden = false;
+    } finally {
+      busy = false;
+      submitBtn.disabled = false;
     }
   });
   const waiting = ctx.queue.status().pending;

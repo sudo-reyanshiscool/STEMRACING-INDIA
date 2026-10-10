@@ -1,6 +1,7 @@
 import { vi } from 'vitest';
 import { MemoryApi, ScoreQueue, memoryKV, type Api } from '../../src/api';
 import type { Ctx } from '../../src/ui/ctx';
+import { enqueueScore } from '../../src/ui/syncbar';
 
 export const EMAILS = { org: 'org@x.test', chair: 'chair@x.test', judge: 'judge@x.test', lead: 'lead@x.test', mgr: 'mgr@x.test' } as const;
 
@@ -25,11 +26,12 @@ export async function world() {
 export function makeCtx(api: Api, queueApi: Pick<Api, 'saveScore'> = api) {
   const main = document.createElement('div');
   const leaves: Array<() => void> = [];
+  const queue = new ScoreQueue(queueApi, memoryKV());
   const ctx: Ctx = {
-    api, queue: new ScoreQueue(queueApi, memoryKV()), main, demo: false,
+    api, queue, enqueueScore: (i) => enqueueScore(queue, i), main, demo: false,
     rerender: vi.fn(), onLeave: (f) => { leaves.push(f); },
   };
-  return { ctx, leaves };
+  return { ctx, leaves, queue };
 }
 
 export const text = (el: Element) => el.textContent ?? '';

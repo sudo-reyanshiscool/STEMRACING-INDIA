@@ -749,4 +749,32 @@ describe('ScoreQueue edits during a flush, and stale ledger entries', () => {
     expect(q.pending()).toBe(0);
     expect(new ScoreQueue(api, memoryKV(), undefined, { rejectedKv: ledger }).rejected().map((r) => r.id)).toEqual([rb.id]);
   });
+
+  it('signed-out clears as soon as canSend passes, even with nothing pending', async () => {
+    const { api } = fakeApi(() => {});
+    let ok = false;
+    const q = new ScoreQueue(api, memoryKV(), undefined, { canSend: async () => ok });
+    await q.flush();
+    expect(q.status().signedOut).toBe(false); // nothing waits, so there is nothing to be signed out about
+    q.enqueue(item('a', 1));
+    await q.flush();
+    expect(q.status()).toMatchObject({ pending: 1, signedOut: true });
+    ok = true;
+    q.enqueue(item('b', 2));
+    // the next flush passes canSend and clears the flag before sending
+    await q.flush();
+    expect(q.status()).toMatchObject({ pending: 0, signedOut: false });
+  });
+
+  it('signed-out clears on an empty flush once a session exists', async () => {
+    const { api } = fakeApi((_c, n) => { if (n === 1) throw new ApiError('unauthenticated', 'jwt'); });
+    const q = new ScoreQueue(api, memoryKV(), undefined, { canSend: async () => true });
+    q.enqueue(item('a', 1));
+    await q.flush();
+    expect(q.status().signedOut).toBe(true);
+    await q.flush(); // retried and saved
+    expect(q.status().signedOut).toBe(false);
+    await q.flush(); // empty
+    expect(q.status().signedOut).toBe(false);
+  });
 });

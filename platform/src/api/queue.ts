@@ -198,9 +198,11 @@ export class ScoreQueue {
       let ok = true;
       try { ok = await this.canSend(); } catch { ok = true; } // a broken check must not strand scores: let the server decide
       if (!ok) {
-        this.signedOut = true;
+        // Signed out only matters when something is waiting; an empty queue has nothing to reassure about.
+        this.signedOut = this.items.length > 0;
         return { kind: 'signed-out', pending: this.items.length, reason: 'signed-out' };
       }
+      this.signedOut = false; // a usable session: any earlier signed-out state is over, whether or not anything is queued
     }
     const skipped = new Set<QueuedScore>(); // failed with a server error this flush; try the rest
     let succeeded = 0;

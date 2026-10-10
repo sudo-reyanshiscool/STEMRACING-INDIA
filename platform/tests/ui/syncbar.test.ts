@@ -39,6 +39,24 @@ describe('syncbar', () => {
     expect(text(root)).toContain('Sign in again — your scores are safe');
   });
 
+  it('shows no sign-in banner when signed out with nothing waiting', async () => {
+    const queue = new ScoreQueue({ saveScore: async () => {} } as never, memoryKV(), undefined, { canSend: () => false });
+    const root = document.createElement('div');
+    mountSyncBar(root, queue);
+    await queue.flush();
+    await tick();
+    expect(text(root)).not.toContain('Sign in again');
+    expect(text(root)).toContain('All scores saved');
+  });
+
+  it('is hidden while there is no active queue', () => {
+    const queue = new ScoreQueue({ saveScore: async () => {} } as never, memoryKV());
+    const root = document.createElement('div');
+    mountSyncBar(root, Object.assign(queue, { active: () => false }));
+    expect(root.hidden).toBe(true);
+    expect(text(root)).toBe('');
+  });
+
   it('warns when the device could not store the queue', async () => {
     const kv: KV = { get: () => null, set: () => { throw new Error('quota'); } };
     const { queue, root } = setup(async () => { throw new ApiError('network', 'x'); }, kv);
