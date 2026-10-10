@@ -245,3 +245,25 @@ describe('M3: anon cannot read who created an event or a snapshot', () => {
     }
   });
 });
+
+describe('hardening across the whole schema after 0004', () => {
+  it('pins search_path on every SECURITY DEFINER function and exposes only the intended functions to the API roles', async () => {
+    const fns = await w.db.query<{ proname: string; def: boolean; cfg: string[] | null; anon: boolean; auth: boolean; pub: boolean }>(
+      `select p.proname, p.prosecdef as def, p.proconfig as cfg,
+              has_function_privilege('anon', p.oid, 'execute') as anon, has_function_privilege('authenticated', p.oid, 'execute') as auth,
+              exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a where a.grantee = 0 and a.privilege_type = 'EXECUTE') as pub
+       from pg_proc p where p.pronamespace = 'public'::regnamespace order by 1`);
+    for (const f of fns.rows) {
+      if (f.def) expect(f.cfg, f.proname).toContain('search_path=public, pg_temp');
+      expect(f.pub, `${f.proname} public`).toBe(false);
+    }
+    const anon = fns.rows.filter((f) => f.anon).map((f) => f.proname);
+    expect(anon).toEqual(['event_released', 'has_role', 'is_chair_or_organiser', 'is_member', 'judges_panel', 'leads_panel', 'manages_team', 'sees_all_teams']);
+    const auth = fns.rows.filter((f) => f.auth && !f.anon).map((f) => f.proname);
+    expect(auth).toEqual(['claim_invitations', 'create_event', 'is_conflicted', 'judges_panel_any', 'leads_panel_any', 'release_results', 'reopen_scorecard', 'snapshot_inputs', 'withdraw_results']);
+    for (const hidden of ['conflicts_guard', 'event_released_locked', 'snapshots_guard']) {
+      const f = fns.rows.find((x) => x.proname === hidden)!;
+      expect([f.anon, f.auth, f.pub], hidden).toEqual([false, false, false]);
+    }
+  });
+});
