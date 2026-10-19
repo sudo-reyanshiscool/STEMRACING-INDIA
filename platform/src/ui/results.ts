@@ -1,6 +1,7 @@
 import { ApiError, type CardRow, type FeedbackRow, type PenaltyRow, type TeamRow } from '../api';
 import type { RankRow, Ruleset } from '../engine';
 import { errorText, notFound, tag } from './common';
+import {resultDelivery} from './result-delivery';
 import type { Ctx } from './ctx';
 import { h } from './dom';
 import { routeHref } from './router';
@@ -52,6 +53,7 @@ export async function resultsScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
   const [event, roles] = await Promise.all([ctx.api.getEvent(eventId), ctx.api.myRoles(eventId)]);
   if (!event) return notFound('These results have not been released, or the event was not found.', '#/', 'All events');
   const isStaff = roles.some((r) => r.role === 'organiser' || r.role === 'chair');
+  const delivery=isStaff?await resultDelivery(ctx,event):null;
   const managed = [...new Set(roles.filter((r) => r.role === 'team_manager' && r.teamId).map((r) => r.teamId as string))];
   const latest = isStaff ? await ctx.api.latestSnapshot(eventId) : await ctx.api.publicStandings(eventId);
   const eventHref = signedIn ? routeHref({ name: 'event', eventId }) : '#/';
@@ -73,7 +75,7 @@ export async function resultsScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
     return h('div', { class: 'stack stack--lg' }, head,
       h('p', { class: 'lead' }, event.resultsReleased
         ? 'The ranking has not been published yet. Check back soon.'
-        : 'Results have not been released yet.'));
+        : 'Results have not been released yet.'),delivery);
   }
 
   const rows = snapshot.rows;
@@ -113,5 +115,5 @@ export async function resultsScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
     h('p', { class: 'notice' }, 'Final standings show total points only. Team managers can sign in to view their own teams’ detailed scores and feedback.'),
     anyTied ? h('p', { class: 'notice' }, 'Tied teams share a rank: they have equal total points and an equal tie-break score.') : null,
     h('p', { class: 'muted small' }, `Snapshot taken ${when(snapshot.createdAt)}.`),
-    table, mine);
+    table, mine, delivery);
 }

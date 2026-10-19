@@ -1,3 +1,4 @@
+import type { TeamContact, ResultMailState, ResultsPacket, ResultMailSelection } from './result-mail';
 import type { RaceHeat, RaceInput, TimingState, TimingPair } from '../racing';
 import type { PanelId, RankRow, Ruleset } from '../engine';
 import type { CardReview, FeedbackRow, NominationRow } from './review';
@@ -15,7 +16,7 @@ export type Panel = PanelId;
 export interface Session { userId: string; email: string }
 export interface EventRow { id: string; name: string; startsOn: string | null; ruleset: Ruleset; resultsReleased: boolean }
 export interface TeamRow { id: string; eventId: string; number: string; name: string; school: string }
-export interface NewTeam { number: string; name: string; school?: string }
+export interface NewTeam { number: string; name: string; school?: string; managerEmail?: string }
 export interface RoleRow { name?: string; id: string; eventId: string; userId: string; role: Role; panel: Panel | null; teamId: string | null; email: string | null }
 export type EmailStatus = 'not_sent' | 'sending' | 'sent' | 'failed';
 export interface InviteRow { name?: string; id: string; eventId: string; email: string; role: Role; panel: Panel | null; teamId: string | null; emailStatus?: EmailStatus; emailSentAt?: string | null; emailFailure?: 'provider' | 'rate_limit' | null }
@@ -106,6 +107,15 @@ export interface Api {
   pairTiming(eventId: string): Promise<TimingPair>;
   listTeams(eventId: string): Promise<TeamRow[]>;
   createTeam(eventId: string, i: NewTeam): Promise<TeamRow>;
+  listTeamContacts(eventId: string): Promise<TeamContact[]>;
+  setTeamContact(eventId: string, teamId: string, email: string): Promise<void>;
+  resultMailState(eventId: string): Promise<ResultMailState>;
+  saveAward(eventId: string, title: string, teamId: string): Promise<void>;
+  removeAward(awardId: string): Promise<void>;
+  confirmAwards(eventId: string): Promise<void>;
+  previewResultsPacket(eventId: string, teamId: string): Promise<ResultsPacket>;
+  sendTeamResults(eventId: string, teamId: string, selection: ResultMailSelection): Promise<'sent' | 'already_sent'>;
+  acknowledgeResultRetry(eventId: string, teamId: string, selection: ResultMailSelection): Promise<void>;
   /** Chair/Organiser only. Exact team number required; submitted cards and released results block deletion. */
   deleteTeam(eventId: string, teamId: string, confirmation: string): Promise<void>;
   /** All rows are validated and inserted together. Duplicate numbers reject the entire batch. */

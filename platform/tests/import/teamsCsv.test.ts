@@ -44,3 +44,9 @@ describe('team CSV import', () => {
     const r=parse('number,name,constructor\n1,One,Ignored');expect(r.errors).toEqual([]);expect(r.ignoredColumns).toEqual(['constructor']);
   });
 });
+
+it('accepts manager email aliases, normalises addresses and preserves leading zeros',()=>{
+ const result=parseTeamCsv('Team Number,Team Name,Team Manager Email\n001,SUPERCHARGED, Manager@School.org ');
+ expect(result.errors).toEqual([]);expect(result.teams[0]).toMatchObject({number:'001',managerEmail:'manager@school.org'});
+ for(const email of ['', 'not-an-email', 'two@example.com;other@example.com'])expect(parseTeamCsv(`number,name,manager_email\n001,One,${email}`).errors).not.toHaveLength(0);
+});

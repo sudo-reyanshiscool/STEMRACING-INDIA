@@ -6,3 +6,5 @@ export {
   ScoreQueue, memoryKV, localStorageKV, MAX_ATTEMPTS,
   type KV, type QueuedScore, type QueueEvent, type QueueStatus, type QueueOptions, type Rejected, type RejectCode,
 } from './queue';
+
+export * from './result-mail';

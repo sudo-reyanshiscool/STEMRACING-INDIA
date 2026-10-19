@@ -298,3 +298,14 @@ Judge and Lead Judge invitations require a full name (1–100 characters) as wel
 
 
 The Test Event sample generator reserves team `001` for **SUPERCHARGED**, gives it the highest sample total, and creates distinct totals for every demo team. Any synthetic tie adjustments are recorded as sample moderation overrides. `renderTestEventPreferenceSql` updates only the previously seeded, unreleased Test Event and appends a new immutable snapshot; it reopens/resubmits the affected sample cards through the normal correction flow and refuses unexpected changes to the other sample records.
+
+
+### Manager emails, result PDFs and award confirmation
+
+Team CSVs accept `manager_email` (also `Team Manager Email`). When that column is present, every row must contain a valid address. Older CSVs without it remain importable; Teams shows missing contacts and lets staff add or change them. Addresses live in the private `team_contacts` table, not public team records. Import prepares an email-verified Team Manager invitation without sending an email at import time. Changing a contact removes an older pending invitation for that primary contact; accepted roles remain manageable through People.
+
+Under **Results → Results PDFs and manager emails**, the Organiser or Chair selects overall award winners and confirms the list. The same controls offer PDF previews and a separate **Email results to managers** button. Sending requires released results, a published ranking containing the team, confirmed awards and its saved manager email. Staff review the recipient list before confirming. Every recipient gets the standings/awards PDF and their own team's submitted scorecards, shared feedback, penalties and specification measurements. Private judging notes and other teams' detailed scores are excluded.
+
+`send-results` generates attachments on the server and uses the existing SMTP secrets. It accepts reviewed event/team/snapshot/award-version/contact identifiers; the database checks these against current records, selects the real recipient and builds the scoped packet. Neither arbitrary recipients nor uploaded attachments are accepted. Deliveries are idempotent per snapshot, confirmed award version, team and address. Failed sends can be retried; uncertain sends require an explicit recipient-inbox acknowledgement, and successful sends are skipped. Each team sends in a separate request, with progress and a stop-after-current-email control.
+
+Deploy `supabase/functions/send-results` with its `deno.json` import map after applying migration 0017 through the isolated migration renderer. Keep JWT verification enabled. The function uses `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and `SMTP_FROM` already stored as server secrets. No SMTP password or service-role key belongs in the frontend. Tests use local MIME streams and synthetic report data; production verification must not send results until a staff member explicitly confirms the recipient review.

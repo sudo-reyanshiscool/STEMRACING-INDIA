@@ -22,11 +22,12 @@ export function teamImport(ctx: Ctx, eventId: string, onImported: () => Promise<
         h('ul', null, data.errors.slice(0, 50).map((e) => h('li', null, `${e.row ? `Row ${e.row}: ` : ''}${e.message}`))),
         data.errors.length > 50 ? h('p', null, `${data.errors.length - 50} more problems in this file.`) : null) : null,
       h('p', null, `${data.teams.length} team${data.teams.length === 1 ? '' : 's'} ${data.errors.length ? 'valid so far' : 'ready to import'}.`),
+      data.teams.some(t=>!t.managerEmail)?h('p',{class:'notice'},'Teams without a manager email can be imported. Add their email in Teams before sending final results.'):null,
       data.ignoredColumns.length ? h('p', { class: 'small muted' }, `Other columns will be ignored: ${data.ignoredColumns.join(', ')}.`) : null,
       data.teams.length ? h('div', { class: 'table-wrap' }, h('table', { class: 'table' },
         h('caption', null, `Preview${data.teams.length > 20 ? ' — first 20 teams' : ''}`),
-        h('thead', null, h('tr', null, ['Number', 'Team name', 'School or club'].map((label) => h('th', { scope: 'col' }, label)))),
-        h('tbody', null, data.teams.slice(0, 20).map((team) => h('tr', null, h('td', null, team.number), h('td', null, team.name), h('td', null, team.school)))))) : null,
+        h('thead', null, h('tr', null, ['Number', 'Team name', 'School or club', 'Manager email'].map((label) => h('th', { scope: 'col' }, label)))),
+        h('tbody', null, data.teams.slice(0, 20).map((team) => h('tr', null, h('td', null, team.number), h('td', null, team.name), h('td', null, team.school),h('td',null,team.managerEmail??'Not provided')))))) : null,
     ));
     confirm.textContent = `Import ${data.teams.length} team${data.teams.length === 1 ? '' : 's'}`;
   };
@@ -80,7 +81,7 @@ export function teamImport(ctx: Ctx, eventId: string, onImported: () => Promise<
   });
   return h('section', { class: 'section stack', 'aria-label': 'Import teams from CSV' },
     h('h2', null, 'Import teams from CSV'),
-    h('p', null, 'Choose a UTF-8 CSV with number and name columns, plus an optional school column. Team numbers stay as text, including leading zeros. Up to 1000 teams and 1 MB per file.'),
+    h('p', null, 'Choose a UTF-8 CSV with number, name and manager_email columns, plus an optional school column. A manager email is required for every row when that column is included. Team numbers stay as text, including leading zeros. Up to 1000 teams and 1 MB per file.'),
     h('a', { href: '/templates/teams.csv', download: 'teams-template.csv' }, 'Download CSV template'),
     h('label', { class: 'field' }, h('span', { class: 'field__label' }, 'Choose CSV file'), file),
     status, error, preview, h('div', { class: 'actions' }, confirm, cancel));

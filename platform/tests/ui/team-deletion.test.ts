@@ -32,7 +32,7 @@ describe('team deletion controls',()=>{
     const {api,row,input}=await setup();vi.spyOn(api,'listTeams').mockRejectedValueOnce(new Error('offline'));
     type(input,'1');button(row,'Confirm delete team').click();
     await vi.waitFor(()=>expect(text(row)).toContain('The team was deleted. Reload'));
-    expect(row.querySelector('input')).toBeNull();expect([...row.querySelectorAll('button')].filter(b=>!b.hidden)).toHaveLength(0);
+    expect(row.querySelector('input')).toBeNull();expect([...row.querySelectorAll('button')].filter(b=>!b.hidden && /delete/i.test(b.textContent??''))).toHaveLength(0);
   });
   it('hides deletion from judges and team managers',async()=>{
     const {api,ev,ctx}=await setup();

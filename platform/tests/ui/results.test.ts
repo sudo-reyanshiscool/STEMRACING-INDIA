@@ -8,7 +8,7 @@ const HASH = 'c'.repeat(64);
 const row = (over: Partial<RankRow>): RankRow => ({
   rank: 1, teamId: 't', number: '1', name: 'One', areas: {}, categories: { verbal: 26 }, subtotal: 26, penalties: 0, total: 26, judgedComplete: true, tied: false, ...over,
 });
-const cells = (el: Element) => [...el.querySelectorAll('tbody tr')].map((r) => [...r.children].map(text));
+const cells = (el: Element) => [...el.querySelectorAll('.results-table tbody tr')].map((r) => [...r.children].map(text));
 
 describe('resultsScreen', () => {
   it('shows an unreleased event to nobody outside the event, with no data', async () => {
@@ -181,7 +181,7 @@ describe('resultsScreen', () => {
     await api.signIn(EMAILS.chair);
     const { ctx } = makeCtx(api);
     const el = await resultsScreen(ctx, ev.id);
-    expect(el.querySelectorAll('tbody tr').length).toBe(40);
+    expect(el.querySelectorAll('.results-table tbody tr').length).toBe(40);
     const table = el.querySelector('table')!;
     expect(table.closest('.table-wrap')).not.toBeNull();
     expect(table.classList.contains('results-table')).toBe(true);

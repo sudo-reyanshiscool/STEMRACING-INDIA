@@ -1,7 +1,8 @@
 import { raceRecorded, validateRace, type RaceHeat, type RaceInput, type TimingState } from '../racing';
 import { validateScores, type Area } from '../engine';
 import { INDIA_2026 } from '../rulesets';
-import { cleanTeam, MAX_IMPORT_TEAMS } from './team-input';
+import type {ResultsPacket, ResultMailState, EventAward, TeamContact, ResultMailSelection} from './result-mail';
+import { validManagerEmail, cleanTeam, MAX_IMPORT_TEAMS } from './team-input';
 import type { OrganiserScope, PlatformAccess, NewTeam } from './types';
 import { blankReview, validateReview, type CardReview, type FeedbackRow, type NominationRow } from './review';
 import {
@@ -67,6 +68,53 @@ export class MemoryApi implements Api {
     this.globalOrganisers=this.globalOrganisers.filter(r=>r.userId!==userId);
   }
   async withdrawOrganiserInvitation(id:string) { this.requireGlobal();this.organiserInvites=this.organiserInvites.filter(i=>i.id!==id); }
+  private contacts=new Map<string,TeamContact>();
+  private awards:Array<EventAward & {eventId:string}>=[];
+  private mailSettings=new Map<string,{confirmed:boolean;version:string}>();
+  private mailDeliveries:Array<ResultMailState['deliveries'][number] & {eventId:string;snapshotId:string;version:string}>=[];
+  async listTeamContacts(eventId:string) {this.require(eventId,'chair','organiser');return copy([...this.contacts.values()].filter(c=>this.teams.some(t=>t.id===c.teamId && t.eventId===eventId)));}
+  private storeContact(eventId:string,teamId:string,email:string) {
+    if(!email){this.contacts.delete(teamId);return;}
+    this.contacts.set(teamId,{teamId,managerEmail:email});
+    if(!this.roles.some(r=>r.eventId===eventId && r.teamId===teamId && r.role==='team_manager' && r.email===email) && !this.invites.some(i=>i.eventId===eventId && i.teamId===teamId && i.role==='team_manager' && i.email===email))this.invites.push({id:nid('invite'),eventId,teamId,email,role:'team_manager',panel:null,emailStatus:'not_sent'});
+  }
+  async setTeamContact(eventId:string,teamId:string,email:string) {
+    this.require(eventId,'chair','organiser');this.teamOrThrow(eventId,teamId);email=email.trim().toLowerCase();
+    if(email && !validManagerEmail(email))throw new ApiError('invalid','Enter a valid manager email');
+    this.storeContact(eventId,teamId,email);
+  }
+  async resultMailState(eventId:string):Promise<ResultMailState> {
+    this.require(eventId,'chair','organiser');const setting=this.mailSettings.get(eventId);const snapshot=this.snapshots.filter(s=>s.eventId===eventId).at(-1);
+    return copy({confirmed:setting?.confirmed??false,version:setting?.version??null,snapshotId:snapshot?.id??null,awards:this.awards.filter(a=>a.eventId===eventId).map(({id,title,teamId})=>({id,title,teamId})),deliveries:this.mailDeliveries.filter(d=>d.eventId===eventId && d.snapshotId===snapshot?.id && d.version===setting?.version).map(({teamId,email,status,sentAt})=>({teamId,email,status,sentAt}))});
+  }
+  async saveAward(eventId:string,title:string,teamId:string) {
+    this.require(eventId,'chair','organiser');this.teamOrThrow(eventId,teamId);title=this.text(title,'Award title',120);
+    const existing=this.awards.find(a=>a.eventId===eventId && a.title.toLowerCase()===title.toLowerCase());
+    if(existing)existing.teamId=teamId;else this.awards.push({id:nid('award'),eventId,title,teamId});
+    this.mailSettings.set(eventId,{confirmed:false,version:this.mailSettings.get(eventId)?.version??nid('awards-version')});
+  }
+  async removeAward(id:string) {const a=this.awards.find(a=>a.id===id);if(!a)throw new ApiError('forbidden','Award unavailable');this.require(a.eventId,'chair','organiser');this.awards=this.awards.filter(x=>x.id!==id);this.mailSettings.set(a.eventId,{confirmed:false,version:this.mailSettings.get(a.eventId)?.version??nid('awards-version')});}
+  async confirmAwards(eventId:string) {this.require(eventId,'chair','organiser');const old=this.mailSettings.get(eventId);this.mailSettings.set(eventId,{confirmed:true,version:old?.confirmed?old.version:nid('awards-version')});}
+  async previewResultsPacket(eventId:string,teamId:string):Promise<ResultsPacket> {
+    this.require(eventId,'chair','organiser');const event=this.eventOrThrow(eventId),team=this.teamOrThrow(eventId,teamId);const snapshot=this.snapshots.filter(s=>s.eventId===eventId).at(-1);const row=snapshot?.rows.find(r=>r.teamId===teamId);
+    if(!snapshot||!row)throw new ApiError('locked','Publish a ranking containing this team first');
+    return copy({released:event.resultsReleased,awardsConfirmed:this.mailSettings.get(eventId)?.confirmed??false,eventName:event.name,eventId,snapshotId:snapshot.id,createdAt:snapshot.createdAt,ruleset:event.ruleset,team,teamResult:row,
+      standings:snapshot.rows.map(({rank,teamId,number,name,total})=>({rank,teamId,number,name,total})),
+      awards:this.awards.filter(a=>a.eventId===eventId).map(a=>{const t=this.teamOrThrow(eventId,a.teamId);return {title:a.title,teamNumber:t.number,teamName:t.name};}),
+      cards:this.cards.filter(c=>c.eventId===eventId && c.teamId===teamId && c.status==='submitted').map(c=>{const r=this.reviews.get(c.id);return {areaId:c.areaId,scores:c.scores,feedback:{overall:r?.overall??'',strengths:r?.strengths??'',improvements:r?.improvements??''}};}),
+      penalties:this.penalties.filter(p=>p.eventId===eventId && p.teamId===teamId).map(({points,reason})=>({points,reason})),
+      inspections:this.inspections.filter(i=>i.eventId===eventId && i.teamId===teamId && i.status==='submitted').map(i=>({car:i.car,measurements:i.measurements as ResultsPacket['inspections'][number]['measurements']}))});
+  }
+  async sendTeamResults(eventId:string,teamId:string,selection:ResultMailSelection):Promise<'sent'|'already_sent'> {
+    this.require(eventId,'chair','organiser');if(!this.released(eventId))throw new ApiError('locked','Release results first');
+    const settings=this.mailSettings.get(eventId);if(!settings?.confirmed)throw new ApiError('locked','Confirm awards first');
+    const contact=this.contacts.get(teamId);if(!contact)throw new ApiError('invalid','Add a manager email');
+    const packet=await this.previewResultsPacket(eventId,teamId);
+    if(selection.snapshotId!==packet.snapshotId||selection.awardsVersion!==settings.version||selection.email!==contact.managerEmail)throw new ApiError('locked','Results or recipient changed; review again');
+    if(this.mailDeliveries.some(d=>d.snapshotId===packet.snapshotId && d.version===settings.version && d.teamId===teamId && d.email===contact.managerEmail && d.status==='sent'))return 'already_sent';
+    this.mailDeliveries.push({eventId,teamId,snapshotId:packet.snapshotId,version:settings.version,email:contact.managerEmail,status:'sent',sentAt:new Date().toISOString()});return 'sent';
+  }
+  async acknowledgeResultRetry(eventId:string,teamId:string,selection:ResultMailSelection) {this.require(eventId,'chair','organiser');const d=this.mailDeliveries.find(d=>d.eventId===eventId&&d.teamId===teamId&&d.snapshotId===selection.snapshotId&&d.version===selection.awardsVersion&&d.email===selection.email);if(!d||d.status!=='uncertain')throw new ApiError('locked','No unconfirmed delivery');d.status='failed';}
   private creatorAllowlist = new Set<string>();
   private inspectionHistory: Array<{
     id: string; inspectionId: string; changedBy: string; changedAt: string;
@@ -358,8 +406,9 @@ export class MemoryApi implements Api {
     const released = this.released(eventId);
     return copy(this.teams.filter((t) => t.eventId === eventId && (released || staff || managed.includes(t.id))));
   }
-  async createTeam(eventId: string, i: { number: string; name: string; school?: string }) {
+  async createTeam(eventId: string, i: NewTeam) {
     this.require(eventId, 'chair', 'organiser');
+    const cleaned=cleanTeam(i);
     const number = this.text(i.number, 'Team number', 12);
     const name = this.text(i.name, 'Team name', 80);
     const school = (i.school ?? '').trim();
@@ -369,6 +418,7 @@ export class MemoryApi implements Api {
     }
     const team: TeamRow = { id: nid('team'), eventId, number, name, school };
     this.teams.push(team);
+    if(cleaned.managerEmail)this.storeContact(eventId,team.id,cleaned.managerEmail);
     this.version += 1;
     return copy(team);
   }
@@ -393,6 +443,7 @@ export class MemoryApi implements Api {
     this.overrides = this.overrides.filter((o) => o.teamId !== teamId);
     this.penalties = this.penalties.filter((p) => p.teamId !== teamId);
     this.teams = this.teams.filter((t) => t.id !== teamId);
+    this.contacts.delete(teamId);this.awards=this.awards.filter(a=>a.teamId!==teamId);
     this.version += 1;
   }
 
@@ -407,8 +458,9 @@ export class MemoryApi implements Api {
       numbers.add(normNumber(team.number));
     }
     // No await between validation and insertion: a batch can never be partially imported.
-    const rows = teams.map((t) => ({ ...t, id: nid('team'), eventId }));
-    this.teams.push(...rows); this.version += rows.length;
+    const rows = teams.map(({managerEmail:_,...t}) => ({ ...t, id: nid('team'), eventId }));
+    this.teams.push(...rows);
+    teams.forEach((t,i)=>{if(t.managerEmail)this.storeContact(eventId,rows[i].id,t.managerEmail);}); this.version += rows.length;
     return copy(rows);
   }
 

@@ -1,9 +1,9 @@
 import type { NewTeam, TeamRow } from '../api';
-import { MAX_IMPORT_TEAMS } from '../api/team-input';
+import { validManagerEmail, MAX_IMPORT_TEAMS } from '../api/team-input';
 
 export const MAX_CSV_BYTES = 1024 * 1024;
 export interface CsvProblem { row: number; message: string }
-export interface TeamCsvPreview { teams: Required<NewTeam>[]; errors: CsvProblem[]; ignoredColumns: string[] }
+export interface TeamCsvPreview { teams: Array<NewTeam & {school:string}>; errors: CsvProblem[]; ignoredColumns: string[] }
 interface RecordRow { row: number; cells: string[] }
 
 /** Quoted commas, escaped quotes, CRLF and quoted line breaks are all kept as field content. */
@@ -36,7 +36,8 @@ function records(text: string): RecordRow[] {
   return out;
 }
 
-const aliases: Record<string, 'number' | 'name' | 'school'> = {
+const aliases: Record<string, 'number' | 'name' | 'school' | 'managerEmail'> = {
+  manageremail:'managerEmail', teammanageremail:'managerEmail', managersemail:'managerEmail', manageremailaddress:'managerEmail',
   number: 'number', teamnumber: 'number', teamno: 'number', 'team#': 'number',
   name: 'name', team: 'name', teamname: 'name',
   school: 'school', schoolname: 'school', club: 'school', schoolorclub: 'school', schoolclub: 'school', institution: 'school',
@@ -51,7 +52,7 @@ export function parseTeamCsv(text: string, existing: readonly Pick<TeamRow, 'num
   try { rows = records(text); } catch (e) { error(0, (e as Error).message); return result; }
   if (!rows.length) { error(0, 'The file is empty. Use the CSV template to get started.'); return result; }
   const header = rows.shift()!;
-  const indexes: Partial<Record<'number' | 'name' | 'school', number>> = {};
+  const indexes: Partial<Record<'number' | 'name' | 'school' | 'managerEmail', number>> = {};
   header.cells.forEach((cell, i) => {
     const normal = normalHeader(cell);
     const key = Object.hasOwn(aliases, normal) ? aliases[normal] : undefined;
@@ -65,14 +66,16 @@ export function parseTeamCsv(text: string, existing: readonly Pick<TeamRow, 'num
   for (const { row, cells } of rows) {
     if (cells.length !== header.cells.length) { error(row, `Expected ${header.cells.length} columns but found ${cells.length}. Put values containing commas inside double quotes.`); continue; }
     const team = { number: cells[indexes.number!]!.trim(), name: cells[indexes.name!]!.trim(), school: indexes.school === undefined ? '' : cells[indexes.school].trim() };
+    const managerEmail=indexes.managerEmail===undefined?'':cells[indexes.managerEmail].trim().toLowerCase();
     const before = result.errors.length;
+    if(indexes.managerEmail!==undefined && !validManagerEmail(managerEmail))error(row,'A valid team manager email is required in the manager_email column.');
     if (!team.number) error(row, 'Team number is required.'); else if (team.number.length > 12) error(row, 'Team number must be 12 characters or fewer.');
     if (!team.name) error(row, 'Team name is required.'); else if (team.name.length > 80) error(row, 'Team name must be 80 characters or fewer.');
     if (team.school.length > 120) error(row, 'School or club must be 120 characters or fewer.');
     const number = team.number.toLowerCase();
     if (team.number && numbers.has(number)) error(row, `Team number “${team.number}” ${numbers.get(number)}.`);
     else if (team.number) numbers.set(number, `is repeated from row ${row}`);
-    if (before === result.errors.length) result.teams.push(team);
+    if (before === result.errors.length) result.teams.push({...team,...(managerEmail?{managerEmail}:{})});
   }
   if (!rows.length) error(0, 'The file has headings but no teams.');
   return result;

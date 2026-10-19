@@ -137,7 +137,7 @@ describe('teamsScreen', () => {
     const { ctx } = makeCtx(api);
     const el = await teamsScreen(ctx, ev.id);
     const labels = [...el.querySelectorAll('form label')].map((l) => text(l));
-    expect(labels).toEqual(['Team number', 'Team name', 'School or club (optional)']);
+    expect(labels).toEqual(['Team number', 'Team name', 'School or club (optional)', 'Team manager email (optional)']);
     await add(el, '5', 'Five');
     expect((el.querySelector('input[name=number]') as HTMLInputElement).value).toBe('');
   });

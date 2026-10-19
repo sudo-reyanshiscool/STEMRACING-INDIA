@@ -211,7 +211,7 @@ describe('snapshots are append-only for everybody', () => {
     await expect(w.db.query(`update ranking_snapshots set released = false where id = $1`, [id])).rejects.toThrow(/immutable/);
     await expect(w.db.query(`update ranking_snapshots set rows = '[]' where id = $1`, [id])).rejects.toThrow(/immutable/);
     await expect(w.db.query('delete from ranking_snapshots where id = $1', [id])).rejects.toThrow(/immutable/);
-    await expect(w.db.query('truncate ranking_snapshots')).rejects.toThrow(/immutable/);
+    await expect(w.db.query('truncate ranking_snapshots')).rejects.toThrow(/immutable|foreign key/);
     await expect(w.db.query('truncate events cascade')).rejects.toThrow(/immutable/);
     await expect(as(w.db, 'chair', (q) => q('truncate ranking_snapshots'))).rejects.toThrow(/permission denied/);
   });

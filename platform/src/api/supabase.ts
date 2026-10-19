@@ -5,6 +5,7 @@ import {
   firstRow, mapAuthError, mapPgError, toBroadcastRow, toCardRow, toConflictRow, toEventRow, toInspectionRow, toInviteRow, toOverrideRow, toPenaltyRow, toRoleRow, toSnapshotRow,
   toTeamRow,
 } from './mappers';
+import type { ResultMailState, ResultsPacket } from './result-mail';
 import type { Api, PlatformAccess, Session } from './types';
 import { ApiError } from './types';
 import { blankReview } from './review';
@@ -278,11 +279,31 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
         .sort((a, b) => a.number.localeCompare(b.number, 'en', { numeric: true }));
     },
     async createTeam(eventId, i) {
-      const row = one(await guard(() => sb.from('teams')
-        .insert({ event_id: eventId, number: i.number.trim(), name: i.name.trim(), school: (i.school ?? '').trim() })
-        .select(TEAM_COLS).single()));
-      return toTeamRow(row);
+      const rows = ok(await guard(() => sb.rpc('import_teams', {p_event:eventId,p_teams:[i]}))) as Record<string,any>[];
+      return toTeamRow(firstRow(rows));
     },
+    async listTeamContacts(eventId) {
+      return (await pages<any>((a,b)=>sb.from('team_contacts').select('team_id,manager_email').eq('event_id',eventId).order('team_id').range(a,b))).map(r=>({teamId:r.team_id,managerEmail:r.manager_email}));
+    },
+    async setTeamContact(eventId,teamId,email) {ok(await guard(()=>sb.rpc('set_team_contact',{p_event:eventId,p_team:teamId,p_email:email})));},
+    async resultMailState(eventId) {return ok(await guard(()=>sb.rpc('result_mail_state',{p_event:eventId}))) as ResultMailState;},
+    async saveAward(eventId,title,teamId) {ok(await guard(()=>sb.rpc('save_event_award',{p_event:eventId,p_title:title,p_team:teamId})));},
+    async removeAward(id) {ok(await guard(()=>sb.rpc('remove_event_award',{p_award:id})));},
+    async confirmAwards(eventId) {ok(await guard(()=>sb.rpc('confirm_event_awards',{p_event:eventId})));},
+    async previewResultsPacket(eventId,teamId) {return ok(await guard(()=>sb.rpc('team_results_packet',{p_event:eventId,p_team:teamId}))) as ResultsPacket;},
+    async sendTeamResults(eventId,teamId,selection) {
+      const {data,error}=await guard(()=>sb.functions.invoke('send-results',{body:{eventId,teamId,...selection}}));
+      if(error) {
+        const status=(error as {context?:{status?:number}}).context?.status;
+        if(status===401)throw new ApiError('unauthenticated','Sign in again');
+        if(status===403)throw new ApiError('forbidden','Event staff access required');
+        if(status===409)throw new ApiError('locked','Results or delivery status changed; review the recipient list again');
+        throw new ApiError('email-delivery','The results email could not be confirmed. Check its delivery status before retrying.');
+      }
+      if(data?.status!=='sent' && data?.status!=='already_sent')throw new ApiError('email-delivery','Results delivery is not confirmed');
+      return data.status;
+    },
+    async acknowledgeResultRetry(eventId,teamId,selection) {ok(await guard(()=>sb.rpc('acknowledge_result_email_retry',{p_event:eventId,p_team:teamId,p_snapshot:selection.snapshotId,p_awards_version:selection.awardsVersion,p_email:selection.email})));},
     async deleteTeam(eventId, teamId, confirmation) {
       ok(await guard(() => sb.rpc('delete_team', { p_event: eventId, p_team: teamId, p_confirmation: confirmation })));
     },

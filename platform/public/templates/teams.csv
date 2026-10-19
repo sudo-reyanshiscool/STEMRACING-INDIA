@@ -1,3 +1,2 @@
-number,name,school
-001,Sample Team One,Sample School
-002,Sample Team Two,"Sample School, New Delhi"
+number,name,school,manager_email
+001,Example Racing,Example School,manager@example.com

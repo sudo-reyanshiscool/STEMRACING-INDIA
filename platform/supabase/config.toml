@@ -412,3 +412,6 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 
 [functions.send-invitation]
 verify_jwt = true
+
+[functions.send-results]
+verify_jwt = true
