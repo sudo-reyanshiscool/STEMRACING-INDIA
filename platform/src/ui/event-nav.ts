@@ -9,6 +9,7 @@ export function eventNav(event: EventRow, roles: RoleRow[], current: Route['name
   if (has('organiser', 'chair')) items.push(['Teams', { name: 'teams', eventId: event.id }], ['People', { name: 'people', eventId: event.id }]);
   if (has('judge')) items.push(['My scorecards', { name: 'score', eventId: event.id }]);
   if (has('organiser', 'chair', 'judge', 'lead_judge') || (has('team_manager') && event.resultsReleased)) items.push(['Scores', { name: 'scores', eventId: event.id }]);
+  if (roles.some(r => r.role !== 'team_manager') || (has('team_manager') && event.resultsReleased)) items.push(['Race control', { name: 'racing', eventId: event.id }]);
   if (has('chair', 'lead_judge')) items.push(['Moderation', { name: 'moderate', eventId: event.id }]);
   if (has('organiser', 'chair')) items.push(['Rankings', { name: 'rankings', eventId: event.id }]);
   items.push(['Results', { name: 'results', eventId: event.id }]);

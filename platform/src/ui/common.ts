@@ -8,6 +8,7 @@ const CODE_TEXT: Record<ApiErrorCode, string> = {
   locked: 'This has been submitted and is locked. Ask the Chair of Judges to reopen it.',
   invalid: 'Some of the information is not valid. Check it and try again.',
   duplicate: 'That already exists.',
+  conflict: 'This race changed on another device. Reload it before saving again.',
   'not-found': 'We could not find that. It may have been removed.',
   network: 'Could not reach the server. Check your connection and try again.',
   unknown: 'Something went wrong. Try again.',

@@ -19,6 +19,7 @@ export async function eventHomeScreen(ctx: Ctx, eventId: string): Promise<HTMLEl
   if (has('organiser', 'chair')) tiles.push(tile('People', 'Invite judges, officials and team managers.', { name: 'people', eventId }));
   if (has('judge')) tiles.push(tile('My scorecards', 'Score the teams in your panel.', { name: 'score', eventId }));
   if (has('organiser', 'chair', 'judge', 'lead_judge') || (has('team_manager') && event.resultsReleased)) tiles.push(tile('Scores', 'Follow saved scores, drafts and submissions across the event.', { name: 'scores', eventId }));
+  if (roles.some(r => r.role !== 'team_manager') || (has('team_manager') && event.resultsReleased)) tiles.push(tile('Race control', 'Pair teams, record lane times and follow Denford track readings.', { name: 'racing', eventId }));
   if (has('chair', 'lead_judge')) tiles.push(tile('Moderation', "Review judges' scores, override and reopen.", { name: 'moderate', eventId }));
   if (has('organiser', 'chair')) tiles.push(tile('Rankings', 'Combine scores, add penalties, publish and release.', { name: 'rankings', eventId }));
   tiles.push(tile('Results', event.resultsReleased ? 'Results released.' : 'Not released yet.', { name: 'results', eventId }));

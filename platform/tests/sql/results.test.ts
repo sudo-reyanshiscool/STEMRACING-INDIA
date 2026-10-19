@@ -268,14 +268,14 @@ describe('privileges of the new objects', () => {
       expect([f.pub, f.anon, f.auth], f.proname).toEqual([false, false, false]);
       if (f.def) expect(f.cfg, f.proname).toContain('search_path=public, pg_temp');
     }
-    // Across the whole schema: nothing is executable by PUBLIC or anon except the policy helpers.
+    // Across the whole schema: nothing is executable by PUBLIC or anon except policy helpers and the scoped, token-authenticated device ingest.
     const exposed = await w.db.query<{ proname: string }>(
       `select p.proname from pg_proc p where p.pronamespace = 'public'::regnamespace
          and (has_function_privilege('anon', p.oid, 'execute')
               or exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a where a.grantee = 0 and a.privilege_type = 'EXECUTE'))
        order by 1`);
     expect(exposed.rows.map((x) => x.proname)).toEqual(
-      ['event_active', 'event_released', 'has_role', 'is_chair_or_organiser', 'is_member', 'judges_panel', 'leads_panel', 'manages_team', 'sees_all_teams']);
+      ['event_active', 'event_released', 'has_role', 'ingest_denford', 'is_chair_or_organiser', 'is_member', 'judges_panel', 'leads_panel', 'manages_team', 'sees_all_teams']);
   });
 });
 

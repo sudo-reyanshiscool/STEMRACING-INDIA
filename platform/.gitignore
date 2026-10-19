@@ -3,3 +3,9 @@ dist
 .env
 .env.local
 .DS_Store
+
+# Short-lived race timing device credentials
+denford-connection*.json
+
+__pycache__/
+*.pyc

@@ -1,8 +1,10 @@
+import { blankLane } from '../racing';
 import type { MemoryApi, Panel } from '../api';
 import { INDIA_2026 } from '../rulesets';
 
 export const DEMO_PERSONAS = [
   { email: 'organiser@demo.test', label: 'Organiser' },
+  { email: 'race@demo.test', label: 'Race official' },
   { email: 'chair@demo.test', label: 'Chair of Judges' },
   { email: 'judge-verbal@demo.test', label: 'Judge: Verbal Presentation' },
   { email: 'judge-design@demo.test', label: 'Judge: Design & Engineering' },
@@ -18,6 +20,7 @@ export async function seedDemo(api: MemoryApi): Promise<string> {
   const ev = await api.createEvent({ name: 'Sample event (demo data)', startsOn: new Date().toISOString().slice(0, 10) });
   const teams = [];
   for (const n of [1, 2, 3]) teams.push(await api.createTeam(ev.id, { number: String(n), name: `Sample team ${n}`, school: 'Sample school' }));
+  await api.invite(ev.id, { email: 'race@demo.test', role: 'race_official' });
   await api.invite(ev.id, { email: 'chair@demo.test', role: 'chair' });
   await api.invite(ev.id, { email: 'judge-verbal@demo.test', role: 'judge', panel: 'verbal' });
   await api.invite(ev.id, { email: 'judge-design@demo.test', role: 'judge', panel: 'design_engineering' });
@@ -81,13 +84,14 @@ export async function seedLargeDemo(api: MemoryApi): Promise<string> {
   const ev = await api.createEvent({ name: 'National Finals rehearsal (demo data)', startsOn: new Date().toISOString().slice(0, 10) });
   const teams = [];
   for (const [i, t] of DEMO_TEAMS.entries()) teams.push(await api.createTeam(ev.id, { number: String(i + 1), name: t.name, school: t.school }));
+  await api.invite(ev.id, { email: 'race@demo.test', role: 'race_official' });
   await api.invite(ev.id, { email: 'chair@demo.test', role: 'chair' });
   await api.invite(ev.id, { email: 'team1@demo.test', role: 'team_manager', teamId: teams[0].id });
   const panels = Object.keys(DEMO_PANEL_JUDGES) as Panel[];
   for (const panel of panels) {
     for (const email of DEMO_PANEL_JUDGES[panel]) await api.invite(ev.id, { email, role: 'judge', panel });
   }
-  const everyone = ['chair@demo.test', 'team1@demo.test', ...panels.flatMap((p) => DEMO_PANEL_JUDGES[p])];
+  const everyone = ['race@demo.test', 'chair@demo.test', 'team1@demo.test', ...panels.flatMap((p) => DEMO_PANEL_JUDGES[p])];
   for (const email of everyone) {
     await api.signIn(email);
     await api.claimInvitations();
@@ -113,5 +117,9 @@ export async function seedLargeDemo(api: MemoryApi): Promise<string> {
     }
   }
   await api.signIn('organiser@demo.test');
+  for (let n=0;n<4;n++) await api.saveRace(ev.id,crypto.randomUUID(),0,{
+    label:`Session 1 · Heat ${n+1}`,phase:'reaction',lane1:n<2?{...blankLane(teams[n*2].id),status:'finished',totalMs:1340+n*30,reactionMs:210+n*10}:blankLane(teams[n*2].id),
+    lane2:n<2?{...blankLane(teams[n*2+1].id),status:'finished',totalMs:1410+n*25,reactionMs:240+n*15}:blankLane(teams[n*2+1].id),note:'',source:'manual',sourceRunId:null,
+  });
   return ev.id;
 }

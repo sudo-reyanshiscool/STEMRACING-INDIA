@@ -179,8 +179,35 @@ Before the first real event on a hosted project:
 - **Conflicts of interest** must be declared before judging: once a judge has submitted a card for a team, or results
   are released, the declaration is refused. The Chair sees declared conflicts in Moderation and on Rankings.
 
+## Race control and Denford timing
+
+Every event now has a **Race control** screen. Organisers, the Chair and Race
+Officials can queue two-team heats, nominate car A/B, record total and reaction
+times to milliseconds, and mark DNF, DNS or false starts. Other staff can view
+saved runs; team managers can view them after release. Revisions prevent silent
+cross-device overwrites, corrections require a reason, and the audit log keeps
+both versions. Results release freezes race edits. Recorded races also prevent
+permanent deletion of their participating teams.
+
+The read-only Denford bridge uses the existing StartGate v1.9 `times.json`
+protocol. Choose Track Wi-Fi or Ethernet in the interface, and use the gate's exact IP
+for that connection (Wi-Fi commonly uses `http://10.0.0.1`). No network settings
+are changed automatically. Pairing files expire after eight hours and can only
+upload staging readings for one event. The official selects a heat, captures the
+next race ID, reviews the real measurements and saves the result. Duplicate,
+skipped and reset race IDs cannot silently be assigned to another heat. No gate
+settings, names or launch controls are changed. Reaction-only mode never supplies
+simulated finish times. See `tools/README.md` for setup and the separate internet
+connection required while using the track's Wi-Fi.
+
+Timing standings are provisional and separate from the judged ranking snapshot.
+Reaction points, Fastest Car award eligibility and automatic knockout brackets
+are not yet included: the ruleset's open racing questions remain unresolved.
+Physical hardware must be bench-tested; automated protocol fixtures do not prove
+track operation.
+
 ## What is not here yet
 
 Judging schedule generator, protest and appeal lodging, judge-to-team assignment, server-side snapshot verification,
-specification scores from scrutineering, racing and knock-out (later phases). See the design spec in
+specification scores from scrutineering, automatic race-point calculations and knock-out brackets (later phases). See the design spec in
 `docs/superpowers/specs/2026-10-10-event-platform-design.md`.

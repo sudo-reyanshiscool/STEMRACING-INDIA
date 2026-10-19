@@ -1,3 +1,4 @@
+import type { RaceHeat, RaceInput, TimingState, TimingPair } from '../racing';
 import type { PanelId, RankRow, Ruleset } from '../engine';
 import type { CardReview, FeedbackRow, NominationRow } from './review';
 
@@ -18,7 +19,7 @@ export interface PenaltyRow { id: string; eventId: string; teamId: string; point
 export interface SnapshotRow { id: string; eventId: string; createdAt: string; rulesetId: string; inputHash: string; rows: RankRow[]; released: boolean }
 export interface NewSnapshot { rulesetId: string; inputHash: string; inputs: unknown; rows: RankRow[] }
 /** 'unauthenticated': no valid session (signed out, token expired). The caller should sign in again; nothing was refused on merit. */
-export type ApiErrorCode = 'unauthenticated' | 'forbidden' | 'locked' | 'invalid' | 'duplicate' | 'not-found' | 'network' | 'unknown';
+export type ApiErrorCode = 'unauthenticated' | 'forbidden' | 'locked' | 'invalid' | 'duplicate' | 'conflict' | 'not-found' | 'network' | 'unknown';
 
 export class ApiError extends Error {
   constructor(public code: ApiErrorCode, message: string) {
@@ -47,6 +48,10 @@ export interface Api {
   invite(eventId: string, i: { email: string; role: Role; panel?: Panel; teamId?: string }): Promise<void>;
   removeRole(roleId: string): Promise<void>;
   removeInvitation(inviteId: string): Promise<void>;
+  listRaces(eventId: string): Promise<RaceHeat[]>;
+  saveRace(eventId: string, id: string, revision: number, input: RaceInput): Promise<RaceHeat>;
+  getTiming(eventId: string): Promise<TimingState | null>;
+  pairTiming(eventId: string): Promise<TimingPair>;
   listTeams(eventId: string): Promise<TeamRow[]>;
   createTeam(eventId: string, i: NewTeam): Promise<TeamRow>;
   /** Chair/Organiser only. Exact team number required; submitted cards and released results block deletion. */

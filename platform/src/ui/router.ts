@@ -5,13 +5,14 @@ export type Route =
   | { name: 'people'; eventId: string }
   | { name: 'score'; eventId: string }
   | { name: 'scores'; eventId: string }
+  | { name: 'racing'; eventId: string }
   | { name: 'scorecard'; eventId: string; teamId: string; areaId: string }
   | { name: 'moderate'; eventId: string }
   | { name: 'rankings'; eventId: string }
   | { name: 'results'; eventId: string };
 
 const HOME: Route = { name: 'home' };
-const SECTIONS = ['teams', 'people', 'score', 'scores', 'moderate', 'rankings', 'results'] as const;
+const SECTIONS = ['teams', 'people', 'score', 'scores', 'moderate', 'rankings', 'results', 'racing'] as const;
 
 export function parseHash(hash: string): Route {
   const parts = hash.replace(/^#\/?/, '').split('/');

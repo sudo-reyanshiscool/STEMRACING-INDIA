@@ -1,3 +1,4 @@
+import type { RaceHeat, RaceLane, TimingPair, TimingState } from '../racing';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { INDIA_2026 } from '../rulesets';
 import {
@@ -112,6 +113,10 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
     if ((await updateScore(cardId, criterionId, patch)).length === 0) throw new ApiError('forbidden', 'You cannot score on this scorecard');
   };
 
+  const raceRow = (r: any): RaceHeat => {
+    const lane = (n: number): RaceLane => ({ teamId: r[`lane${n}_team`], car: r[`lane${n}_car`], status: r[`lane${n}_status`], totalMs: r[`lane${n}_total_ms`], reactionMs: r[`lane${n}_reaction_ms`] });
+    return { id: r.id, eventId: r.event_id, number: r.heat_number, label: r.label, phase: r.phase, lane1: lane(1), lane2: lane(2), note: r.note, source: r.source, sourceRunId: r.source_run_id, revision: r.revision, updatedAt: r.updated_at };
+  };
   return {
     async getSession() {
       return session();
@@ -201,6 +206,13 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
       await removeById('invitations', inviteId);
     },
 
+    async listRaces(eventId) {
+      if (!(await session())) return [];
+      return (await pages<any>((a,b) => sb.from('race_heats').select('*').eq('event_id',eventId).order('heat_number').order('id').range(a,b))).map(raceRow);
+    },
+    async saveRace(eventId, id, revision, input) { return raceRow(firstRow(ok(await guard(() => sb.rpc('save_race', {p_event:eventId,p_id:id,p_revision:revision,p_input:input}))))); },
+    async getTiming(eventId) { return ok(await guard(() => sb.rpc('race_timing_state',{p_event:eventId}))) as TimingState | null; },
+    async pairTiming(eventId) { return ok(await guard(() => sb.rpc('pair_race_timing',{p_event:eventId}))) as TimingPair; },
     async listTeams(eventId) {
       return (await pages<never>((a, b) => sb.from('teams').select(TEAM_COLS).eq('event_id', eventId).order('id').range(a, b))).map(toTeamRow)
         .sort((a, b) => a.number.localeCompare(b.number, 'en', { numeric: true }));

@@ -33,7 +33,7 @@ describe('mapPgError', () => {
     for (const c of ['23503', '22007', '22008', '22001', '22003']) expect(mapPgError({ message: 'x', code: c }).code, c).toBe('invalid');
     expect(mapPgError({ message: 'x', code: 'PGRST116' }).code).toBe('not-found');
     expect(mapPgError({ message: 'x', code: '' }).code).toBe('unknown');
-    expect(mapPgError({ message: 'x', code: '40001' }).code).toBe('unknown');
+    expect(mapPgError({ message: 'x', code: '40001' }).code).toBe('conflict');
   });
 
   it('maps an expired or missing token to unauthenticated, never to forbidden', () => {

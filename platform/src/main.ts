@@ -24,6 +24,7 @@ import { mountShell } from './ui/shell';
 import { mountSyncBar } from './ui/syncbar';
 import { teamsScreen } from './ui/teams';
 import { scoresScreen } from './ui/scores';
+import { racingScreen } from './ui/racing';
 import { eventNav } from './ui/event-nav';
 
 const url = import.meta.env.VITE_SUPABASE_URL;
@@ -148,6 +149,7 @@ async function screenFor(route: Route, ctx: Ctx): Promise<HTMLElement> {
     case 'people': return peopleScreen(ctx, route.eventId);
     case 'score': return scoringScreen(ctx, route.eventId);
     case 'scorecard': return scorecardScreen(ctx, route.eventId, route.teamId, route.areaId);
+    case 'racing': return racingScreen(ctx, route.eventId);
     case 'scores': return scoresScreen(ctx, route.eventId);
     case 'moderate': return moderationScreen(ctx, route.eventId);
     case 'rankings': return rankingsScreen(ctx, route.eventId);

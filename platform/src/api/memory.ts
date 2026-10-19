@@ -1,3 +1,4 @@
+import { raceRecorded, validateRace, type RaceHeat, type RaceInput, type TimingState } from '../racing';
 import { validateScores, type Area } from '../engine';
 import { INDIA_2026 } from '../rulesets';
 import { cleanTeam, MAX_IMPORT_TEAMS } from './team-input';
@@ -34,6 +35,8 @@ export class MemoryApi implements Api {
   private teams: TeamRow[] = [];
   private conflicts: { eventId: string; judgeId: string; teamId: string }[] = [];
   private cards: CardRow[] = [];
+  private races: RaceHeat[] = [];
+  private timing = new Map<string, TimingState>();
   private reviews = new Map<string, CardReview>();
   private overrides: OverrideRow[] = [];
   private penalties: PenaltyRow[] = [];
@@ -205,6 +208,34 @@ export class MemoryApi implements Api {
     this.invites = this.invites.filter((x) => x.id !== inviteId);
   }
 
+  async listRaces(eventId: string) {
+    const roles = this.rolesOf(eventId);
+    return copy(roles.length && (roles.some(r => r.role !== 'team_manager') || this.released(eventId)) ? this.races.filter(r => r.eventId === eventId) : []);
+  }
+  async saveRace(eventId: string, id: string, revision: number, input: RaceInput) {
+    this.require(eventId, 'organiser', 'chair', 'race_official');
+    this.frozen(eventId, 'race results');
+    const previous = this.races.find(r => r.eventId === eventId && r.id === id);
+    if ((previous?.revision ?? 0) !== revision) throw new ApiError('conflict', 'Race changed on another device');
+    const error = validateRace(input);
+    if (error) throw new ApiError('invalid', error);
+    this.teamOrThrow(eventId, input.lane1.teamId); this.teamOrThrow(eventId, input.lane2.teamId);
+    if (previous && raceRecorded(previous) && input.note.trim().length < 5) throw new ApiError('invalid', 'Give a correction reason');
+    if (input.sourceRunId && this.races.some(r => r.eventId === eventId && r.id !== id && r.sourceRunId === input.sourceRunId)) throw new ApiError('duplicate', 'This track run was already saved');
+    const row: RaceHeat = { ...copy(input), label: input.label.trim(), note: input.note.trim(), id, eventId, number: previous?.number ?? 1 + Math.max(0, ...this.races.filter(r => r.eventId === eventId).map(r => r.number)), revision: revision + 1, updatedAt: new Date().toISOString() };
+    this.races = this.races.filter(r => r.id !== id); this.races.push(row);
+    return copy(row);
+  }
+  async getTiming(eventId: string) {
+    return this.rolesOf(eventId).some(r => r.role !== 'team_manager') ? copy(this.timing.get(eventId) ?? null) : null;
+  }
+  async pairTiming(eventId: string) {
+    this.require(eventId, 'organiser', 'chair', 'race_official'); this.frozen(eventId, 'track connection');
+    const state: TimingState = { connectionId: nid('connection'), expiresAt: new Date(Date.now() + 8 * 3600000).toISOString(), lastSeenAt: null, payload: null };
+    this.timing.set(eventId, state);
+    return { token: 'demo-only', connectionId: state.connectionId, expiresAt: state.expiresAt };
+  }
+
   // ---- teams
   async listTeams(eventId: string) {
     const mine = this.rolesOf(eventId);
@@ -236,6 +267,8 @@ export class MemoryApi implements Api {
     if (this.cards.some((c) => c.teamId === teamId && c.status === 'submitted')) {
       throw new ApiError('locked', 'Ask the Chair to reopen submitted scorecards before deleting this team');
     }
+    if (this.races.some(r => (r.lane1.teamId === teamId || r.lane2.teamId === teamId) && raceRecorded(r))) throw new ApiError('locked', 'Recorded races prevent team deletion');
+    this.races = this.races.filter(r => r.lane1.teamId !== teamId && r.lane2.teamId !== teamId);
     // Match the database's cascades, after every guard passes, with no partial deletion.
     for (const card of this.cards.filter((c) => c.teamId === teamId)) this.reviews.delete(card.id);
     this.cards = this.cards.filter((c) => c.teamId !== teamId);

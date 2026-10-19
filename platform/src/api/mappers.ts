@@ -16,6 +16,7 @@ export const PG_ERROR_CODES: Readonly<Record<string, ApiErrorCode>> = {
   PGRST301: 'unauthenticated', // PostgREST: JWT invalid or expired
   PGRST303: 'unauthenticated', // PostgREST: JWT claims validation failed
   '55000': 'locked', // object_not_in_prerequisite_state: submitted card, released freeze, immutable snapshot
+  '40001': 'conflict', // race revised on another device
   '23505': 'duplicate', // unique_violation
   '23514': 'invalid', // check_violation (also: criterion has no score on submit)
   '23502': 'invalid', // not_null_violation

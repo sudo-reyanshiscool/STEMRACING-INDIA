@@ -135,3 +135,42 @@ main:has(.scorecard-screen) { max-width: 1520px; }
 .score-filters .field { flex: 1; min-width: 180px; }
 .score-breakdown { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 20px; margin-block: 12px; }
 .score-breakdown dd { margin: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* Track control: stable lane positions and tabular times, with no motion during entry. */
+.race-heading,.race-console-heading { display:flex;justify-content:space-between;align-items:center;gap:24px; }
+.race-heading .lead { margin-top:12px; }
+.race-metrics { display:grid;grid-template-columns:repeat(3,1fr);gap:16px;border-block:1px solid var(--rule);padding:20px 0; }
+.race-metrics>div { display:flex;align-items:baseline;gap:12px; }
+.race-metrics strong { font:700 32px/1 var(--font-display);color:var(--fg-strong);font-variant-numeric:tabular-nums; }
+.race-metrics span { font-size:14px;color:var(--fg-muted); }
+.race-workspace { display:grid;grid-template-columns:280px minmax(0,1fr);gap:28px;align-items:start; }
+.race-queue { max-height:550px;overflow-y:auto; }
+.race-queue h2 { font-size:24px; }
+.race-queue-item { display:flex;flex-direction:column;gap:8px;text-align:left;cursor:pointer;min-height:120px;padding:16px;border:1px solid var(--rule);border-radius:var(--radius-button);background:var(--bg);font:inherit;color:var(--fg); }
+.race-queue-item[aria-pressed='true'] { border-color:var(--pitlane-pink);background:var(--bg-raised);box-shadow:inset 3px 0 var(--pitlane-pink); }
+.race-queue-item strong { color:var(--fg-strong); }
+.race-queue-item .eyebrow { font-size:11px; }
+.race-add { padding:20px;border:1px solid var(--rule);border-radius:var(--radius-card); }
+.race-console { min-width:0;padding:28px;background:var(--bg-raised);border:1px solid var(--rule);border-radius:var(--radius-card); }
+.race-console h2 { font-size:26px; }
+.race-lanes { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px; }
+.race-lane { margin:0;padding:20px;min-width:0;border:1px solid var(--carbon-500);border-top:4px solid var(--pitlane-pink);border-radius:var(--radius-button);display:flex;flex-direction:column;gap:16px;background:var(--bg); }
+.race-lane--2 { border-top-color:var(--burnout-orange); }
+.race-lane legend { padding:0 8px;font:700 24px var(--font-display);color:var(--fg-strong); }
+.race-lane input { width:100%;min-width:0;font-variant-numeric:tabular-nums;font-size:26px; }
+.race-lane select { width:100%;min-width:0; }
+.race-car-time { color:var(--fg-muted);font-variant-numeric:tabular-nums;font-size:16px; }
+.race-outcome { font:700 20px var(--font-body);color:var(--fg-strong); }
+.race-console .field input,.race-console textarea { width:100%; }
+@media(max-width:1000px){.race-workspace{grid-template-columns:1fr}.race-queue{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));max-height:300px}.race-queue h2{grid-column:1/-1}.race-add{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.race-add h3{grid-column:1/-1}}
+@media(max-width:580px){.race-heading{align-items:flex-start;flex-direction:column}.race-metrics>div{flex-direction:column;gap:8px}.race-metrics span{font-size:12px}.race-console{padding:16px}.race-lanes{grid-template-columns:1fr}.race-console-heading{align-items:flex-start;flex-direction:column}.race-add{grid-template-columns:1fr}.race-lane input{font-size:24px}}
+main:has(.race-screen) { padding-block:24px;gap:24px;max-width:1400px; }
+.race-screen { gap:24px; }
+.race-heading h1 { font-size:clamp(2.25rem,3.5vw,3rem); }
+.race-heading .lead { font-size:18px; }
+.race-metrics { padding-block:14px; }
+main:has(.race-screen)>* { animation:none; }
+
+.race-queue-item { overflow-wrap:anywhere; }
+
+.race-screen .inline-form .field { min-width:min(100%,240px); }
