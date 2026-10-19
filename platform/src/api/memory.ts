@@ -45,6 +45,7 @@ export class MemoryApi implements Api {
   private penalties: PenaltyRow[] = [];
   private snapshots: SnapshotRow[] = [];
   private inspections: Inspection[] = [];
+  private creatorAllowlist = new Set<string>();
   private inspectionHistory: Array<{
     id: string; inspectionId: string; changedBy: string; changedAt: string;
     previousMeasurements: Measurements; previousStatus: InspectionStatus; reason: string; revision: number;
@@ -125,8 +126,21 @@ export class MemoryApi implements Api {
   async listEvents() {
     return copy(this.events.filter((e) => !this.deletedEvents.has(e.id) && (e.resultsReleased || this.rolesOf(e.id).length > 0)));
   }
+  setCreatorAllowlist(emails: string[]): void {
+    this.creatorAllowlist = new Set(emails.map((e) => e.trim().toLowerCase()));
+  }
+  async canCreateEvent(): Promise<boolean> {
+    if (!this.me) return false;
+    if (this.events.length === 0) return true;
+    if (this.events.some((e) => !this.deletedEvents.has(e.id) && this.roles.some((r) => r.eventId === e.id && r.userId === this.me!.userId && r.role === 'organiser'))) {
+      return true;
+    }
+    if (this.creatorAllowlist.has(this.me.email.toLowerCase())) return true;
+    return false;
+  }
   async createEvent(i: { name: string; startsOn?: string }) {
     if (!this.me) throw new ApiError('unauthenticated', 'Sign in first');
+    if (!(await this.canCreateEvent())) throw new ApiError('forbidden', 'Only organisers can create events');
     const name = this.text(i.name, 'Event name', 120);
     if (i.startsOn !== undefined) {
       const d = new Date(`${i.startsOn}T00:00:00Z`);
@@ -187,7 +201,11 @@ export class MemoryApi implements Api {
     return copy(this.has(eventId, 'chair', 'organiser') ? this.invites.filter((i) => i.eventId === eventId) : []);
   }
   async invite(eventId: string, i: { email: string; role: Role; panel?: Panel; teamId?: string }) {
-    this.require(eventId, 'chair', 'organiser');
+    if (i.role === 'organiser') {
+      this.require(eventId, 'organiser');
+    } else {
+      this.require(eventId, 'chair', 'organiser');
+    }
     const email = (typeof i.email === 'string' ? i.email : '').trim().toLowerCase();
     if (!EMAIL.test(email)) throw new ApiError('invalid', 'Enter a valid email address');
     if (!ROLES.includes(i.role)) throw new ApiError('invalid', 'Choose a role');
@@ -233,7 +251,13 @@ export class MemoryApi implements Api {
   async removeRole(roleId: string) {
     const r = this.roles.find((x) => x.id === roleId);
     if (!r) return;
-    this.require(r.eventId, 'chair', 'organiser');
+    if (r.role === 'organiser') {
+      this.require(r.eventId, 'organiser');
+      const orgs = this.roles.filter((x) => x.eventId === r.eventId && x.role === 'organiser');
+      if (orgs.length <= 1) throw new ApiError('locked', 'An event must have at least one organiser');
+    } else {
+      this.require(r.eventId, 'chair', 'organiser');
+    }
     this.roles = this.roles.filter((x) => x.id !== roleId);
   }
   async sendInvitation(inviteId: string) {

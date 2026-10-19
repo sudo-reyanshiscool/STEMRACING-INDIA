@@ -68,6 +68,7 @@ export interface Api {
   onAuthChange(cb: (s: Session | null) => void): () => void;
   claimInvitations(): Promise<number>;
   listEvents(): Promise<EventRow[]>;
+  canCreateEvent(): Promise<boolean>;
   createEvent(i: { name: string; startsOn?: string }): Promise<EventRow>;
   /** Restorable deletion; confirmation must exactly match the event's current name. Organisers only. */
   deleteEvent(eventId: string, confirmation: string): Promise<void>;

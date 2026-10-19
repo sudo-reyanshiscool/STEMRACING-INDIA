@@ -16,6 +16,7 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
   if (!roles.some((r) => r.role === 'organiser' || r.role === 'chair')) {
     return notFound('Only the organiser or chair can manage people.', `#/event/${encodeURIComponent(eventId)}`, event.name);
   }
+  const isOrganiser = roles.some((r) => r.role === 'organiser');
   const teams = await ctx.api.listTeams(eventId);
   const teamLabel = (id: string | null) => {
     const t = teams.find((x) => x.id === id);
@@ -31,7 +32,14 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
   const inviteHolder = h('div', { 'data-section': 'invitations' });
   const error = h('p', { class: 'alert', role: 'alert', hidden: true });
   const status = h('p', { class: 'notice', role: 'status', hidden: true });
-  const fail = (e: unknown) => { if (alive) reportActionError(ctx, error, e, { duplicate: 'That person already has this role or invitation.' }); };
+  const fail = (e: unknown) => {
+    if (alive) {
+      reportActionError(ctx, error, e, {
+        duplicate: 'That person already has this role or invitation.',
+        locked: e instanceof ApiError && /at least one organiser/i.test(e.message) ? 'An event must have at least one organiser.' : undefined,
+      });
+    }
+  };
 
   // One write at a time: every Remove/Withdraw/Send control is disabled while one is in flight.
   let inFlight = false;
@@ -64,7 +72,11 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
       h('h2', null, 'People'),
       h('ul', { class: 'list' }, allRoles.map((r) => {
         const who = r.email ?? 'Account without a visible email';
-        const removable = r.role !== 'organiser' && r.userId !== session?.userId;
+        const isSelf = r.userId === session?.userId;
+        const orgCount = allRoles.filter((x) => x.role === 'organiser').length;
+        const removable = !isSelf && (
+          r.role === 'organiser' ? (isOrganiser && orgCount > 1) : true
+        );
         return h('li', null,
           h('strong', null, who), h('span', { class: 'muted small' }, describe(r)),
           removable ? h('button', { class: 'btn btn--ghost btn--small', type: 'button', 'aria-label': r.role === 'judge' ? `Remove ${describe(r)} assignment for ${who}` : `Remove ${who}`, onclick: () => void run(async () => { await ctx.api.removeRole(r.id); await refresh(); }) }, r.role === 'judge' ? 'Remove assignment' : 'Remove') : null);
@@ -92,7 +104,8 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
     if (inFlight) controls().forEach(b => { b.disabled = true; });
   };
 
-  const roleSelect = h('select', { name: 'role', required: true }, h('option', { value: '' }, 'Choose a role'), INVITABLE.map((r) => h('option', { value: r }, ROLE_LABEL[r])));
+  const invitableRoles = isOrganiser ? INVITABLE : INVITABLE.filter((r) => r !== 'organiser');
+  const roleSelect = h('select', { name: 'role', required: true }, h('option', { value: '' }, 'Choose a role'), invitableRoles.map((r) => h('option', { value: r }, ROLE_LABEL[r])));
   const panelSelect = h('select', { name: 'panel', required: true }, h('option', { value: '' }, 'Choose a panel'), PANELS.map((p) => h('option', { value: p }, PANEL_LABEL[p])));
   const teamSelect = h('select', { name: 'team', required: true }, h('option', { value: '' }, 'Choose a team'), teams.map((t) => h('option', { value: t.id }, `Team ${t.number} · ${t.name}`)));
   const panelField = h('label', { class: 'field', 'data-field': 'panel', hidden: true }, h('span', { class: 'field__label' }, 'Panel'), panelSelect);
@@ -132,6 +145,13 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
         return;
       }
       const existing = existingPerson();
+      if (role === 'organiser' && existing) {
+        if (members.some(r => r.userId === existing.userId && r.role === 'organiser')) {
+          status.textContent = `${emailInput.value.trim().toLowerCase()} is already an organiser of this event.`;
+          status.hidden = false;
+          return;
+        }
+      }
       if (role === 'judge' && existing) {
         const panel = panelSelect.value as Panel;
         const alreadyAssigned = members.some(r => r.userId === existing.userId && r.role === 'judge' && r.panel === panel);

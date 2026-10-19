@@ -177,6 +177,12 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
     async listEvents() {
       return (await pages<never>((a, b) => sb.from('events').select(EVENT_COLS).order('created_at', { ascending: false }).order('id').range(a, b))).map(toEventRow);
     },
+    async canCreateEvent() {
+      if (!(await session())) return false;
+      const res = await guard(() => sb.rpc('can_create_event'));
+      if (res.error) return false;
+      return Boolean(res.data);
+    },
     async createEvent(i) {
       const data = ok(await guard(() => sb.rpc('create_event', { p_name: i.name, p_starts_on: i.startsOn ?? null, p_ruleset: INDIA_2026 })));
       return toEventRow(firstRow(data));

@@ -290,3 +290,62 @@ describe('invitation email feedback',()=>{
     expect(text(el)).toContain('Email sent');
   });
 });
+
+describe('multiple organisers', () => {
+  it('allows organisers to invite another organiser, while hiding the option from chairs', async () => {
+    const { api, ev } = await world();
+    await api.signIn(EMAILS.chair);
+    const { ctx: chairCtx } = makeCtx(api);
+    const chairEl = await peopleScreen(chairCtx, ev.id);
+    const chairRoleOptions = [...chairEl.querySelectorAll('select[name=role] option')].map((o) => (o as HTMLOptionElement).value);
+    expect(chairRoleOptions).not.toContain('organiser');
+
+    await api.signIn(EMAILS.org);
+    const { ctx: orgCtx } = makeCtx(api);
+    const orgEl = await peopleScreen(orgCtx, ev.id);
+    const orgRoleOptions = [...orgEl.querySelectorAll('select[name=role] option')].map((o) => (o as HTMLOptionElement).value);
+    expect(orgRoleOptions).toContain('organiser');
+
+    pick(orgEl, 'role', 'organiser');
+    (orgEl.querySelector('input[name=email]') as HTMLInputElement).value = 'org2@x.test';
+    submit(orgEl);
+    await wait();
+    expect(text(orgEl.querySelector('[data-section=invitations]')!)).toContain('org2@x.test');
+  });
+
+  it('allows removing another organiser when more than one exists, but prevents removing the last organiser or oneself', async () => {
+    const { api, ev } = await world();
+    await api.signIn(EMAILS.org);
+    await api.invite(ev.id, { email: 'org2@x.test', role: 'organiser' });
+    await api.signIn('org2@x.test');
+    await api.claimInvitations();
+
+    // org2 is signed in: can remove org@x.test, but cannot remove themselves
+    const { ctx: org2Ctx } = makeCtx(api);
+    const el2 = await peopleScreen(org2Ctx, ev.id);
+    const rows = [...el2.querySelectorAll('[data-section=people] li')];
+    const byEmail = (e: string) => rows.find((r) => text(r).includes(e))!;
+    expect(byEmail('org2@x.test').querySelector('button')).toBeNull();
+    const removeOrg1Btn = byEmail(EMAILS.org).querySelector('button');
+    expect(removeOrg1Btn).not.toBeNull();
+    removeOrg1Btn!.click();
+    await wait();
+    expect(text(el2.querySelector('[data-section=people]')!)).not.toContain(EMAILS.org);
+
+    // Now org2 is the only remaining organiser; cannot be removed
+    const rowsRemaining = [...el2.querySelectorAll('[data-section=people] li')];
+    expect(rowsRemaining.find((r) => text(r).includes('org2@x.test'))!.querySelector('button')).toBeNull();
+  });
+
+  it('warns if trying to invite someone who is already an organiser', async () => {
+    const { api, ev } = await world();
+    await api.signIn(EMAILS.org);
+    const { ctx } = makeCtx(api);
+    const el = await peopleScreen(ctx, ev.id);
+    pick(el, 'role', 'organiser');
+    (el.querySelector('input[name=email]') as HTMLInputElement).value = EMAILS.org;
+    submit(el);
+    await wait();
+    expect(text(el.querySelector('[role=status]')!)).toContain('already an organiser');
+  });
+});

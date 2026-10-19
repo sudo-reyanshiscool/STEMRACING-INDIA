@@ -86,6 +86,7 @@ export async function seedWorld(db: PGlite): Promise<World> {
       [eventId, ids[who], role, panel, team, EMAIL[who].toLowerCase()],
     );
   }
+  await db.query('insert into event_creators(email) values ($1) on conflict do nothing', [EMAIL.invitee.toLowerCase()]);
   return { db, eventId, team1, team2 };
 }
 

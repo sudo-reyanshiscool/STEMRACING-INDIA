@@ -182,6 +182,15 @@ describe('events and invitations', () => {
     expect((await b.api.createEvent({ name: 'N' })).id).toBe('e');
   });
 
+  it('checks permission to create an event through can_create_event RPC, and returns false when signed out', async () => {
+    const a = fake(() => ({ data: true }));
+    expect(await a.api.canCreateEvent()).toBe(true);
+    expect(a.calls[0]).toMatchObject({ kind: 'rpc', name: 'can_create_event' });
+    const out = fake(() => ({ data: true }), null);
+    expect(await out.api.canCreateEvent()).toBe(false);
+    expect(out.calls).toHaveLength(0);
+  });
+
   it('claims invitations through the rpc, and does not call it when signed out', async () => {
     const a = fake(() => ({ data: 2 }));
     expect(await a.api.claimInvitations()).toBe(2);

@@ -15,18 +15,25 @@ describe('eventsScreen', () => {
     expect(text(el)).toContain('2026-11-01');
   });
 
-  it('says so when there are no events, and offers to create one', async () => {
+  it('says so when there are no events, and hides creation from strangers but shows it to organisers', async () => {
     const { api } = await world();
     await api.signIn('stranger@x.test');
     const { ctx } = makeCtx(api);
     const el = await eventsScreen(ctx);
-    expect(text(el)).toContain('No events yet');
-    expect(el.querySelector('input[name=name]')).not.toBeNull();
+    expect(text(el)).toContain('No events yet. Ask an organiser to invite you to an event.');
+    expect(el.querySelector('input[name=name]')).toBeNull();
+
+    (api as any).setCreatorAllowlist(['creator@x.test']);
+    await api.signIn('creator@x.test');
+    const { ctx: ctx2 } = makeCtx(api);
+    const el2 = await eventsScreen(ctx2);
+    expect(text(el2)).toContain('No events yet. Create one, or ask an organiser to invite you.');
+    expect(el2.querySelector('input[name=name]')).not.toBeNull();
   });
 
   it('creates an event and goes to it, or shows why not', async () => {
     const { api } = await world();
-    await api.signIn('new@x.test');
+    await api.signIn('org@x.test');
     const { ctx } = makeCtx(api);
     const el = await eventsScreen(ctx);
     const form = el.querySelector('form')!;
@@ -42,7 +49,7 @@ describe('eventsScreen', () => {
 
   it('recovers after a blank name: button enabled, then one create', async () => {
     const { api } = await world();
-    await api.signIn('new2@x.test');
+    await api.signIn('org@x.test');
     let calls = 0;
     const real = api.createEvent.bind(api);
     api.createEvent = async (i) => { calls++; return real(i); };
@@ -63,7 +70,7 @@ describe('eventsScreen', () => {
 
   it('shows create failures as fixed text, and goes to sign-in on a lapsed session', async () => {
     const { api } = await world();
-    await api.signIn('new3@x.test');
+    await api.signIn('org@x.test');
     const fail = (code: 'forbidden' | 'unauthenticated') => {
       const stub = new Proxy(api, { get: (t, k) => (k === 'createEvent' ? async () => { throw new ApiError(code, 'raw backend wording'); } : (t as never)[k]) }) as Api;
       return makeCtx(stub).ctx;

@@ -517,6 +517,52 @@ describe('events', () => {
     await api.signOut();
     expect(await code(api.createEvent({ name: 'X' }))).toBe('unauthenticated');
   });
+
+  it('restricts event creation to organisers and allowlisted users', async () => {
+    const { api } = await world();
+    await api.signIn(JUDGE);
+    expect(await api.canCreateEvent()).toBe(false);
+    expect(await code(api.createEvent({ name: 'Blocked' }))).toBe('forbidden');
+
+    await api.signIn(ORG);
+    expect(await api.canCreateEvent()).toBe(true);
+    const ev2 = await api.createEvent({ name: 'Allowed' });
+    expect(ev2.name).toBe('Allowed');
+
+    await api.signIn('preapproved@x.test');
+    expect(await api.canCreateEvent()).toBe(false);
+    api.setCreatorAllowlist(['preapproved@x.test']);
+    expect(await api.canCreateEvent()).toBe(true);
+    const ev3 = await api.createEvent({ name: 'From Allowlist' });
+    expect(ev3.name).toBe('From Allowlist');
+  });
+
+  it('allows only organisers to invite organisers and prevents removing the last organiser', async () => {
+    const { api, ev } = await world();
+    await api.signIn(CHAIR);
+    expect(await code(api.invite(ev.id, { email: 'neworg@x.test', role: 'organiser' }))).toBe('forbidden');
+
+    await api.signIn(ORG);
+    await api.invite(ev.id, { email: 'neworg@x.test', role: 'organiser' });
+    await api.signIn('neworg@x.test');
+    await api.claimInvitations();
+
+    const roles = await api.listRoles(ev.id);
+    const org1 = roles.find((r) => r.email === ORG && r.role === 'organiser')!;
+    const org2 = roles.find((r) => r.email === 'neworg@x.test' && r.role === 'organiser')!;
+
+    // Chair cannot remove an organiser
+    await api.signIn(CHAIR);
+    expect(await code(api.removeRole(org1.id))).toBe('forbidden');
+
+    // Organiser 2 can remove organiser 1
+    await api.signIn('neworg@x.test');
+    await api.removeRole(org1.id);
+    expect((await api.listRoles(ev.id)).some((r) => r.id === org1.id)).toBe(false);
+
+    // Organiser 2 is now the sole organiser; cannot be removed
+    expect(await code(api.removeRole(org2.id))).toBe('locked');
+  });
 });
 
 

@@ -10,5 +10,5 @@ export const PANEL_LABEL: Record<Panel, string> = {
   project_management: 'Project Management', enterprise: 'Enterprise', verbal: 'Verbal Presentation',
 };
 
-/** Roles an organiser or chair can invite people into (the organiser role is created with the event). */
-export const INVITABLE: Role[] = ['chair', 'lead_judge', 'judge', 'scrutineer', 'race_official', 'team_manager'];
+/** Roles that can be invited into an event. Organisers can only be invited by existing Organisers. */
+export const INVITABLE: Role[] = ['organiser', 'chair', 'lead_judge', 'judge', 'scrutineer', 'race_official', 'team_manager'];

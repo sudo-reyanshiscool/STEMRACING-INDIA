@@ -6,7 +6,7 @@ import { routeHref } from './router';
 const today = () => new Date().toISOString().slice(0, 10);
 
 export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
-  const [events, deleted] = await Promise.all([ctx.api.listEvents(), ctx.api.listDeletedEvents()]);
+  const [events, deleted, canCreate] = await Promise.all([ctx.api.listEvents(), ctx.api.listDeletedEvents(), ctx.api.canCreateEvent()]);
   let alive = true;
   ctx.onLeave(() => { alive = false; });
   const error = h('p', { class: 'alert', role: 'alert', hidden: true });
@@ -56,11 +56,11 @@ export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
       h('p', { class: 'lead' }, 'Judging, racing and results for each event, in one place.')),
     h('section', { class: 'section' },
       events.length === 0
-        ? h('p', { class: 'muted' }, 'No events yet. Create one, or ask an organiser to invite you.')
+        ? h('p', { class: 'muted' }, canCreate ? 'No events yet. Create one, or ask an organiser to invite you.' : 'No events yet. Ask an organiser to invite you to an event.')
         : h('ul', { class: 'list' }, events.map((e) =>
             h('li', null, h('a', { href: routeHref({ name: 'event', eventId: e.id }) }, h('strong', null, e.name)),
               h('span', { class: 'muted small' }, e.startsOn ?? ''), e.resultsReleased ? h('span', { class: 'tag tag--pass' }, 'Results released') : null)))),
-    h('section', { class: 'section' }, h('h2', null, 'New event'), error, form),
+    canCreate ? h('section', { class: 'section' }, h('h2', null, 'New event'), error, form) : null,
     deleted.length ? deletedSection : null,
   );
 }
