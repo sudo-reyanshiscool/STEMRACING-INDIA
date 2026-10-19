@@ -209,6 +209,9 @@ export function createApiFromClient(sb: SupabaseClient, options: SupabaseApiOpti
         .select(TEAM_COLS).single()));
       return toTeamRow(row);
     },
+    async deleteTeam(eventId, teamId, confirmation) {
+      ok(await guard(() => sb.rpc('delete_team', { p_event: eventId, p_team: teamId, p_confirmation: confirmation })));
+    },
     async importTeams(eventId, teams) {
       const rows = ok(await guard(() => sb.rpc('import_teams', { p_event: eventId, p_teams: teams })));
       return (rows as Record<string, any>[]).map(toTeamRow);

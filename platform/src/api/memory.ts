@@ -228,6 +228,26 @@ export class MemoryApi implements Api {
     return copy(team);
   }
 
+  async deleteTeam(eventId: string, teamId: string, confirmation: string) {
+    this.require(eventId, 'chair', 'organiser');
+    this.frozen(eventId, 'teams');
+    const team = this.teamOrThrow(eventId, teamId);
+    if (confirmation !== team.number) throw new ApiError('invalid', 'The team number does not match');
+    if (this.cards.some((c) => c.teamId === teamId && c.status === 'submitted')) {
+      throw new ApiError('locked', 'Ask the Chair to reopen submitted scorecards before deleting this team');
+    }
+    // Match the database's cascades, after every guard passes, with no partial deletion.
+    for (const card of this.cards.filter((c) => c.teamId === teamId)) this.reviews.delete(card.id);
+    this.cards = this.cards.filter((c) => c.teamId !== teamId);
+    this.roles = this.roles.filter((r) => r.teamId !== teamId);
+    this.invites = this.invites.filter((i) => i.teamId !== teamId);
+    this.conflicts = this.conflicts.filter((c) => c.teamId !== teamId);
+    this.overrides = this.overrides.filter((o) => o.teamId !== teamId);
+    this.penalties = this.penalties.filter((p) => p.teamId !== teamId);
+    this.teams = this.teams.filter((t) => t.id !== teamId);
+    this.version += 1;
+  }
+
   async importTeams(eventId: string, inputs: NewTeam[]) {
     this.require(eventId, 'chair', 'organiser');
     this.eventOrThrow(eventId);

@@ -43,6 +43,12 @@ Deleted events and all their data disappear from ordinary views, including publi
 **Deleted events** on the Events page to restore them. Deletion retains scorecards, feedback, invitations, published
 snapshots and the audit log. Invitations wait until restoration, and event permissions are inactive while deleted.
 
+The Chair and Organiser can use **Teams → Delete team** and confirm with the exact team number. Team deletion
+is permanent and removes draft cards, feedback, manager access, invitations, conflicts, overrides and penalties.
+Submitted cards block deletion until the Chair reopens them; released results must be withdrawn first. Historical
+ranking snapshots and the audit log remain, and a fresh ranking must be published before releasing again. Hosted
+backends need migration `0007_team_deletion.sql` before using this control.
+
 The Chair and Organiser can use **Teams → Import teams from CSV**. Download the template, choose a UTF-8 CSV and
 review the preview, then confirm the import. Required headings are `number` and `name`; `school` is optional.
 `Team Number`, `Team Name`, `School Name` and `School or Club` are also recognised. Extra columns are listed and

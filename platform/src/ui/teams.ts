@@ -3,6 +3,7 @@ import type { Ctx } from './ctx';
 import { notFound } from './common';
 import { h } from './dom';
 import { teamImport } from './team-import';
+import { deleteTeamControl } from './delete-team';
 
 export async function teamsScreen(ctx: Ctx, eventId: string): Promise<HTMLElement> {
   const [event, roles] = await Promise.all([ctx.api.getEvent(eventId), ctx.api.myRoles(eventId)]);
@@ -19,7 +20,7 @@ export async function teamsScreen(ctx: Ctx, eventId: string): Promise<HTMLElemen
     listHolder.replaceChildren(
       teams.length === 0
         ? h('p', { class: 'muted' }, 'No teams yet.')
-        : h('ul', { class: 'list' }, teams.map((t) => h('li', null, h('strong', null, `Team ${t.number} · ${t.name}`), t.school ? h('span', { class: 'muted small' }, t.school) : null))),
+        : h('ul', { class: 'list' }, teams.map((t) => h('li', null, h('strong', null, `Team ${t.number} · ${t.name}`), t.school ? h('span', { class: 'muted small' }, t.school) : null, canEdit ? deleteTeamControl(ctx, t, showTeams) : null))),
     );
   };
   await showTeams();

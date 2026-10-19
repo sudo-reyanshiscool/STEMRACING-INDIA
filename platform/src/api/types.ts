@@ -49,6 +49,8 @@ export interface Api {
   removeInvitation(inviteId: string): Promise<void>;
   listTeams(eventId: string): Promise<TeamRow[]>;
   createTeam(eventId: string, i: NewTeam): Promise<TeamRow>;
+  /** Chair/Organiser only. Exact team number required; submitted cards and released results block deletion. */
+  deleteTeam(eventId: string, teamId: string, confirmation: string): Promise<void>;
   /** All rows are validated and inserted together. Duplicate numbers reject the entire batch. */
   importTeams(eventId: string, teams: NewTeam[]): Promise<TeamRow[]>;
   /** 'locked' once the judge has a submitted card for the team, or while results are released. */

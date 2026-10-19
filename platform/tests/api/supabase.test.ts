@@ -360,6 +360,11 @@ describe('feedback and private review adapter', () => {
 });
 
 describe('event lifecycle and CSV import RPCs',()=>{
+  it('deletes a team through the confirmation RPC and maps locked responses',async()=>{
+    const {api,calls}=fake(()=>({data:null}));await api.deleteTeam('e','t','001');
+    expect(calls).toEqual([{kind:'rpc',name:'delete_team',args:{p_event:'e',p_team:'t',p_confirmation:'001'},steps:[]}]);
+    expect(await fail(fake(()=>({error:{code:'55000',message:'submitted'}})).api.deleteTeam('e','t','001'))).toBe('locked');
+  });
   it('passes event confirmation to deletion and uses the restore RPC',async()=>{
     const {api,calls}=fake(()=>({data:null}));
     await api.deleteEvent('e','National Finals');await api.restoreEvent('e');

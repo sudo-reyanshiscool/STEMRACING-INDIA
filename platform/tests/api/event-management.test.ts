@@ -37,3 +37,45 @@ describe('event management API', () => {
     await api.signIn(EMAILS.chair);expect(await api.importTeams(ev.id,[{number:'9',name:'Nine'}])).toHaveLength(1);
   });
 });
+
+
+describe('team deletion API', () => {
+  it('requires staff, the correct event and the exact number', async () => {
+    const {api,ev,t1}=await world();
+    for (const who of [EMAILS.mgr,EMAILS.judge,EMAILS.lead]) {
+      await api.signIn(who); await expect(api.deleteTeam(ev.id,t1.id,'1')).rejects.toMatchObject({code:'forbidden'});
+    }
+    await api.signIn(EMAILS.org);
+    await expect(api.deleteTeam(ev.id,t1.id,'wrong')).rejects.toMatchObject({code:'invalid'});
+    const other=await api.createEvent({name:'Other'});
+    await expect(api.deleteTeam(other.id,t1.id,'1')).rejects.toMatchObject({code:'not-found'});
+    expect(await api.listTeams(ev.id)).toHaveLength(2);
+    await api.signIn(EMAILS.chair);await api.deleteTeam(ev.id,t1.id,'1');
+    expect((await api.listTeams(ev.id)).map(t=>t.number)).toEqual(['2']);
+    await api.signIn(EMAILS.mgr);expect(await api.listTeams(ev.id)).toEqual([]);
+  });
+  it('atomically removes drafts and all team dependencies and frees the number', async () => {
+    const {api,ev,t1}=await world();await api.signIn(EMAILS.judge);
+    const card=await api.openCard(ev.id,t1.id,'verbal-technique');
+    await api.saveScore(card.id,'team-contribution',14);await api.saveReview(card.id,{...blankReview(),internalNotes:'Remove'});
+    await api.declareConflict(ev.id,t1.id);
+    await api.signIn(EMAILS.chair);await api.setOverride(ev.id,t1.id,'verbal-technique',20,'Reason');await api.addPenalty(ev.id,t1.id,2,'Reason');
+    await api.invite(ev.id,{email:'new@x.test',role:'team_manager',teamId:t1.id});
+    await api.deleteTeam(ev.id,t1.id,'1');
+    expect(await api.listCards(ev.id)).toEqual([]);expect(await api.listOverrides(ev.id)).toEqual([]);expect(await api.listPenalties(ev.id)).toEqual([]);
+    expect(await api.listConflicts(ev.id)).toEqual([]);expect(await api.listInvitations(ev.id)).toEqual([]);
+    expect((await api.listRoles(ev.id)).some(r=>r.teamId===t1.id)).toBe(false);
+    expect((await api.createTeam(ev.id,{number:'1',name:'Replacement'})).id).not.toBe(t1.id);
+    await api.signIn(EMAILS.judge);await expect(api.saveScore(card.id,'team-contribution',15)).rejects.toBeDefined();
+  });
+  it('protects submitted evidence and released results without partial changes', async () => {
+    const {api,ev,t1,t2}=await world();await api.signIn(EMAILS.judge);
+    const card=await api.openCard(ev.id,t1.id,'verbal-technique');
+    await api.saveScore(card.id,'team-contribution',14);await api.saveScore(card.id,'engagement-presentation-dynamics',14);await api.submitCard(card.id);
+    await api.signIn(EMAILS.org);await expect(api.deleteTeam(ev.id,t1.id,'1')).rejects.toMatchObject({code:'locked'});
+    expect(await api.listTeams(ev.id)).toHaveLength(2);
+    await releaseResults(api,ev.id);await expect(api.deleteTeam(ev.id,t2.id,'2')).rejects.toMatchObject({code:'locked'});
+    await api.signIn(EMAILS.chair);await api.setReleased(ev.id,false);await api.reopenCard(card.id,'Delete duplicate team');
+    await api.deleteTeam(ev.id,t1.id,'1');await expect(api.setReleased(ev.id,true)).rejects.toMatchObject({code:'locked'});
+  });
+});
