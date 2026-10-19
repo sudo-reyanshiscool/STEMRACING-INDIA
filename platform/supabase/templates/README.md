@@ -20,3 +20,8 @@ changing the authentication URL. Preview with a synthetic link, never a live
 token. The layout uses presentation tables, inline styles, a public PNG logo,
 and a small-screen media query. It remains usable when images or the media query
 are blocked. Avoid adding web fonts, scripts, large banners or tracking pixels.
+
+The email logo at `public/brand/logo-india-colour-white.png` was exported from
+page 2 of the supplied `STEM Racing TM_Location_Logo_RGB_India.ai` artwork. It
+preserves the official India lockup and transparency, with only the surrounding
+empty artboard trimmed. Display at 180 × 74 pixels without stretching.
