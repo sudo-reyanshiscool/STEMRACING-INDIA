@@ -375,7 +375,7 @@ export async function rankingsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
     else if (hash === null) why = 'Calculating the ranking fingerprint. This takes a moment.';
     publish.disabled = released || why !== null;
     const releaseWhy = released ? null
-      : why ?? (latest === null ? 'Publish the ranking before releasing it, so teams and the public see exactly this ranking.'
+      : why ?? (latest === null ? 'Publish the ranking before releasing it. Everyone sees final totals; signed-in team managers also see their own teams’ detailed scores.'
         : !current ? 'The published ranking is out of date. Publish it again before releasing.' : null);
     release.disabled = releaseWhy !== null;
 
@@ -439,7 +439,7 @@ export async function rankingsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
         }
         await ctx.api.setReleased(eventId, true);
         await refresh();
-        say('Results are released. Teams and the public can now see the published ranking.');
+        say('Results are released. Everyone can see final totals; team managers can see their own teams’ detailed scores.');
       }, null, false, 'The server says the published ranking is out of date, so nothing was released. The screen has been refreshed: check it, publish the ranking again, then release.');
     });
 
