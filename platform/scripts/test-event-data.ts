@@ -25,11 +25,11 @@ export function buildTestEventData(eventId:string) {
  const judges=panels.map((panel,i)=>({id:id(`judge:${panel}`),email:`demo-${eventId.slice(0,8)}-${panel}@example.invalid`,name:`Demo Judge ${['Avery Rao','Maya Sen','Kabir Shah','Noor Mehta','Rohan Das'][i]}`,panel}));
  const adjectives=['Apex','Crimson','Solar','Velocity','Quantum','Thunder','Neon','Titan','Falcon','Aurora'];
  const nouns=['Falcons','Vortex','Dynamics','Motorsport','Racing'];
- const teams=Array.from({length:50},(_,i)=>({id:id(`team:${i+1}`),number:`D${String(i+1).padStart(3,'0')}`,name:`Demo ${adjectives[i%10]} ${nouns[Math.floor(i/10)]}`,school:`Demo Academy ${String(i%10+1).padStart(2,'0')}`}));
+ const teams=Array.from({length:50},(_,i)=>({id:id(`team:${i+1}`),number:String(i+1).padStart(3,'0'),name:i===0?'SUPERCHARGED':`Demo ${adjectives[i%10]} ${nouns[Math.floor(i/10)]}`,school:`Demo Academy ${String(i%10+1).padStart(2,'0')}`}));
  const cards=teams.flatMap((team,i)=>INDIA_2026.areas.filter(a=>a.kind==='scorecard').map((area,k)=>({
   id:id(`card:${team.id}:${area.id}`),teamId:team.id,areaId:area.id,panel:area.panel!,judgeId:judges.find(j=>j.panel===area.panel)!.id,
   submitted:!(i>=45 && (i+k)%3===0),
-  scores:Object.fromEntries(area.criteria.map((c,n)=>[c.id,Math.max(0,Math.min(c.max,Math.round(c.max*(0.40+((i*17+k*11+n*7)%56)/100))))])),
+  scores:Object.fromEntries(area.criteria.map((c,n)=>[c.id,i===0?c.max:Math.max(0,Math.min(c.max,Math.round(c.max*(0.40+((i*17+k*11+n*7)%56)/100))))])),
   overall:`DEMO feedback: ${team.name} demonstrated ${['clear preparation','strong teamwork','thoughtful testing','effective communication','a promising design process'][i%5]}.`,
   strengths:['Clear roles and well organised evidence.','Strong technical reasoning and iteration.','Consistent visual identity and confident answers.'][i%3],
   improvements:['Quantify the impact of each design change.','Connect the project evidence to measurable outcomes.','Practise concise answers and balanced team participation.'][i%3],
@@ -60,12 +60,34 @@ export function buildTestEventData(eventId:string) {
   const [a,b]=inspections.filter(i=>i.teamId===team.id);
   if(a.submitted&&b.submitted)derived[team.id]={specifications:specificationsScore(summarise(INDIA_TECHNICAL.rules,a.measurements),summarise(INDIA_TECHNICAL.rules,b.measurements))};
  }
+ const firstRanking=rank({ruleset:INDIA_2026,teams,cards:cards.filter(c=>c.submitted),penalties,overrides,derived});
+ const winner=teams[0];
+ if(firstRanking.rows[0].teamId!==winner.id)throw Error('SUPERCHARGED must lead the synthetic fixture');
+ const winnerTotal=firstRanking.rows[0].total;
+ const usedTotals=new Set<number>();
+ for(const team of teams){
+  const row=firstRanking.rows.find(r=>r.teamId===team.id)!;
+  if(!usedTotals.has(row.total)){usedTotals.add(row.total);continue;}
+  const current=row.areas['pit-display']??0;
+  const base=row.total-current;
+  let chosen:number|undefined;
+  for(let step=1;step<=600 && chosen===undefined;step++)for(const direction of [1,-1]){
+   const value=(Math.round(current*10)+step*direction)/10;
+   const total=Math.round((base+value)*10)/10;
+   if(value>=0 && value<=60 && total<winnerTotal && !usedTotals.has(total)) {chosen=value;usedTotals.add(total);break;}
+  }
+  if(chosen===undefined)throw Error('Could not generate distinct synthetic totals');
+  const existing=overrides.find(o=>o.teamId===team.id && o.areaId==='pit-display');
+  if(existing){existing.value=chosen;existing.reason='DEMO: adjusted sample total to demonstrate distinct ranks.';}
+  else overrides.push({teamId:team.id,areaId:'pit-display',value:chosen,reason:'DEMO: adjusted sample total to demonstrate distinct ranks.'});
+ }
  const textOrder=(a:string,b:string)=>a<b?-1:a>b?1:0;
  const inputs={teams:teams.map(({id,number,name})=>({id,number,name})),cards:cards.filter(c=>c.submitted).map(({teamId,areaId,judgeId,scores})=>({teamId,areaId,judgeId,scores})).sort((a,b)=>textOrder(a.teamId,b.teamId)||textOrder(a.areaId,b.areaId)||textOrder(a.judgeId,b.judgeId)),
   penalties:penalties.map(({teamId,points})=>({teamId,points})).sort((a,b)=>textOrder(a.teamId,b.teamId)||a.points-b.points),overrides:overrides.map(({teamId,areaId,value})=>({teamId,areaId,value})).sort((a,b)=>textOrder(a.teamId,b.teamId)||textOrder(a.areaId,b.areaId)),derived};
  const ranking=rank({ruleset:INDIA_2026,...inputs});
+ if(new Set(ranking.rows.map(r=>r.total)).size!==teams.length || ranking.ties.length || ranking.rows[0].teamId!==winner.id)throw Error('Synthetic standings must be distinct with SUPERCHARGED first');
  const inputHash=createHash('sha256').update(canonicalJson({rulesetId:INDIA_2026.id,inputs,rows:ranking.rows})).digest('hex');
- const snapshot={id:id('snapshot'),inputs,rows:ranking.rows,inputHash};
+ const snapshot={id:id('snapshot:supercharged-first:v2'),inputs,rows:ranking.rows,inputHash};
  return {version:1,eventId,rulesetId:INDIA_2026.id,judges,teams,cards,inspections,penalties,overrides,races,snapshot};
 }
 
@@ -123,5 +145,61 @@ begin
 end $seed$;
 commit;
 select 'sample data loaded' as outcome;
+`;
+}
+
+/** Apply the requested demo preferences to the existing seeded event, retaining its earlier ranking evidence. */
+export function renderTestEventPreferenceSql(eventId:string,schema='stem_racing'):string {
+ if(!/^[0-9a-f-]{36}$/i.test(eventId) || !/^(stem_racing|public)$/.test(schema))throw Error('Choose an explicit event UUID and application schema');
+ const payload=JSON.stringify(buildTestEventData(eventId));
+ return `begin;
+set local search_path=${schema},pg_temp;
+select set_config('request.jwt.claims',jsonb_build_object('sub',(select user_id::text from platform_owner))::text,true);
+do $preferences$
+declare data jsonb:=$fixture$${payload}$fixture$::jsonb; e events; t jsonb; c jsonb; item jsonb; score record;
+begin
+ select * into e from events where id=(data->>'eventId')::uuid for update;
+ if not found or e.name<>'Test Event' or e.deleted_at is not null or e.results_released then raise exception 'the unreleased Test Event is required'; end if;
+ if not exists(select 1 from audit_log where event_id=e.id and action='demo_seed')
+ or (select count(*) from teams where event_id=e.id)<>50
+ or exists(select 1 from jsonb_array_elements(data->'teams') x where not exists(select 1 from teams where event_id=e.id and id=(x->>'id')::uuid)) then
+  raise exception 'only the existing synthetic sample batch can be updated';
+ end if;
+ if exists(select 1 from ranking_snapshots where id=(data#>>'{snapshot,id}')::uuid) then raise exception 'demo preference update already applied'; end if;
+ for t in select value from jsonb_array_elements(data->'teams') loop
+  update teams set number=t->>'number',name=t->>'name' where event_id=e.id and id=(t->>'id')::uuid;
+ end loop;
+ for c in select value from jsonb_array_elements(data->'cards') where value->>'teamId'=data#>>'{teams,0,id}' loop
+  perform set_config('request.jwt.claims',jsonb_build_object('sub',(select user_id::text from platform_owner))::text,true);
+  if exists(select 1 from scorecards where id=(c->>'id')::uuid and status='submitted') then
+   perform reopen_scorecard((c->>'id')::uuid,'DEMO: refresh SUPERCHARGED sample scores as requested');
+  end if;
+  perform set_config('request.jwt.claims',jsonb_build_object('sub',c->>'judgeId')::text,true);
+  for score in select key,value from jsonb_each_text(c->'scores') loop
+   update scorecard_scores set score=score.value::int where scorecard_id=(c->>'id')::uuid and criterion_id=score.key;
+  end loop;
+  perform save_card_review((c->>'id')::uuid,jsonb_build_object('overall',c->>'overall','strengths',c->>'strengths','improvements',c->>'improvements','internalNotes','DEMO: private judging note for practice.','criterionNotes','{}'::jsonb,'nominations',c->'nominations'));
+  update scorecards set status='submitted' where id=(c->>'id')::uuid;
+ end loop;
+ perform set_config('request.jwt.claims',jsonb_build_object('sub',(select user_id::text from platform_owner))::text,true);
+ for item in select value from jsonb_array_elements(data->'overrides') loop
+  insert into score_overrides(event_id,team_id,area_id,value,reason) values(e.id,(item->>'teamId')::uuid,item->>'areaId',(item->>'value')::numeric,item->>'reason')
+  on conflict(event_id,team_id,area_id) do update set value=excluded.value,reason=excluded.reason;
+ end loop;
+ if (select count(*) from scorecards where event_id=e.id)<>jsonb_array_length(data->'cards')
+ or exists(select 1 from jsonb_array_elements(data->'cards') x where not exists(
+  select 1 from scorecards c where c.event_id=e.id and c.id=(x->>'id')::uuid
+  and c.status::text=case when (x->>'submitted')::boolean then 'submitted' else 'draft' end
+  and (select jsonb_object_agg(s.criterion_id,s.score) from scorecard_scores s where s.scorecard_id=c.id)=x->'scores'))
+ or (select count(*) from penalties where event_id=e.id)<>jsonb_array_length(data->'penalties')
+ or exists(select 1 from jsonb_array_elements(data->'penalties') x where not exists(select 1 from penalties p where p.event_id=e.id and p.id=(x->>'id')::uuid and p.points=(x->>'points')::numeric))
+ or exists(select 1 from jsonb_array_elements(data->'inspections') x where not exists(select 1 from technical_inspections i where i.event_id=e.id and i.id=(x->>'id')::uuid and i.measurements=x->'measurements' and i.status=case when (x->>'submitted')::boolean then 'submitted' else 'in_progress' end)) then
+  raise exception 'sample records changed since generation; update cancelled to preserve the newer data';
+ end if;
+ insert into ranking_snapshots(id,event_id,ruleset_id,input_hash,inputs,rows,released) values((data#>>'{snapshot,id}')::uuid,e.id,data->>'rulesetId',data#>>'{snapshot,inputHash}',data#>'{snapshot,inputs}',data#>'{snapshot,rows}',true);
+ perform audit_write(e.id,'demo_preferences','events',e.id::text,jsonb_build_object('leader','SUPERCHARGED','number','001','uniqueTotals',true));
+end $preferences$;
+commit;
+select 'Test Event demo preferences updated' as outcome;
 `;
 }
