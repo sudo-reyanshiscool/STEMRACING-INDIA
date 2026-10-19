@@ -122,3 +122,26 @@ describe('loginScreen', () => {
     expect(text(el)).toContain('2 scores are waiting');
   });
 });
+
+describe('email-code sign-in',()=>{
+  it('shows callback errors and offers code entry for invitation emails too',()=>{
+    const {ctx}=makeCtx(new MemoryApi());const el=loginScreen(ctx,{authError:'This sign-in link expired.'});
+    expect(text(el)).toContain('This sign-in link expired.');expect(el.querySelector('[name=code]')).not.toBeNull();expect(el.querySelector('details')!.open).toBe(true);
+  });
+  it('verifies a code and re-renders, without requesting another email',async()=>{
+    const api=new MemoryApi();let verified:unknown;api.verifyEmailCode=async(...args)=>{verified=args;};let sent=0;api.signIn=async()=>{sent++;};
+    const {ctx}=makeCtx(api);const el=loginScreen(ctx);
+    (el.querySelector('[name=email]') as HTMLInputElement).value=' School@X.test ';
+    (el.querySelector('[name=code]') as HTMLInputElement).value='1234 5678';
+    el.querySelector('form[aria-label="Verify email code"]')!.dispatchEvent(new Event('submit',{cancelable:true}));await new Promise(r=>setTimeout(r,0));
+    expect(verified).toEqual(['school@x.test','12345678']);expect(sent).toBe(0);expect(ctx.rerender).toHaveBeenCalled();expect((el.querySelector('[name=code]') as HTMLInputElement).value).toBe('');
+  });
+  it('rejects malformed codes locally and explains expired server codes',async()=>{
+    const api=new MemoryApi();let calls=0;api.verifyEmailCode=async()=>{calls++;throw new ApiError('invalid-auth','raw error');};const {ctx}=makeCtx(api);const el=loginScreen(ctx);
+    (el.querySelector('[name=email]') as HTMLInputElement).value='school@x.test';const code=el.querySelector('[name=code]') as HTMLInputElement;
+    const verify=()=>el.querySelector('form[aria-label="Verify email code"]')!.dispatchEvent(new Event('submit',{cancelable:true}));
+    code.value='abc';verify();expect(calls).toBe(0);
+    code.value='12345678';verify();await new Promise(r=>setTimeout(r,0));
+    expect(text(el.querySelector('[role=alert]')!)).toContain('expired or was already used');expect(text(el)).not.toContain('raw error');
+  });
+});

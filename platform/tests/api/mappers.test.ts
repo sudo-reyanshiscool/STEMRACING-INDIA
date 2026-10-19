@@ -59,8 +59,8 @@ describe('mapAuthError', () => {
     expect(mapAuthError({ message: 'Failed to fetch', name: 'AuthRetryableFetchError', status: 0 }).code).toBe('network');
     expect(mapAuthError({ message: 'x', status: 0 }).code).toBe('network');
     expect(mapAuthError({ message: 'Unable to validate email address: invalid format', code: 'email_address_invalid', status: 400 }).code).toBe('invalid');
-    expect(mapAuthError({ message: 'Email rate limit exceeded', code: 'over_email_send_rate_limit', status: 429 }).code).toBe('unknown');
-    expect(mapAuthError({ message: 'Email rate limit exceeded', status: 429 }).message).toContain('rate limit');
+    expect(mapAuthError({ message: 'Email rate limit exceeded', code: 'over_email_send_rate_limit', status: 429 }).code).toBe('rate-limited');
+    expect(mapAuthError({ message: 'Expired token', code: 'otp_expired', status: 403 }).code).toBe('invalid-auth');
   });
 });
 

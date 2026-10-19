@@ -4,7 +4,7 @@ import { ApiError } from '../../src/api';
 import { createApiFromClient } from '../../src/api/supabase';
 
 type Step = [string, ...unknown[]];
-interface Call { kind: 'from' | 'rpc' | 'function'; name: string; args?: unknown; steps: Step[] }
+interface Call { kind: 'from' | 'rpc' | 'function' | 'auth'; name: string; args?: unknown; steps: Step[] }
 interface Res { data?: unknown; error?: { message: string; code?: string } | null }
 
 /** A scripted stand-in for supabase-js: records each query chain and answers it from `handler`. */
@@ -30,6 +30,7 @@ function fake(handler: (c: Call) => Res | Promise<Res>, user: { id: string; emai
     rpc: (name: string, args?: unknown) => chain({ kind: 'rpc', name, args, steps: [] }),
     functions: { invoke: async (name: string, args: unknown) => { const call: Call = {kind:'function',name,args,steps:[]}; calls.push(call); return handler(call); } },
     auth: {
+      verifyOtp: async (args: unknown) => { const call: Call = {kind:'auth',name:'verifyOtp',args,steps:[]}; calls.push(call); return handler(call); },
       getSession: async () => (getSession ? getSession(++sessionCalls) : { data: { session: user ? { user } : null }, error: null }),
     },
   } as unknown as SupabaseClient;
@@ -406,4 +407,18 @@ describe('sending invitation email',()=>{
     const {api}=fake(()=>({error:{message:'raw provider detail',context:{status}}} as unknown as Res));
     expect(await fail(api.sendInvitation('existing'))).toBe(code);
   });
+});
+
+describe('email verification',()=>{
+ it('verifies email codes and hashed links through Supabase Auth, never through app tables',async()=>{
+  const {api,calls}=fake(()=>({data:{session:{user:{id:'u'}}}}));
+  await api.verifyEmailCode(' Person@X.test ','1234 5678');await api.verifyEmailLink('a'.repeat(64));
+  expect(calls.map(c=>c.kind)).toEqual(['auth','auth']);
+  expect(calls[0].args).toEqual({email:'person@x.test',token:'12345678',type:'email'});
+  expect(calls[1].args).toEqual({token_hash:'a'.repeat(64),type:'email'});
+ });
+ it('rejects expired verification and success responses that do not establish a session',async()=>{
+  const expired=fake(()=>({error:{message:'expired',code:'otp_expired'}}));expect(await fail(expired.api.verifyEmailCode('person@x.test','12345678'))).toBe('invalid-auth');
+  const empty=fake(()=>({data:{session:null}}));expect(await fail(empty.api.verifyEmailLink('a'.repeat(64)))).toBe('invalid-auth');
+ });
 });

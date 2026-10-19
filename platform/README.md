@@ -239,3 +239,17 @@ the invitation available for **Resend invitation**, with a 60-second cooldown
 per invitation plus Supabase/provider sending limits. Previously created pending
 invitations start as **Email not sent**; use Resend to send them. Demo mode
 simulates invitations and never sends email.
+
+### Email sign-in and Safari
+
+New STEM Racing emails contain an app-owned confirmation link and an email code.
+The link opens a confirmation screen; it does not consume the email token until
+the user presses **Confirm and sign in**. The browser then verifies the token
+with Supabase and saves its own session, without a redirect carrying bearer
+tokens. This avoids consuming links merely by loading a page, including during
+mail security scans. Alternatively, enter the email address and the code from
+the latest email under **Have a sign-in code?**.
+
+Existing implicit email links remain supported. Expired or used link callbacks
+now show a useful message rather than silently showing the ordinary sign-in form.
+Email confirmation and all event role permissions remain enforced by Supabase.

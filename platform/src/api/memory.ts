@@ -58,6 +58,8 @@ export class MemoryApi implements Api {
     if (!EMAIL.test(e)) throw new ApiError('invalid', 'Enter a valid email address');
     this.setSession({ userId: `user:${e}`, email: e });
   }
+  async verifyEmailCode(_email: string, _code: string) { throw new ApiError('invalid-auth', 'Demo mode does not issue email codes'); }
+  async verifyEmailLink(_tokenHash: string) { throw new ApiError('invalid-auth', 'Demo mode does not issue email links'); }
   async signOut() { this.setSession(null); }
   onAuthChange(cb: (s: Session | null) => void) {
     this.listeners.add(cb);

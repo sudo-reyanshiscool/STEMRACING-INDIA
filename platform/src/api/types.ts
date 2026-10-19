@@ -20,7 +20,7 @@ export interface PenaltyRow { id: string; eventId: string; teamId: string; point
 export interface SnapshotRow { id: string; eventId: string; createdAt: string; rulesetId: string; inputHash: string; rows: RankRow[]; released: boolean }
 export interface NewSnapshot { rulesetId: string; inputHash: string; inputs: unknown; rows: RankRow[] }
 /** 'unauthenticated': no valid session (signed out, token expired). The caller should sign in again; nothing was refused on merit. */
-export type ApiErrorCode = 'unauthenticated' | 'forbidden' | 'locked' | 'invalid' | 'duplicate' | 'conflict' | 'email-delivery' | 'rate-limited' | 'not-found' | 'network' | 'unknown';
+export type ApiErrorCode = 'unauthenticated' | 'forbidden' | 'locked' | 'invalid' | 'duplicate' | 'conflict' | 'email-delivery' | 'rate-limited' | 'invalid-auth' | 'not-found' | 'network' | 'unknown';
 
 export class ApiError extends Error {
   constructor(public code: ApiErrorCode, message: string) {
@@ -32,6 +32,8 @@ export class ApiError extends Error {
 export interface Api {
   getSession(): Promise<Session | null>;
   signIn(email: string): Promise<void>;
+  verifyEmailCode(email: string, code: string): Promise<void>;
+  verifyEmailLink(tokenHash: string): Promise<void>;
   signOut(): Promise<void>;
   onAuthChange(cb: (s: Session | null) => void): () => void;
   claimInvitations(): Promise<number>;

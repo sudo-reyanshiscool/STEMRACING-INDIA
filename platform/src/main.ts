@@ -4,13 +4,15 @@ import './styles/base.css';
 import './styles/components.css';
 import './styles/platform.css';
 import { MemoryApi, createSupabaseApi, localStorageKV, memoryKV, type Api, type KV } from './api';
-import { notFound } from './ui/common';
+import { notFound, codeText } from './ui/common';
 import type { Ctx } from './ui/ctx';
 import { DEMO_PERSONAS, seedDemo } from './ui/demo';
 import { h } from './ui/dom';
 import { errorScreen } from './ui/errorscreen';
 import { eventHomeScreen } from './ui/event-home';
 import { eventsScreen } from './ui/events';
+import { readEmailCallback, clearEmailCallback } from './ui/email-callback';
+import { emailConfirmScreen } from './ui/email-confirm';
 import { loginScreen } from './ui/login';
 import { moderationScreen } from './ui/moderation';
 import { peopleScreen } from './ui/people';
@@ -33,6 +35,11 @@ const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const demo = new URLSearchParams(location.search).get('demo') === '1' || !(url && key);
 
 async function boot(): Promise<void> {
+  const callback = demo ? null : readEmailCallback(location.hash);
+  let showEmailCode = false;
+  let emailToken = callback?.kind === 'confirm' ? callback.tokenHash : null;
+  let authError = callback?.kind === 'invalid' ? codeText('invalid-auth') : undefined;
+  if (callback && callback.kind !== 'legacy') clearEmailCallback();
   const shell = mountShell(document.getElementById('app')!);
   const api: Api = demo ? new MemoryApi() : createSupabaseApi(url!, key!, undefined, { schema: import.meta.env.VITE_SUPABASE_DB_SCHEMA ?? 'public' });
   if (demo) await seedDemo(api as MemoryApi);
@@ -50,6 +57,10 @@ async function boot(): Promise<void> {
     lastUser: kv('last-user'),
   });
   await host.track();
+  if (callback?.kind === 'legacy') {
+    if (!(await api.getSession())) authError = codeText('invalid-auth');
+    clearEmailCallback();
+  }
   mountSyncBar(shell.syncBar, host); // flushes on 'online' and on an interval, shows status and rejected scores
 
   let current: Route = { name: 'home' };
@@ -120,7 +131,10 @@ async function boot(): Promise<void> {
         void host.flush(); // a fresh sign-in releases anything that waited for a session
       }
       let node: HTMLElement;
-      if (!session && route.name !== 'results') node = loginScreen(ctx);
+      if (emailToken) node = emailConfirmScreen(ctx, emailToken, () => {
+        emailToken = null; authError = undefined; void render({ name: 'home' });
+      }, () => { emailToken = null; authError = undefined; showEmailCode = true; void render({ name: 'home' }); });
+      else if (!session && route.name !== 'results') node = loginScreen(ctx, { authError, showCode: showEmailCode });
       else node = await screenFor(route, ctx);
       if (mine !== token) return;
       if ('eventId' in route && session) {

@@ -57,7 +57,7 @@ const FORBIDDEN = 'You do not have permission to do that';
 
 /** `client` lets tests pass an already signed-in client; the app passes none and gets a persistent-session client. */
 export function createSupabaseApi(url: string, anonKey: string, client?: SupabaseClient<any, any, any>, options?: SupabaseApiOptions): Api {
-  return createApiFromClient(client ?? createClient(url, anonKey, { db: { schema: options?.schema ?? 'public' }, auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }), options);
+  return createApiFromClient(client ?? createClient(url, anonKey, { db: { schema: options?.schema ?? 'public' }, auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'implicit' } }), options);
 }
 
 export interface SupabaseApiOptions {
@@ -140,6 +140,20 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
       const redirect = typeof window === 'undefined' ? undefined : window.location.origin + window.location.pathname;
       const { error } = await guard(() => sb.auth.signInWithOtp({ email: e, options: { emailRedirectTo: redirect } }));
       if (error) throw mapAuthError(error);
+    },
+    async verifyEmailCode(email, code) {
+      const e = email.trim().toLowerCase();
+      const token = code.replace(/\s/g, '');
+      if (!EMAIL.test(e) || !/^\d{6,10}$/.test(token)) throw new ApiError('invalid', 'Enter your email and verification code');
+      const { data, error } = await guard(() => sb.auth.verifyOtp({ email: e, token, type: 'email' }));
+      if (error) throw mapAuthError(error);
+      if (!data.session) throw new ApiError('invalid-auth', 'Verification did not establish a session');
+    },
+    async verifyEmailLink(tokenHash) {
+      if (!/^[a-zA-Z0-9_-]{20,512}$/.test(tokenHash)) throw new ApiError('invalid-auth', 'Invalid email link');
+      const { data, error } = await guard(() => sb.auth.verifyOtp({ token_hash: tokenHash, type: 'email' }));
+      if (error) throw mapAuthError(error);
+      if (!data.session) throw new ApiError('invalid-auth', 'Verification did not establish a session');
     },
     async signOut() {
       const { error } = await guard(() => sb.auth.signOut());
