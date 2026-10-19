@@ -383,12 +383,12 @@ describe('rankingsScreen', () => {
     await vi.waitFor(async () => expect(await api.latestSnapshot(ev.id)).not.toBeNull());
   });
 
-  it('lets the organiser read the ranking but not publish, and refuses everyone else', async () => {
+  it('lets the organiser publish rankings, and refuses judges', async () => {
     const { api, ev } = await world();
     await api.signIn(EMAILS.org);
     const { ctx } = makeCtx(api);
     const el = await rankingsScreen(ctx, ev.id);
-    expect(button(el, 'Publish ranking')).toBeUndefined();
+    expect(button(el, 'Publish ranking')).toBeDefined();
     await api.signIn(EMAILS.judge);
     expect(text(await rankingsScreen(ctx, ev.id))).toContain('Only the organiser or chair');
   });

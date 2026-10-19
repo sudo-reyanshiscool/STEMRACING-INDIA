@@ -30,8 +30,8 @@ describe('score overrides', () => {
     await expect(setOverride('chair', w.team1, 'pit-display', 10, 'x')).rejects.toThrow();
   });
 
-  it('is refused for everyone but the Chair, and read only by the Chair and Organiser', async () => {
-    for (const who of ['organiser', 'judgeV', 'leadV', 'mgr1', 'outsider'] as const) {
+  it('is refused for everyone but Chairs and Organisers, and read only by the Chair and Organiser', async () => {
+    for (const who of ['judgeV', 'leadV', 'mgr1', 'outsider'] as const) {
       await denied(setOverride(who, w.team2, 'pit-display', 10));
     }
     await denied(as(w.db, null, (q) => q('insert into score_overrides(event_id, team_id, area_id, value, reason) values ($1, $2, $3, 10, $4)', [w.eventId, w.team2, 'pit-display', 'anonymous try'])));
@@ -51,7 +51,7 @@ describe('penalties', () => {
   it('lets the Chair record and remove a penalty with a reason, and nobody else', async () => {
     const p = await as(w.db, 'chair', async (q) => (await q(`insert into penalties(event_id, team_id, points, reason) values ($1, $2, 15, 'Unsuccessful appeal') returning id, points`, [w.eventId, w.team1])).rows[0]);
     expect(p.points).toBe('15.0');
-    await denied(as(w.db, 'organiser', (q) => q(`insert into penalties(event_id, team_id, points, reason) values ($1, $2, 15, 'nope')`, [w.eventId, w.team1])));
+    await denied(as(w.db, 'judgeV', (q) => q(`insert into penalties(event_id, team_id, points, reason) values ($1, $2, 15, 'nope')`, [w.eventId, w.team1])));
     await denied(as(w.db, 'judgeV', (q) => q('delete from penalties where id = $1', [p.id])));
     await expect(as(w.db, 'chair', (q) => q(`insert into penalties(event_id, team_id, points, reason) values ($1, $2, 0, 'zero')`, [w.eventId, w.team1]))).rejects.toThrow();
     await expect(as(w.db, 'chair', (q) => q(`insert into penalties(event_id, team_id, points, reason) values ($1, $2, -5, 'negative')`, [w.eventId, w.team1]))).rejects.toThrow();
@@ -89,9 +89,9 @@ describe('penalties', () => {
 });
 
 describe('ranking snapshots', () => {
-  it('can be inserted by the Chair only, with a well-formed hash', async () => {
+  it('can be inserted by Chairs and Organisers, with a well-formed hash', async () => {
     expect((await snapshot('chair')).rows).toHaveLength(1);
-    await denied(snapshot('organiser'));
+    expect((await snapshot('organiser')).rows).toHaveLength(1);
     await denied(snapshot('judgeV'));
     await denied(snapshot('mgr1'));
     await denied(as(w.db, null, (q) => q(`insert into ranking_snapshots(event_id, ruleset_id, input_hash, inputs, rows) values ($1, 'x', $2, '{}', '[]')`, [w.eventId, HASH])));

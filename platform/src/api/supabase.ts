@@ -5,7 +5,7 @@ import {
   firstRow, mapAuthError, mapPgError, toBroadcastRow, toCardRow, toConflictRow, toEventRow, toInspectionRow, toInviteRow, toOverrideRow, toPenaltyRow, toRoleRow, toSnapshotRow,
   toTeamRow,
 } from './mappers';
-import type { Api, Session } from './types';
+import type { Api, PlatformAccess, Session } from './types';
 import { ApiError } from './types';
 import { blankReview } from './review';
 
@@ -183,6 +183,16 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
       if (res.error) return false;
       return Boolean(res.data);
     },
+    async platformAccess() {
+      if (!(await session())) return {kind:null,ownerEmail:'',canManage:false,organisers:[],invitations:[]};
+      return ok(await guard(() => sb.rpc('platform_access'))) as PlatformAccess;
+    },
+    async inviteOrganiser(email, scope) {
+      const id = ok(await guard(() => sb.rpc('invite_organiser', {p_email: email.trim().toLowerCase(), p_scope: scope}))) as string;
+      await sendInvitation(id);
+    },
+    async removeOrganiser(userId) { ok(await guard(() => sb.rpc('remove_organiser', {p_user: userId}))); },
+    async withdrawOrganiserInvitation(id) { ok(await guard(() => sb.rpc('withdraw_organiser_invitation', {p_invitation: id}))); },
     async createEvent(i) {
       const data = ok(await guard(() => sb.rpc('create_event', { p_name: i.name, p_starts_on: i.startsOn ?? null, p_ruleset: INDIA_2026 })));
       return toEventRow(firstRow(data));
@@ -218,7 +228,7 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
     async myRoles(eventId) {
       const s = await session();
       if (!s) return [];
-      return (await pages<never>((a, b) => sb.from('event_roles').select(ROLE_COLS).eq('event_id', eventId).eq('user_id', s.userId).order('id').range(a, b))).map(toRoleRow);
+      return (await pages<never>((a, b) => sb.rpc('effective_event_roles', {p_event: eventId}).order('id').range(a, b))).map(toRoleRow);
     },
     async listRoles(eventId) {
       if (!(await session())) return [];

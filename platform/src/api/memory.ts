@@ -2,7 +2,7 @@ import { raceRecorded, validateRace, type RaceHeat, type RaceInput, type TimingS
 import { validateScores, type Area } from '../engine';
 import { INDIA_2026 } from '../rulesets';
 import { cleanTeam, MAX_IMPORT_TEAMS } from './team-input';
-import type { NewTeam } from './types';
+import type { OrganiserScope, PlatformAccess, NewTeam } from './types';
 import { blankReview, validateReview, type CardReview, type FeedbackRow, type NominationRow } from './review';
 import {
   ApiError, type Api, type BroadcastEmail, type CardRow, type ConflictRow, type EventRow, type InviteRow, type NewBroadcastInput, type NewSnapshot, type OverrideRow, type Panel,
@@ -23,8 +23,8 @@ const EMAIL = /^[^@\s]+@[^@\s]+$/;
 const oneDecimal = (n: number) => Number.isFinite(n) && Math.abs(n * 10 - Math.round(n * 10)) < 1e-6;
 
 /**
- * A complete in-memory backend with the same rules as the database (migrations 0001 to 0003).
- * Used by tests and demo mode. Where several rules could fail at once, permission is checked first.
+ * An in-memory backend mirroring the database permissions.
+ * Used by tests. Where several rules could fail at once, permission is checked first.
  */
 export class MemoryApi implements Api {
   private me: Session | null = null;
@@ -45,6 +45,28 @@ export class MemoryApi implements Api {
   private penalties: PenaltyRow[] = [];
   private snapshots: SnapshotRow[] = [];
   private inspections: Inspection[] = [];
+  private globalOrganisers: Array<{userId:string;email:string;scope:OrganiserScope;permanent:false}>=[];
+  private organiserInvites: PlatformAccess['invitations']=[];
+  private globalManager() { return this.me?.email==='reyanshg11111@gmail.com' || this.globalOrganisers.some(r=>r.userId===this.me?.userId && r.scope==='platform'); }
+  private requireGlobal() { if(!this.globalManager()) throw new ApiError('forbidden','Only Platform Organisers can manage organiser access'); }
+  async platformAccess(): Promise<PlatformAccess> {
+    return copy({kind:this.me?.email==='reyanshg11111@gmail.com'?'admin':this.globalOrganisers.find(r=>r.userId===this.me?.userId)?.scope??null,
+      ownerEmail:'reyanshg11111@gmail.com',canManage:this.globalManager(),
+      organisers:this.globalManager()?[{userId:'user:reyanshg11111@gmail.com',email:'reyanshg11111@gmail.com',scope:'admin',permanent:true},...this.globalOrganisers]:[],
+      invitations:this.globalManager()?this.organiserInvites:[]});
+  }
+  async inviteOrganiser(email: string,scope: OrganiserScope) {
+    this.requireGlobal();email=email.trim().toLowerCase();
+    if(!EMAIL.test(email)||!['competition','platform'].includes(scope))throw new ApiError('invalid','Choose a valid email and scope');
+    if(email==='reyanshg11111@gmail.com')throw new ApiError('forbidden','The permanent platform administrator cannot be changed');
+    if(this.organiserInvites.some(i=>i.email===email)||this.globalOrganisers.some(i=>i.email===email))throw new ApiError('duplicate','Organiser already invited or assigned');
+    this.organiserInvites.push({id:nid('organiser-invite'),email,scope,emailStatus:'sent'});
+  }
+  async removeOrganiser(userId:string) {
+    this.requireGlobal();if(userId==='user:reyanshg11111@gmail.com')throw new ApiError('forbidden','The permanent platform administrator cannot be removed');
+    this.globalOrganisers=this.globalOrganisers.filter(r=>r.userId!==userId);
+  }
+  async withdrawOrganiserInvitation(id:string) { this.requireGlobal();this.organiserInvites=this.organiserInvites.filter(i=>i.id!==id); }
   private creatorAllowlist = new Set<string>();
   private inspectionHistory: Array<{
     id: string; inspectionId: string; changedBy: string; changedAt: string;
@@ -82,17 +104,32 @@ export class MemoryApi implements Api {
   async claimInvitations() {
     if (!this.me) return 0;
     const me = this.me;
+    const globals=this.organiserInvites.filter(i=>i.email===me.email);
+    for(const i of globals) if(me.email!=='reyanshg11111@gmail.com') {
+      const old=this.globalOrganisers.find(r=>r.userId===me.userId);
+      if(old) {if(old.scope!=='platform')old.scope=i.scope;}
+      else this.globalOrganisers.push({userId:me.userId,email:me.email,scope:i.scope,permanent:false});
+    }
+    this.organiserInvites=this.organiserInvites.filter(i=>!globals.includes(i));
     const mine = this.invites.filter((i) => i.email === me.email && !this.deletedEvents.has(i.eventId));
     for (const i of mine) {
       const dupe = this.roles.some((r) => r.eventId === i.eventId && r.userId === me.userId && r.role === i.role && r.panel === i.panel && r.teamId === i.teamId);
       if (!dupe) this.roles.push({ id: nid('role'), eventId: i.eventId, userId: me.userId, role: i.role, panel: i.panel, teamId: i.teamId, email: me.email });
     }
     this.invites = this.invites.filter((i) => !mine.includes(i));
-    return mine.length;
+    return mine.length+globals.length;
   }
 
   // ---- helpers
-  private rolesOf(eventId: string) { return this.deletedEvents.has(eventId) ? [] : this.roles.filter((r) => r.eventId === eventId && !!this.me && r.userId === this.me.userId); }
+  private rolesOf(eventId: string): RoleRow[] {
+    if(!this.me || this.deletedEvents.has(eventId) || !this.events.some(e=>e.id===eventId))return [];
+    const rows=this.roles.filter(r=>r.eventId===eventId && r.userId===this.me!.userId);
+    if(this.globalManager() || rows.some(r=>r.role==='organiser')) for(const role of ['organiser','chair'] as const) {
+      if(role==='organiser' && !this.globalManager())continue;
+      if(!rows.some(r=>r.role===role))rows.push({id:`effective:${eventId}:${this.me.userId}:${role}`,eventId,userId:this.me.userId,email:this.me.email,role,panel:null,teamId:null});
+    }
+    return rows;
+  }
   private has(eventId: string, ...roles: Role[]) { return this.rolesOf(eventId).some((r) => roles.includes(r.role)); }
   private require(eventId: string, ...roles: Role[]) {
     if (!this.has(eventId, ...roles)) throw new ApiError('forbidden', 'You do not have permission to do that');
@@ -131,7 +168,7 @@ export class MemoryApi implements Api {
   }
   async canCreateEvent(): Promise<boolean> {
     if (!this.me) return false;
-    if (this.events.length === 0) return true;
+    if (this.globalManager() || this.globalOrganisers.some(r=>r.userId===this.me!.userId)) return true;
     if (this.events.some((e) => !this.deletedEvents.has(e.id) && this.roles.some((r) => r.eventId === e.id && r.userId === this.me!.userId && r.role === 'organiser'))) {
       return true;
     }
@@ -158,7 +195,7 @@ export class MemoryApi implements Api {
     return copy(e);
   }
   private organiserOf(eventId: string) {
-    return !!this.me && this.roles.some((r) => r.eventId === eventId && r.userId === this.me!.userId && r.role === 'organiser');
+    return !!this.me && (this.globalManager() || this.roles.some((r) => r.eventId === eventId && r.userId === this.me!.userId && r.role === 'organiser'));
   }
   async deleteEvent(eventId: string, confirmation: string) {
     if (!this.me) throw new ApiError('unauthenticated', 'Sign in first');
@@ -254,13 +291,16 @@ export class MemoryApi implements Api {
     if (r.role === 'organiser') {
       this.require(r.eventId, 'organiser');
       const orgs = this.roles.filter((x) => x.eventId === r.eventId && x.role === 'organiser');
-      if (orgs.length <= 1) throw new ApiError('locked', 'An event must have at least one organiser');
+      if(r.userId==='user:reyanshg11111@gmail.com')throw new ApiError('forbidden','The permanent platform administrator cannot be removed');
+      if (orgs.length <= 1 && !this.globalManager()) throw new ApiError('locked', 'An event must have at least one organiser');
     } else {
       this.require(r.eventId, 'chair', 'organiser');
     }
     this.roles = this.roles.filter((x) => x.id !== roleId);
   }
   async sendInvitation(inviteId: string) {
+    const global=this.organiserInvites.find(i=>i.id===inviteId);
+    if(global){this.requireGlobal();global.emailStatus='sent';return;}
     const invite=this.invites.find(i=>i.id===inviteId);
     if(!invite)throw new ApiError('not-found','Invitation no longer pending');
     this.require(invite.eventId,'chair','organiser');

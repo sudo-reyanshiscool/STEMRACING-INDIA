@@ -11,6 +11,7 @@ const RULESET = 'india-national-finals-2026';
 
 async function world() {
   const api = new MemoryApi();
+    api.setCreatorAllowlist([ORG]);
   await api.signIn(ORG);
   const ev = await api.createEvent({ name: 'Nationals', startsOn: '2026-11-01' });
   const t1 = await api.createTeam(ev.id, { number: '1', name: 'One' });
@@ -38,7 +39,7 @@ describe('events, teams and roles', () => {
     const { api, ev } = await world();
     await api.signIn(ORG);
     expect(ev.ruleset.id).toBe('india-national-finals-2026');
-    expect((await api.myRoles(ev.id)).map((r) => r.role)).toEqual(['organiser']);
+    expect((await api.myRoles(ev.id)).map((r) => r.role)).toEqual(['organiser', 'chair']);
     expect((await api.listEvents()).map((e) => e.id)).toEqual([ev.id]);
   });
 
@@ -293,14 +294,15 @@ describe('judging details', () => {
     expect(await api.listConflicts(ev.id)).toEqual([]);
   });
 
-  it('lets the Chair remove an override, locks it while released, and refuses everyone else', async () => {
+  it('lets Chairs and Organisers remove overrides and refuses judges', async () => {
     const { api, ev, t1 } = await world();
     await api.signIn(CHAIR);
     await api.setOverride(ev.id, t1.id, 'pit-display', 30, 'Cross-moderated');
     await api.signIn(JUDGE);
     expect(await code(api.removeOverride(ev.id, t1.id, 'pit-display'))).toBe('forbidden');
     await api.signIn(ORG);
-    expect(await code(api.removeOverride(ev.id, t1.id, 'pit-display'))).toBe('forbidden');
+    expect(await code(api.removeOverride(ev.id, t1.id, 'pit-display'))).toBe('ok');
+    await api.setOverride(ev.id, t1.id, 'pit-display', 30, 'Cross-moderated');
     await api.signIn(CHAIR);
     await releaseResults(api, ev.id);
     expect(await code(api.removeOverride(ev.id, t1.id, 'pit-display'))).toBe('locked');
@@ -360,20 +362,20 @@ describe('release freezes judging and results', () => {
 describe('releasing needs a matching published ranking', () => {
   const publish = async (api: MemoryApi, evId: string) => api.publishSnapshot(evId, { rulesetId: RULESET, inputHash: HASH, inputs: { cards: [] }, rows: [] });
 
-  it('refuses without a snapshot, and for anyone but the Chair', async () => {
+  it('requires a snapshot and Chair or Organiser access', async () => {
     const { api, ev } = await world();
     await api.signIn(CHAIR);
     expect(await code(api.setReleased(ev.id, true))).toBe('locked');
     await publish(api, ev.id);
     await api.signIn(ORG);
-    expect(await code(api.setReleased(ev.id, true))).toBe('forbidden');
+    expect(await code(api.setReleased(ev.id, true))).toBe('ok');
     await api.signIn(JUDGE);
     expect(await code(api.setReleased(ev.id, true))).toBe('forbidden');
     await api.signIn(CHAIR);
     await api.setReleased(ev.id, true);
     expect((await api.getEvent(ev.id))!.resultsReleased).toBe(true);
     await api.signIn(ORG);
-    expect(await code(api.setReleased(ev.id, false))).toBe('forbidden');
+    expect(await code(api.setReleased(ev.id, false))).toBe('ok');
   });
 
   it('goes out of date when a card is submitted, an override or penalty changes, or a card is reopened', async () => {
@@ -454,13 +456,13 @@ describe('overrides and penalties validation', () => {
     expect(await code(api.addPenalty(ev.id, 'team-nope', 5, 'ok then'))).toBe('not-found');
   });
 
-  it('lets the Organiser read overrides but not set them', async () => {
+  it('lets Competition Organisers read and set overrides', async () => {
     const { api, ev, t1 } = await world();
     await api.signIn(CHAIR);
     await api.setOverride(ev.id, t1.id, 'de-portfolio', 100, 'Moderated');
     await api.signIn(ORG);
     expect(await api.listOverrides(ev.id)).toHaveLength(1);
-    expect(await code(api.setOverride(ev.id, t1.id, 'de-portfolio', 90, 'Moderated'))).toBe('forbidden');
+    expect(await code(api.setOverride(ev.id, t1.id, 'de-portfolio', 90, 'Moderated'))).toBe('ok');
   });
 });
 
@@ -472,7 +474,7 @@ describe('snapshots', () => {
     expect(await code(api.publishSnapshot(ev.id, { rulesetId: RULESET, inputHash: HASH, inputs: [] as unknown, rows: [] }))).toBe('invalid');
     expect(await code(api.publishSnapshot(ev.id, { rulesetId: RULESET, inputHash: HASH, inputs: {}, rows: {} as never }))).toBe('invalid');
     await api.signIn(ORG);
-    expect(await code(api.publishSnapshot(ev.id, { rulesetId: RULESET, inputHash: HASH, inputs: {}, rows: [] }))).toBe('forbidden');
+    expect(await code(api.publishSnapshot(ev.id, { rulesetId: RULESET, inputHash: HASH, inputs: {}, rows: [] }))).toBe('ok');
   });
 
   it('never exposes inputs on a snapshot, and gives them only to the Chair and Organiser', async () => {
@@ -582,12 +584,12 @@ describe('score comments', () => {
 });
 
 describe('removePenalty', () => {
-  it('is Chair only, removes the row, and is frozen while results are released', async () => {
+  it('requires Chair or Organiser access, removes the row, and freezes while released', async () => {
     const { api, ev, t1 } = await world();
     await api.signIn(CHAIR);
     await api.addPenalty(ev.id, t1.id, 15, 'Mistaken entry');
     const [p] = await api.listPenalties(ev.id);
-    await api.signIn('org@x.test');
+    await api.signIn(JUDGE);
     expect(await code(api.removePenalty(p.id))).toBe('forbidden');
     await api.signIn(CHAIR);
     expect(await code(api.removePenalty('penalty-nope'))).toBe('forbidden');

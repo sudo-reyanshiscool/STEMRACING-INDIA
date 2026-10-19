@@ -21,9 +21,9 @@ describe('scorecard feedback and private notes', () => {
     expect(f.rows).toEqual([{ scorecard_id: card, overall: review.overall, strengths: review.strengths, improvements: review.improvements }]);
     expect((await as(w.db, 'judgeV', (q) => q('select internal_notes from scorecard_private_reviews'))).rows[0].internal_notes).toBe(review.internalNotes);
   });
-  it('allows the owner, panel lead and Chair to read private notes; excludes organisers, unrelated judges and managers', async () => {
-    for (const who of ['judgeV', 'leadV', 'chair'] as const) expect((await as(w.db, who, (q) => q('select * from scorecard_private_reviews'))).rows).toHaveLength(1);
-    for (const who of ['organiser', 'judgeD', 'mgr1', 'mgr2', 'outsider'] as const) expect((await as(w.db, who, (q) => q('select * from scorecard_private_reviews'))).rows).toEqual([]);
+  it('allows the owner, panel lead and Chair to read private notes; excludes unrelated judges and managers', async () => {
+    for (const who of ['judgeV', 'leadV', 'chair', 'organiser'] as const) expect((await as(w.db, who, (q) => q('select * from scorecard_private_reviews'))).rows).toHaveLength(1);
+    for (const who of ['judgeD', 'mgr1', 'mgr2', 'outsider'] as const) expect((await as(w.db, who, (q) => q('select * from scorecard_private_reviews'))).rows).toEqual([]);
     await denied(as(w.db, null, (q) => q('select * from scorecard_private_reviews')));
   });
   it('refuses direct writes, impersonation and signed-out RPC calls', async () => {

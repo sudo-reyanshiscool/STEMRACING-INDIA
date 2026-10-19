@@ -1,7 +1,7 @@
 import type { Panel, Role } from '../api';
 
 export const ROLE_LABEL: Record<Role, string> = {
-  organiser: 'Organiser', chair: 'Chair of Judges', lead_judge: 'Lead Judge', judge: 'Judge',
+  organiser: 'Competition Organiser', chair: 'Chair of Judges', lead_judge: 'Lead Judge', judge: 'Judge',
   scrutineer: 'Scrutineer', race_official: 'Race official', team_manager: 'Team manager',
 };
 

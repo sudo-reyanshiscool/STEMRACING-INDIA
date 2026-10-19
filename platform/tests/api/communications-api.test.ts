@@ -9,6 +9,7 @@ describe('Communications API (MemoryApi)', () => {
 
   beforeEach(async () => {
     api = new MemoryApi();
+    api.setCreatorAllowlist(['organiser@example.com']);
     await api.signIn('organiser@example.com');
     const ev = await api.createEvent({ name: 'National Finals 2026' });
     eventId = ev.id;

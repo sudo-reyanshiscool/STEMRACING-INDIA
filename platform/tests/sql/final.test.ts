@@ -62,7 +62,7 @@ describe('I3: removing an override', () => {
 
   it('lets only the Chair delete one, audits it, and freezes it while released', async () => {
     await put();
-    for (const who of ['organiser', 'judgeV', 'leadV', 'mgr1', 'outsider', null] as const) {
+    for (const who of ['judgeV', 'leadV', 'mgr1', 'outsider', null] as const) {
       await denied(as(w.db, who, (q) => q('delete from score_overrides where team_id = $1', [w.team1])));
     }
     expect(await count()).toBe(1);
@@ -134,14 +134,14 @@ describe('I4: releasing is checked on the server', () => {
 
   it('refuses non-Chairs and anonymous callers, for both functions', async () => {
     await publish();
-    for (const who of ['organiser', 'judgeV', 'leadV', 'mgr1', 'outsider'] as const) {
+    for (const who of ['judgeV', 'leadV', 'mgr1', 'outsider'] as const) {
       await expect(release(who), who).rejects.toThrow(/permission|only the Chair/i);
     }
     await expect(release(null)).rejects.toThrow(/permission denied/);
     await expect(withdraw(null)).rejects.toThrow(/permission denied/);
     await setReleasedRaw(true);
     try {
-      for (const who of ['organiser', 'judgeV', 'mgr1'] as const) await expect(withdraw(who), who).rejects.toThrow(/permission|only the Chair/i);
+      for (const who of ['judgeV', 'mgr1'] as const) await expect(withdraw(who), who).rejects.toThrow(/permission|only the Chair/i);
       expect(await released()).toBe(true);
     } finally {
       await reset();
@@ -260,7 +260,7 @@ describe('hardening across the whole schema after 0004', () => {
     const anon = fns.rows.filter((f) => f.anon).map((f) => f.proname);
     expect(anon).toEqual(['event_active', 'event_released', 'has_role', 'ingest_denford', 'is_chair_or_organiser', 'is_member', 'judges_panel', 'leads_panel', 'manages_team', 'public_standings', 'sees_all_teams']);
     const auth = fns.rows.filter((f) => f.auth && !f.anon).map((f) => f.proname);
-    expect(auth).toEqual(['can_create_event', 'claim_invitations', 'create_event', 'delete_event', 'delete_team', 'import_teams', 'is_conflicted', 'judge_can_score', 'judges_panel_any', 'leads_panel_any', 'list_deleted_events', 'pair_race_timing', 'race_timing_state', 'release_results', 'released_results', 'reopen_inspection', 'reopen_scorecard', 'reserve_invitation_email', 'restore_event', 'save_card_review', 'save_race', 'set_judge_assignment', 'set_judge_exemption', 'snapshot_inputs', 'specification_visible', 'submit_inspection', 'withdraw_results']);
+    expect(auth).toEqual(['can_create_event', 'claim_invitations', 'create_event', 'delete_event', 'delete_team', 'effective_event_roles', 'import_teams', 'invite_organiser', 'is_conflicted', 'judge_can_score', 'judges_panel_any', 'leads_panel_any', 'list_deleted_events', 'pair_race_timing', 'platform_access', 'platform_manager', 'race_timing_state', 'release_results', 'released_results', 'remove_organiser', 'reopen_inspection', 'reopen_scorecard', 'reserve_invitation_email', 'restore_event', 'save_card_review', 'save_race', 'set_judge_assignment', 'set_judge_exemption', 'snapshot_inputs', 'specification_visible', 'submit_inspection', 'withdraw_organiser_invitation', 'withdraw_results']);
     for (const hidden of ['conflicts_guard', 'event_released_locked', 'protect_invitation_role', 'protect_organiser_removal', 'snapshots_guard']) {
       const f = fns.rows.find((x) => x.proname === hidden)!;
       expect([f.anon, f.auth, f.pub], hidden).toEqual([false, false, false]);

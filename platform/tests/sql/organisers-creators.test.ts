@@ -24,8 +24,9 @@ describe('event creation authorization and multiple organisers', () => {
     await expect(as(db, 'outsider', (q) => q('select * from create_event($1, null, $2::jsonb)', ['Blocked Event', JSON.stringify(INDIA_2026)]))).rejects.toThrow(/only organisers can create events/);
   });
 
-  it('allows users in event_creators allowlist to create events', async () => {
-    await db.query('insert into event_creators(email) values ($1)', [EMAIL.outsider.toLowerCase()]);
+  it('allows invited Competition Organisers to create events', async () => {
+    await as(db,'admin',q=>q("select invite_organiser($1,'competition')",[EMAIL.outsider]));
+    await as(db,'outsider',q=>q('select claim_invitations()'));
     expect((await as(db, 'outsider', (q) => q('select can_create_event() as ok'))).rows[0].ok).toBe(true);
     const ev = (await as(db, 'outsider', (q) => q('select * from create_event($1, null, $2::jsonb)', ['From Allowlist', JSON.stringify(INDIA_2026)]))).rows[0];
     expect(ev.name).toBe('From Allowlist');

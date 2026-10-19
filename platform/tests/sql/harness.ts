@@ -4,6 +4,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { INDIA_2026 } from '../../src/rulesets';
 
 export const ids = {
+  admin: '16c108c3-3c5d-44ac-8acc-79975f11ebae',
   organiser: '00000000-0000-4000-8000-000000000001',
   chair: '00000000-0000-4000-8000-000000000002',
   judgeV: '00000000-0000-4000-8000-000000000003',
@@ -18,7 +19,7 @@ export const ids = {
 export type Who = keyof typeof ids;
 
 export const EMAIL: Record<Who, string> = {
-  organiser: 'organiser@x.test', chair: 'chair@x.test', judgeV: 'judgev@x.test', judgeD: 'judged@x.test',
+  admin: 'reyanshg11111@gmail.com', organiser: 'organiser@x.test', chair: 'chair@x.test', judgeV: 'judgev@x.test', judgeD: 'judged@x.test',
   leadV: 'leadv@x.test', mgr1: 'mgr1@x.test', mgr2: 'mgr2@x.test', outsider: 'outsider@x.test',
   invitee: 'New.Judge@X.TEST', unverified: 'unverified@x.test',
 };
@@ -86,7 +87,7 @@ export async function seedWorld(db: PGlite): Promise<World> {
       [eventId, ids[who], role, panel, team, EMAIL[who].toLowerCase()],
     );
   }
-  await db.query('insert into event_creators(email) values ($1) on conflict do nothing', [EMAIL.invitee.toLowerCase()]);
+  await db.query("insert into platform_organisers(user_id,email,scope,granted_by) values ($1,$2,'competition',$3) on conflict do nothing", [ids.invitee,EMAIL.invitee.toLowerCase(),ids.admin]);
   return { db, eventId, team1, team2 };
 }
 

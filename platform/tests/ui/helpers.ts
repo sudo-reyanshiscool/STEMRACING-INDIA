@@ -8,6 +8,7 @@ export const EMAILS = { org: 'org@x.test', chair: 'chair@x.test', judge: 'judge@
 /** An event with two teams and one person in each role. Leaves the session signed in as the team manager. */
 export async function world() {
   const api = new MemoryApi();
+    api.setCreatorAllowlist([EMAILS.org]);
   await api.signIn(EMAILS.org);
   const ev = await api.createEvent({ name: 'Nationals', startsOn: '2026-11-01' });
   const t1 = await api.createTeam(ev.id, { number: '1', name: 'One' });

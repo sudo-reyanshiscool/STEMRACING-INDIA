@@ -48,7 +48,7 @@ describe('shared Scores interface',()=>{
     const {api,ev}=await setup();const nav=eventNav(ev,await api.myRoles(ev.id),'scores');
     expect(nav.querySelector('[aria-current=page]')?.textContent).toBe('Scores');
     expect([...nav.querySelectorAll('a')].every(a=>a.getAttribute('href')?.startsWith(`#/event/${ev.id}`))).toBe(true);
-    expect(text(nav)).not.toContain('Moderation');expect(text(nav)).toContain('Rankings');
+    expect(text(nav)).toContain('Moderation');expect(text(nav)).toContain('Rankings');
   });
   it('displays technical inspections alongside scorecards when filtered to scrutineering or all panels',async()=>{
     const {api,ev,t1,ctx}=await setup(EMAILS.org);

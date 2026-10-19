@@ -2,6 +2,14 @@ import type { RaceHeat, RaceInput, TimingState, TimingPair } from '../racing';
 import type { PanelId, RankRow, Ruleset } from '../engine';
 import type { CardReview, FeedbackRow, NominationRow } from './review';
 
+export type OrganiserScope = 'competition' | 'platform';
+export interface PlatformAccess {
+  kind: 'admin' | OrganiserScope | null;
+  ownerEmail: string;
+  canManage: boolean;
+  organisers: Array<{userId: string; email: string; scope: 'admin' | OrganiserScope; permanent: boolean}>;
+  invitations: Array<{id: string; email: string; scope: OrganiserScope; emailStatus: EmailStatus}>;
+}
 export type Role = 'organiser' | 'chair' | 'lead_judge' | 'judge' | 'scrutineer' | 'race_official' | 'team_manager';
 export type Panel = PanelId;
 export interface Session { userId: string; email: string }
@@ -69,6 +77,10 @@ export interface Api {
   claimInvitations(): Promise<number>;
   listEvents(): Promise<EventRow[]>;
   canCreateEvent(): Promise<boolean>;
+  platformAccess(): Promise<PlatformAccess>;
+  inviteOrganiser(email: string, scope: OrganiserScope): Promise<void>;
+  removeOrganiser(userId: string): Promise<void>;
+  withdrawOrganiserInvitation(invitationId: string): Promise<void>;
   createEvent(i: { name: string; startsOn?: string }): Promise<EventRow>;
   /** Restorable deletion; confirmation must exactly match the event's current name. Organisers only. */
   deleteEvent(eventId: string, confirmation: string): Promise<void>;

@@ -156,7 +156,7 @@ describe('reopening', () => {
     const c = await makeCard('judgeV', await newTeam(), 'verbal-technique');
     await fill('judgeV', c.id);
     await submit('judgeV', c.id);
-    for (const who of ['judgeV', 'organiser', 'leadV'] as const) {
+    for (const who of ['judgeV', 'leadV'] as const) {
       await expect(as(w.db, who, (q) => q('select reopen_scorecard($1, $2)', [c.id, 'please']))).rejects.toThrow(/Chair/);
     }
     await expect(as(w.db, 'chair', (q) => q('select reopen_scorecard($1, $2)', [c.id, ' ']))).rejects.toThrow(/reason/);

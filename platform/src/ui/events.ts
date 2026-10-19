@@ -1,3 +1,4 @@
+import { organiserControls } from './organisers';
 import type { Ctx } from './ctx';
 import { reportActionError } from './actions';
 import { h } from './dom';
@@ -6,7 +7,7 @@ import { routeHref } from './router';
 const today = () => new Date().toISOString().slice(0, 10);
 
 export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
-  const [events, deleted, canCreate] = await Promise.all([ctx.api.listEvents(), ctx.api.listDeletedEvents(), ctx.api.canCreateEvent()]);
+  const [events, deleted, canCreate, access] = await Promise.all([ctx.api.listEvents(), ctx.api.listDeletedEvents(), ctx.api.canCreateEvent(), ctx.api.platformAccess()]);
   let alive = true;
   ctx.onLeave(() => { alive = false; });
   const error = h('p', { class: 'alert', role: 'alert', hidden: true });
@@ -53,7 +54,8 @@ export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
   });
   return h('div', { class: 'stack stack--lg' },
     h('div', { class: 'stack' }, h('p', { class: 'eyebrow' }, 'STEM Racing India National Finals'), h('h1', null, 'Events'),
-      h('p', { class: 'lead' }, 'Judging, racing and results for each event, in one place.')),
+      h('p', { class: 'lead' }, 'Judging, racing and results for each event, in one place.'),
+      access.kind ? h('p', {class:'tag tag--pass'},access.kind==='admin'?'Platform Admin · permanent access to every event':access.kind==='platform'?'Platform Organiser · all events':'Competition Organiser · assigned events') : null),
     h('section', { class: 'section' },
       events.length === 0
         ? h('p', { class: 'muted' }, canCreate ? 'No events yet. Create one, or ask an organiser to invite you.' : 'No events yet. Ask an organiser to invite you to an event.')
@@ -62,5 +64,6 @@ export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
               h('span', { class: 'muted small' }, e.startsOn ?? ''), e.resultsReleased ? h('span', { class: 'tag tag--pass' }, 'Results released') : null)))),
     canCreate ? h('section', { class: 'section' }, h('h2', null, 'New event'), error, form) : null,
     deleted.length ? deletedSection : null,
+    access.canManage ? organiserControls(ctx,access) : null,
   );
 }

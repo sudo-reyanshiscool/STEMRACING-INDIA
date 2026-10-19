@@ -11,6 +11,7 @@ const PANELS = Object.keys(PANEL_LABEL) as Panel[];
 const isJudgeRole = (r: string) => r === 'judge' || r === 'lead_judge';
 
 export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLElement> {
+  const platformAccess = await ctx.api.platformAccess();
   const [event, roles, session] = await Promise.all([ctx.api.getEvent(eventId), ctx.api.myRoles(eventId), ctx.api.getSession()]);
   if (!event) return notFound('That event was not found.', '#/', 'All events');
   if (!roles.some((r) => r.role === 'organiser' || r.role === 'chair')) {
@@ -74,8 +75,8 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
         const who = r.email ?? 'Account without a visible email';
         const isSelf = r.userId === session?.userId;
         const orgCount = allRoles.filter((x) => x.role === 'organiser').length;
-        const removable = !isSelf && (
-          r.role === 'organiser' ? (isOrganiser && orgCount > 1) : true
+        const removable = !isSelf && r.email?.toLowerCase() !== platformAccess.ownerEmail && (
+          r.role === 'organiser' ? (isOrganiser && orgCount > 1 || platformAccess.canManage) : true
         );
         return h('li', null,
           h('strong', null, who), h('span', { class: 'muted small' }, describe(r)),

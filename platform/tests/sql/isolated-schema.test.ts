@@ -26,8 +26,8 @@ describe('installation into a shared Supabase project',()=>{
     expect((await as(db,null,q=>q('select public.future_app_function() as value'))).rows).toEqual([{value:'Future'}]);
   });
   it('creates events and resolves permission helpers only inside STEM Racing’s schema',async()=>{
-    const event=(await as(db,'organiser',q=>q('select (stem_racing.create_event($1,$2,$3)).id as id',['Connected event','2026-10-19',INDIA_2026]))).rows[0].id;
-    expect((await as(db,'organiser',q=>q('select id from stem_racing.events where id=$1',[event]))).rows).toHaveLength(1);
+    const event=(await as(db,'admin',q=>q('select (stem_racing.create_event($1,$2,$3)).id as id',['Connected event','2026-10-19',INDIA_2026]))).rows[0].id;
+    expect((await as(db,'admin',q=>q('select id from stem_racing.events where id=$1',[event]))).rows).toHaveLength(1);
     expect((await as(db,'judgeV',q=>q('select id from stem_racing.events where id=$1',[event]))).rows).toEqual([]);
     expect((await db.query('select id from public.events where id=$1',[event])).rows).toEqual([]);
   });

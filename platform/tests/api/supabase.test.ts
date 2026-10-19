@@ -481,3 +481,24 @@ describe('technical inspections', () => {
     });
   });
 });
+
+describe('platform organiser adapter',()=>{
+  it('loads effective event roles from the server and maps virtual Chair access',async()=>{
+    const {api,calls}=fake(()=>({data:[{id:'virtual',event_id:'event',user_id:'me',role:'chair',panel:null,team_id:null,email:'me@x.test'}]}));
+    expect((await api.myRoles('event'))[0].role).toBe('chair');
+    expect(calls[0]).toMatchObject({kind:'rpc',name:'effective_event_roles',args:{p_event:'event'}});
+  });
+  it('invites through the protected scope RPC and sends only its returned invitation id',async()=>{
+    const {api,calls}=fake(c=>({data:c.name==='invite_organiser'?'server-id':{status:'sent'}}));
+    await api.inviteOrganiser(' Invited@X.test ','platform');
+    expect(calls).toMatchObject([{kind:'rpc',name:'invite_organiser',args:{p_email:'invited@x.test',p_scope:'platform'}},{kind:'function',name:'send-invitation',args:{body:{invitationId:'server-id'}}}]);
+  });
+  it('does not send when the scope grant is refused and does not request private controls anonymously',async()=>{
+    const f=fake(()=>({error:{code:'42501',message:'only platform organisers'}}));
+    await expect(f.api.inviteOrganiser('someone@x.test','platform')).rejects.toMatchObject({code:'forbidden'});
+    expect(f.calls).toHaveLength(1);
+    const anon=fake(()=>{throw Error('No anonymous RPC');},null);
+    expect(await anon.api.platformAccess()).toMatchObject({kind:null,canManage:false,organisers:[],invitations:[]});
+    expect(anon.calls).toHaveLength(0);
+  });
+});

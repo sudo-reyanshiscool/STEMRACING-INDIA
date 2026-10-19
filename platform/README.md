@@ -12,7 +12,7 @@ The full band descriptions come from the supplied Competition Regulations, pages
 their pinned rulesets. Scores and category maxima have not changed. Section links switch between a panel's cards.
 
 Judges can write private notes for each criterion before entering a score, plus an overall private note. The judge,
-their panel lead and the Chair can read these notes; organisers and team managers cannot. Existing criterion comments
+their panel lead, the Chair and authorised organisers can read these notes; team managers cannot. Existing criterion comments
 remain explicitly team-facing and are available under “Criterion feedback for the team”. Team feedback has Overall
 Comment (required when checking a card), Key Strengths and Areas for Improvement. Managers see only their own team's
 submitted feedback after results are released.
@@ -173,10 +173,7 @@ that reason).
 
 Before the first real event on a hosted project:
 
-- **Sign-ups and event creation are open.** Anyone with the anon key can create an account and call `create_event`
-  (becoming Organiser of their own event, which they alone can see). Before launch, disable automatic sign-up
-  (Authentication, Providers, Email: turn off "Allow new users to sign up") and create the organisers' accounts, or
-  restrict `create_event` to an allow-list.
+- **Event creation requires organiser access.** The permanent Platform Admin and invited Platform or Competition Organisers can create events. A Competition Organiser controls only assigned/created events; a Platform Organiser controls all events. Public sign-up alone grants no event management access.
 - **`max_rows`.** The adapter reads every list in pages of 1000. The hosted project's API setting `max_rows` must be
   1000 or more (the default), otherwise a short page would be mistaken for the last one. `supabase/config.toml` keeps
   the local value at 1000 and a test pins it.
@@ -280,3 +277,14 @@ the latest email under **Have a sign-in code?**.
 Existing implicit email links remain supported. Expired or used link callbacks
 now show a useful message rather than silently showing the ordinary sign-in form.
 Email confirmation and all event role permissions remain enforced by Supabase.
+
+
+### Permanent administrator and organiser scopes
+
+Migration 0015 pins the confirmed Auth account for `reyanshg11111@gmail.com` as the permanent Platform Admin. That account must exist and be confirmed before installation; there is no open first-user bootstrap. Permissions use the stored Auth user ID, not an email supplied by the browser. The owner row cannot be updated, deleted or truncated, and authenticated clients have no direct access to global grant tables.
+
+On **Events → Organiser access**, the Platform Admin or another Platform Organiser can invite a **Platform Organiser** (every event) or a **Competition Organiser** (event creation plus assigned events). Invites use the existing protected SMTP delivery flow and are claimed only by the matching confirmed Auth account. Add Competition Organisers to existing events through **People → Competition Organiser**. Event organisers also receive Chair, moderation, override, ranking publication and release powers within their scope. Judges and team managers retain their existing score visibility limits.
+
+Revoking a global organiser grant stops its global powers immediately. Separate event assignments, including an organiser assignment created when that person created an event, remain; remove those through that event’s People screen if needed. The permanent admin cannot be revoked, demoted or removed by any of these controls. These protections apply to the application/API; a Supabase project owner still controls the database infrastructure.
+
+Apply new migrations through `scripts/render-migrations.mjs` and its isolated SQL output. This preserves the shared project’s unrelated public tables and grants. Migrations 0014 and 0015 must be applied in the same rendered transaction when upgrading from 0013.
