@@ -17,7 +17,7 @@ async function world() {
   const t1 = await api.createTeam(ev.id, { number: '1', name: 'One' });
   const t2 = await api.createTeam(ev.id, { number: '2', name: 'Two' });
   await api.invite(ev.id, { email: CHAIR, role: 'chair' });
-  await api.invite(ev.id, { email: JUDGE, role: 'judge', panel: 'verbal' });
+  await api.invite(ev.id, { email: JUDGE, name: JUDGE, role: 'judge', panel: 'verbal' });
   await api.invite(ev.id, { email: MGR, role: 'team_manager', teamId: t1.id });
   for (const e of [CHAIR, JUDGE, MGR]) {
     await api.signIn(e);
@@ -228,7 +228,7 @@ describe('judging details', () => {
   it('gives each judge their own card for the same team and area', async () => {
     const { api, ev, t1 } = await world();
     await api.signIn(ORG);
-    await api.invite(ev.id, { email: JUDGE2, role: 'judge', panel: 'verbal' });
+    await api.invite(ev.id, { email: JUDGE2, name: JUDGE2, role: 'judge', panel: 'verbal' });
     await api.signIn(JUDGE);
     const a = await api.openCard(ev.id, t1.id, 'verbal-technique');
     await api.signIn(JUDGE2);
@@ -279,7 +279,7 @@ describe('judging details', () => {
     await api.declareConflict(ev.id, t1.id);
     expect((await api.listConflicts(ev.id)).map((c) => c.teamId)).toEqual([t1.id]);
     await api.signIn(ORG);
-    await api.invite(ev.id, { email: 'lead@x.test', role: 'lead_judge', panel: 'verbal' });
+    await api.invite(ev.id, { email: 'lead@x.test', name: 'Lead Judge', role: 'lead_judge', panel: 'verbal' });
     await api.signIn('lead@x.test');
     await api.claimInvitations();
     await api.declareConflict(ev.id, t2.id);
@@ -606,7 +606,7 @@ describe('technical inspections', () => {
     const { api, ev, t1 } = await world();
     const SCRUT = 'scrut@x.test';
     await api.signIn(ORG);
-    await api.invite(ev.id, { email: SCRUT, role: 'judge', panel: 'scrutineering' });
+    await api.invite(ev.id, { email: SCRUT, name: SCRUT, role: 'judge', panel: 'scrutineering' });
     await api.signIn(SCRUT);
     await api.claimInvitations();
 

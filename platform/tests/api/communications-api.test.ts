@@ -57,9 +57,9 @@ describe('Communications API (MemoryApi)', () => {
 
   it('resolves recipient count accurately for panel and email targets', async () => {
     // Add roles
-    await api.invite(eventId, { email: 'judge1@test.com', role: 'judge', panel: 'verbal' });
-    await api.invite(eventId, { email: 'judge2@test.com', role: 'judge', panel: 'verbal' });
-    await api.invite(eventId, { email: 'judge3@test.com', role: 'judge', panel: 'design_engineering' });
+    await api.invite(eventId, { email: 'judge1@test.com', name:'Test Judge',role: 'judge', panel: 'verbal' });
+    await api.invite(eventId, { email: 'judge2@test.com', name:'Test Judge',role: 'judge', panel: 'verbal' });
+    await api.invite(eventId, { email: 'judge3@test.com', name:'Test Judge',role: 'judge', panel: 'design_engineering' });
 
     // Broadcast to verbal panel
     const b1 = await api.sendBroadcast(eventId, {

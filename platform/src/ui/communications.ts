@@ -118,7 +118,7 @@ export async function communicationsScreen(ctx: Ctx, eventId: string): Promise<H
             });
             return h('label', { style: 'display:flex;gap:8px;margin-bottom:6px;font-size:13px;' },
               cb,
-              `${j.email ?? 'Unknown'} (${j.panel ? PANEL_LABEL[j.panel] : 'General'})`
+              `${j.name ? `${j.name} · ` : ''}${j.email ?? 'Unknown'} (${j.panel ? PANEL_LABEL[j.panel] : 'General'})`
             );
           })
     )

@@ -97,13 +97,13 @@ export async function scoresScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
               .filter(([, value]) => value).map(([label, value]) => h('p', { class: 'small results-comment' }, h('strong', null, `${label}: `), value)),
             c.judgeId === session.userId && roles.some((r) => r.role === 'judge' && r.panel === c.panel && (r.teamId === null || r.teamId === c.teamId))
               ? h('a', { class: 'btn btn--ghost btn--small', href: routeHref({ name: 'scorecard', eventId, teamId: c.teamId, areaId: c.areaId }) }, c.status === 'draft' ? 'Continue scoring' : 'View submitted scorecard') : null);
-          const judge = data.people.find((r) => r.userId === c.judgeId && r.email)?.email ?? (c.judgeId === session.userId ? session.email : 'Judge');
+          const judge = (()=>{const r=data.people.find(r=>r.userId===c.judgeId);return r?.name||r?.email;})() ?? (c.judgeId === session.userId ? session.email : 'Judge');
           return h('tr', null, h('th', { scope: 'row' }, item.teamName), h('td', { 'data-label': 'Area' }, area.name), h('td', { 'data-label': 'Judge' }, judge),
             h('td', { 'data-label': 'Score', class: 'num' }, `${total} / ${area.max}`, !complete ? h('span', { class: 'small muted' }, ' · incomplete') : null),
             h('td', { 'data-label': 'Status and details' }, tag(c.status === 'submitted' ? 'Submitted' : 'Draft · not counted', c.status === 'submitted' ? 'pass' : 'risk'), details));
         }
         const insp = item.inspection;
-        const judge = data.people.find((r) => r.userId === insp.inspectorId && r.email)?.email ?? (insp.inspectorId === session.userId ? session.email : 'Scrutineer');
+        const judge = (()=>{const r=data.people.find(r=>r.userId===insp.inspectorId);return r?.name||r?.email;})() ?? (insp.inspectorId === session.userId ? session.email : 'Scrutineer');
         const sum = summarise(INDIA_TECHNICAL.rules, insp.measurements);
         const failing = sum.results.filter((r) => r.status === 'fail');
         const detailsKey = `insp-${insp.id}`;

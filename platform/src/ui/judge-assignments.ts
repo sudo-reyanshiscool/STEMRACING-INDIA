@@ -4,8 +4,8 @@ import { h } from './dom';
 import { PANEL_LABEL } from './labels';
 
 export function judgeAssignmentEditor(ctx: Ctx, eventId: string, roles: RoleRow[], teams: TeamRow[], save: (action: () => Promise<void>) => Promise<void>, refreshed: () => Promise<void>): HTMLElement {
-  const people = [...new Map(roles.map(r=>[r.userId,r])).values()].sort((a,b)=>(a.email??'').localeCompare(b.email??''));
-  const person = h('select', {name:'assignment-person',required:true}, h('option',{value:''},'Choose a person'), people.map(r=>h('option',{value:r.userId},r.email??'Event member')));
+  const people = [...new Map(roles.map(r=>[r.userId,r])).values()].sort((a,b)=>(a.name||a.email||'').localeCompare(b.name||b.email||''));
+  const person = h('select', {name:'assignment-person',required:true}, h('option',{value:''},'Choose a person'), people.map(r=>h('option',{value:r.userId},r.name ? `${r.name} · ${r.email ?? ''}` : r.email??'Event member')));
   const panel = h('select', {name:'assignment-panel',required:true}, h('option',{value:''},'Choose a panel'), Object.entries(PANEL_LABEL).map(([p,label])=>h('option',{value:p},label)));
   const scope = h('select', {name:'assignment-scope',required:true}, h('option',{value:''},'Choose team scope'),h('option',{value:'all'},'All teams'),h('option',{value:'selected'},'Selected teams'));
   const boxes = teams.map(t=>({id:t.id,input:h('input',{type:'checkbox',value:t.id}),label:`Team ${t.number} · ${t.name}`}));

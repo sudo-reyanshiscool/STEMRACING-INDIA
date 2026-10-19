@@ -8,7 +8,7 @@ describe('inspectionScreen', () => {
   it('renders without throwing when scrutineering judge opens it', async () => {
     const { api, ev, t1 } = await world();
     await api.signIn(EMAILS.org);
-    await api.invite(ev.id, { email: 'scrut@x.test', role: 'judge', panel: 'scrutineering' });
+    await api.invite(ev.id, { email: 'scrut@x.test', name:'Test Judge',role: 'judge', panel: 'scrutineering' });
     await api.signIn('scrut@x.test');
     await api.claimInvitations();
 
@@ -23,7 +23,7 @@ describe('inspectionScreen', () => {
   it('renders with existing submitted inspection for Car A', async () => {
     const { api, ev, t1 } = await world();
     await api.signIn(EMAILS.org);
-    await api.invite(ev.id, { email: 'scrut@x.test', role: 'judge', panel: 'scrutineering' });
+    await api.invite(ev.id, { email: 'scrut@x.test', name:'Test Judge',role: 'judge', panel: 'scrutineering' });
     await api.signIn('scrut@x.test');
     await api.claimInvitations();
 
@@ -50,7 +50,7 @@ describe('inspectionScreen', () => {
   it('renders Car B inspection without throwing', async () => {
     const { api, ev, t1 } = await world();
     await api.signIn(EMAILS.org);
-    await api.invite(ev.id, { email: 'scrut@x.test', role: 'judge', panel: 'scrutineering' });
+    await api.invite(ev.id, { email: 'scrut@x.test', name:'Test Judge',role: 'judge', panel: 'scrutineering' });
     await api.signIn('scrut@x.test');
     await api.claimInvitations();
 
@@ -63,7 +63,7 @@ describe('inspectionScreen', () => {
   it('renders scoringScreen with Car A and Car B inspection links', async () => {
     const { api, ev } = await world();
     await api.signIn(EMAILS.org);
-    await api.invite(ev.id, { email: 'scrut@x.test', role: 'judge', panel: 'scrutineering' });
+    await api.invite(ev.id, { email: 'scrut@x.test', name:'Test Judge',role: 'judge', panel: 'scrutineering' });
     await api.signIn('scrut@x.test');
     await api.claimInvitations();
 

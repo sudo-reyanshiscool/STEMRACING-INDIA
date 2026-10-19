@@ -288,3 +288,10 @@ On **Events → Organiser access**, the Platform Admin or another Platform Organ
 Revoking a global organiser grant stops its global powers immediately. Separate event assignments, including an organiser assignment created when that person created an event, remain; remove those through that event’s People screen if needed. The permanent admin cannot be revoked, demoted or removed by any of these controls. These protections apply to the application/API; a Supabase project owner still controls the database infrastructure.
 
 Apply new migrations through `scripts/render-migrations.mjs` and its isolated SQL output. This preserves the shared project’s unrelated public tables and grants. Migrations 0014 and 0015 must be applied in the same rendered transaction when upgrading from 0013.
+
+
+### Judge names and Test Event sample data
+
+Judge and Lead Judge invitations require a full name (1–100 characters) as well as the email and panel. The name appears in People, assignment and exemption selectors, Scores and Moderation, and is retained when additional panels/teams are assigned. Existing unnamed invitations remain claimable. Organisers and Chairs can name existing members when adding another panel through People.
+
+`scripts/test-event-data.ts` builds synthetic data for an explicitly identified, empty event named **Test Event**. Its guarded SQL checks the event ID, name, active state and pinned ruleset, refuses released/nonempty events, and inserts all sample records in one transaction. It adds 50 clearly labelled Demo teams, five synthetic judge identities at the reserved `example.invalid` domain, varied cards and feedback, technical measurements, penalties, overrides, race heats and an unreleased ranking preview. It sends no invitations or email, and never enables a public demo-mode switch. Repeating the import is refused rather than overwriting submitted evidence.

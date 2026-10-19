@@ -38,7 +38,7 @@ describe.skipIf(!run)('shared workspace across independent authenticated clients
       event = await organiser.createEvent({ name });
       const team = await organiser.createTeam(event.id, { number: '001', name: 'Connectivity test team' });
       for (const [account, role, panel] of [['chair', 'chair', undefined], ['judge', 'judge', 'verbal'], ['otherjudge', 'judge', 'verbal'], ['manager', 'team_manager', undefined]] as const) {
-        await organiser.invite(event.id, { email: (await apis[account].getSession())!.email, role, panel, ...(role === 'team_manager' ? { teamId: team.id } : {}) });
+        await organiser.invite(event.id, { email: (await apis[account].getSession())!.email, name:'Smoke Judge', role, panel, ...(role === 'team_manager' ? { teamId: team.id } : {}) });
         expect(await apis[account].claimInvitations()).toBe(1);
       }
       const card = await judge.openCard(event.id, team.id, 'verbal-technique');

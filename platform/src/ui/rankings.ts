@@ -50,7 +50,7 @@ function buildInputs(teams: TeamRow[], cards: CardRow[], overrides: OverrideRow[
 function diagnose(ruleset: Ruleset, inputs: Inputs, teams: TeamRow[], roles: RoleRow[]): string[] {
   const out: string[] = [];
   const team = (id: string) => { const t = teams.find((x) => x.id === id); return t ? `Team ${t.number} · ${t.name}` : 'a team that is no longer in this event'; };
-  const judge = (id: string) => roles.find((r) => r.userId === id && r.email)?.email ?? 'a judge';
+  const judge = (id: string) => (()=>{const r=roles.find(r=>r.userId===id);return r?.name||r?.email||'a judge';})();
   const area = (id: string) => ruleset.areas.find((a) => a.id === id);
   const seen = new Set<string>();
   for (const c of inputs.cards) {

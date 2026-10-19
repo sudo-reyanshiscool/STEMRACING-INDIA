@@ -16,9 +16,9 @@ export interface Session { userId: string; email: string }
 export interface EventRow { id: string; name: string; startsOn: string | null; ruleset: Ruleset; resultsReleased: boolean }
 export interface TeamRow { id: string; eventId: string; number: string; name: string; school: string }
 export interface NewTeam { number: string; name: string; school?: string }
-export interface RoleRow { id: string; eventId: string; userId: string; role: Role; panel: Panel | null; teamId: string | null; email: string | null }
+export interface RoleRow { name?: string; id: string; eventId: string; userId: string; role: Role; panel: Panel | null; teamId: string | null; email: string | null }
 export type EmailStatus = 'not_sent' | 'sending' | 'sent' | 'failed';
-export interface InviteRow { id: string; eventId: string; email: string; role: Role; panel: Panel | null; teamId: string | null; emailStatus?: EmailStatus; emailSentAt?: string | null; emailFailure?: 'provider' | 'rate_limit' | null }
+export interface InviteRow { name?: string; id: string; eventId: string; email: string; role: Role; panel: Panel | null; teamId: string | null; emailStatus?: EmailStatus; emailSentAt?: string | null; emailFailure?: 'provider' | 'rate_limit' | null }
 export interface CardRow { id: string; eventId: string; teamId: string; areaId: string; panel: Panel; judgeId: string; status: 'draft' | 'submitted'; reopenedCount: number; scores: Record<string, number>; comments: Record<string, string> }
 /** A judge's declared conflict of interest with a team. */
 export interface JudgeExemption { eventId: string; judgeId: string; teamId: string; reason: string }
@@ -91,11 +91,12 @@ export interface Api {
   myRoles(eventId: string): Promise<RoleRow[]>;
   listRoles(eventId: string): Promise<RoleRow[]>;
   listInvitations(eventId: string): Promise<InviteRow[]>;
-  invite(eventId: string, i: { email: string; role: Role; panel?: Panel; teamId?: string }): Promise<void>;
+  invite(eventId: string, i: { name?: string; email: string; role: Role; panel?: Panel; teamId?: string }): Promise<void>;
   /** null teams means the entire panel; selected team ids replace only that panel's scope. */
   listJudgeExemptions(eventId: string): Promise<JudgeExemption[]>;
   setJudgeExemption(eventId: string, userId: string, teamId: string, exempt: boolean, reason?: string): Promise<void>;
   setJudgeAssignment(eventId: string, userId: string, panel: Panel, teamIds: string[] | null): Promise<void>;
+  setJudgeName(eventId: string, userId: string, name: string): Promise<void>;
   removeRole(roleId: string): Promise<void>;
   removeInvitation(inviteId: string): Promise<void>;
   sendInvitation(inviteId: string): Promise<void>;

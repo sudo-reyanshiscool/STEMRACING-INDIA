@@ -14,8 +14,8 @@ export async function world() {
   const t1 = await api.createTeam(ev.id, { number: '1', name: 'One' });
   const t2 = await api.createTeam(ev.id, { number: '2', name: 'Two' });
   await api.invite(ev.id, { email: EMAILS.chair, role: 'chair' });
-  await api.invite(ev.id, { email: EMAILS.judge, role: 'judge', panel: 'verbal' });
-  await api.invite(ev.id, { email: EMAILS.lead, role: 'lead_judge', panel: 'verbal' });
+  await api.invite(ev.id, { email: EMAILS.judge, name: EMAILS.judge, role: 'judge', panel: 'verbal' });
+  await api.invite(ev.id, { email: EMAILS.lead, name: EMAILS.lead, role: 'lead_judge', panel: 'verbal' });
   await api.invite(ev.id, { email: EMAILS.mgr, role: 'team_manager', teamId: t1.id });
   for (const e of [EMAILS.chair, EMAILS.judge, EMAILS.lead, EMAILS.mgr]) {
     await api.signIn(e);

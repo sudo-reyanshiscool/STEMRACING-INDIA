@@ -49,6 +49,7 @@ describe('peopleScreen', () => {
     const el = await peopleScreen(ctx, ev.id);
     pick(el, 'role', 'judge');
     pick(el, 'panel', 'enterprise');
+    pick(el, 'name', 'Avery Rao');
     (el.querySelector('input[name=email]') as HTMLInputElement).value = 'New@X.test';
     submit(el);
     await wait();
@@ -348,4 +349,33 @@ describe('multiple organisers', () => {
     await wait();
     expect(text(el.querySelector('[role=status]')!)).toContain('already an organiser');
   });
+});
+
+describe('judge invitation names',()=>{
+ it('requires a name for judges and leads, retains it through acceptance, and shows names alongside email',async()=>{
+  const {api,ev}=await world();await api.signIn(EMAILS.org);
+  const el=await peopleScreen(makeCtx(api).ctx,ev.id);
+  pick(el,'role','judge');pick(el,'panel','verbal');pick(el,'email','named@x.test');
+  submit(el);await wait();
+  expect(text(el)).toContain('Enter the judge’s full name');
+  expect((el.querySelector('[name=name]') as HTMLInputElement).required).toBe(true);
+  expect(await api.listInvitations(ev.id)).toHaveLength(0);
+  pick(el,'name','  Asha Patel  ');submit(el);await wait();
+  expect((await api.listInvitations(ev.id))[0].name).toBe('Asha Patel');
+  expect(text(el.querySelector('[data-section=invitations]')!)).toContain('Asha Patel');
+  await api.signIn('named@x.test');await api.claimInvitations();
+  expect((await api.myRoles(ev.id))[0].name).toBe('Asha Patel');
+  await api.signIn(EMAILS.org);
+  const updated=await peopleScreen(makeCtx(api).ctx,ev.id);
+  expect(text(updated.querySelector('[data-section=people]')!)).toContain('Asha Patel');
+  expect(text(updated.querySelector('[name=assignment-person]')!)).toContain('Asha Patel');
+ });
+ it('keeps optional names optional for other staff and renders judge names as text',async()=>{
+  const {api,ev}=await world();await api.signIn(EMAILS.org);
+  const el=await peopleScreen(makeCtx(api).ctx,ev.id);pick(el,'role','chair');
+  expect((el.querySelector('[name=name]') as HTMLInputElement).required).toBe(false);
+  await api.invite(ev.id,{email:'safe@x.test',name:'<img src=x onerror=alert(1)>',role:'judge',panel:'verbal'});
+  const updated=await peopleScreen(makeCtx(api).ctx,ev.id);
+  expect(updated.querySelector('img')).toBeNull();expect(text(updated)).toContain('<img src=x onerror=alert(1)>');
+ });
 });

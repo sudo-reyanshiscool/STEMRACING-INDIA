@@ -37,8 +37,8 @@ async function guard<T>(run: () => PromiseLike<T>): Promise<T> {
 // and a list keeps every other query independent of columns the app does not use.
 const EVENT_COLS = 'id,name,starts_on,ruleset,results_released';
 const TEAM_COLS = 'id,event_id,number,name,school';
-const ROLE_COLS = 'id,event_id,user_id,role,panel,team_id,email';
-const INVITE_COLS = 'id,event_id,email,role,panel,team_id,email_status,email_sent_at,email_failure';
+const ROLE_COLS = 'display_name,id,event_id,user_id,role,panel,team_id,email';
+const INVITE_COLS = 'display_name,id,event_id,email,role,panel,team_id,email_status,email_sent_at,email_failure';
 const CARD_COLS = 'id,event_id,team_id,area_id,panel,judge_id,status,reopened_count,scorecard_scores(criterion_id,score,comment)';
 const OVERRIDE_COLS = 'event_id,team_id,area_id,value,reason';
 const PENALTY_COLS = 'id,event_id,team_id,points,reason';
@@ -240,7 +240,7 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
     },
     async invite(eventId, i) {
       const row=firstRow(one(await guard(() => sb.from('invitations').insert({
-        event_id: eventId, email: i.email.trim().toLowerCase(), role: i.role, panel: i.panel ?? null, team_id: i.teamId ?? null,
+        event_id: eventId, display_name: (i.name ?? '').trim(), email: i.email.trim().toLowerCase(), role: i.role, panel: i.panel ?? null, team_id: i.teamId ?? null,
       }).select('id').single())));
       await sendInvitation(row.id);
     },
@@ -254,6 +254,9 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
     },
     async setJudgeAssignment(eventId, userId, panel, teamIds) {
       ok(await guard(() => sb.rpc('set_judge_assignment', {p_event:eventId,p_user:userId,p_panel:panel,p_teams:teamIds})));
+    },
+    async setJudgeName(eventId, userId, name) {
+      ok(await guard(() => sb.rpc('set_judge_name', {p_event:eventId,p_user:userId,p_name:name})));
     },
     async removeRole(roleId) {
       await removeById('event_roles', roleId);

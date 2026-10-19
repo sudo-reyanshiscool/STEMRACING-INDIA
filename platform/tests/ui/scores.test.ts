@@ -30,7 +30,7 @@ describe('shared Scores interface',()=>{
   });
   it('restricts a judge to their own cards and keeps team feedback hidden until release',async()=>{
     const {api,ev,ctx}=await setup(EMAILS.judge);
-    await api.signIn(EMAILS.org);await api.invite(ev.id,{email:'other@x.test',role:'judge',panel:'verbal'});
+    await api.signIn(EMAILS.org);await api.invite(ev.id,{email:'other@x.test',name:'Test Judge',role:'judge',panel:'verbal'});
     await api.signIn('other@x.test');await api.claimInvitations();expect(text(await scoresScreen(ctx,ev.id))).toContain('No saved scorecards');
     await api.signIn(EMAILS.mgr);expect(text(await scoresScreen(ctx,ev.id))).toContain('not available');
     await api.signIn(EMAILS.judge);const c=(await api.listCards(ev.id))[0];await api.submitCard(c.id);await releaseResults(api,ev.id);

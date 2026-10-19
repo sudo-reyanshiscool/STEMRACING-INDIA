@@ -114,8 +114,9 @@ export class MemoryApi implements Api {
     const mine = this.invites.filter((i) => i.email === me.email && !this.deletedEvents.has(i.eventId));
     for (const i of mine) {
       const dupe = this.roles.some((r) => r.eventId === i.eventId && r.userId === me.userId && r.role === i.role && r.panel === i.panel && r.teamId === i.teamId);
-      if (!dupe) this.roles.push({ id: nid('role'), eventId: i.eventId, userId: me.userId, role: i.role, panel: i.panel, teamId: i.teamId, email: me.email });
+      if (!dupe) this.roles.push({ id: nid('role'), eventId: i.eventId, userId: me.userId, role: i.role, panel: i.panel, teamId: i.teamId, email: me.email, ...(i.name?{name:i.name}:{}) });
     }
+    for(const i of mine) if(i.name) this.roles.filter(r=>r.eventId===i.eventId && r.userId===me.userId).forEach(r=>{r.name=i.name;});
     this.invites = this.invites.filter((i) => !mine.includes(i));
     return mine.length+globals.length;
   }
@@ -237,7 +238,7 @@ export class MemoryApi implements Api {
   async listInvitations(eventId: string) {
     return copy(this.has(eventId, 'chair', 'organiser') ? this.invites.filter((i) => i.eventId === eventId) : []);
   }
-  async invite(eventId: string, i: { email: string; role: Role; panel?: Panel; teamId?: string }) {
+  async invite(eventId: string, i: { name?: string; email: string; role: Role; panel?: Panel; teamId?: string }) {
     if (i.role === 'organiser') {
       this.require(eventId, 'organiser');
     } else {
@@ -247,6 +248,8 @@ export class MemoryApi implements Api {
     if (!EMAIL.test(email)) throw new ApiError('invalid', 'Enter a valid email address');
     if (!ROLES.includes(i.role)) throw new ApiError('invalid', 'Choose a role');
     const isJudge = JUDGE_ROLES.includes(i.role);
+    const name=(i.name??'').trim();
+    if(name.length>100 || (isJudge && !name))throw new ApiError('invalid','Enter the judge’s name (up to 100 characters)');
     if (isJudge !== (i.panel !== undefined)) throw new ApiError('invalid', isJudge ? 'Choose a judging panel' : 'Only judges have a panel');
     if (i.panel !== undefined && !PANELS.includes(i.panel)) throw new ApiError('invalid', 'Choose a judging panel');
     if ((i.role === 'team_manager' && i.teamId === undefined) || (i.role !== 'judge' && i.role !== 'team_manager' && i.teamId !== undefined)) throw new ApiError('invalid', i.role === 'team_manager' ? 'Choose a team' : 'Only team managers have a team');
@@ -258,7 +261,7 @@ export class MemoryApi implements Api {
     if (this.invites.some((x) => x.eventId === eventId && x.email === email && x.role === i.role && x.panel === panel && x.teamId === teamId)) {
       throw new ApiError('duplicate', 'That person is already invited for this role');
     }
-    this.invites.push({ id: nid('invite'), eventId, email, role: i.role, panel, teamId, emailStatus: 'sent', emailSentAt: new Date().toISOString(), emailFailure: null });
+    this.invites.push({ id: nid('invite'), eventId, ...(name?{name}:{}), email, role: i.role, panel, teamId, emailStatus: 'sent', emailSentAt: new Date().toISOString(), emailFailure: null });
   }
   async listJudgeExemptions(eventId: string) {
     return copy(this.exemptions.filter(x=>x.eventId===eventId && !this.deletedEvents.has(eventId) && (this.has(eventId,'chair','organiser') || x.judgeId===this.me?.userId)));
@@ -279,11 +282,17 @@ export class MemoryApi implements Api {
     const wanted:Array<string|null>=teamIds===null?[null]:[...new Set(teamIds)];
     this.roles=this.roles.filter(r=>r.eventId!==eventId || r.userId!==userId || r.role!=='judge' || r.panel!==panel || wanted.includes(r.teamId));
     for(const teamId of wanted) if(!this.roles.some(r=>r.eventId===eventId && r.userId===userId && r.role==='judge' && r.panel===panel && r.teamId===teamId)) {
-      this.roles.push({id:nid('role'),eventId,userId,role:'judge',panel,teamId,email:person.email});
+      this.roles.push({id:nid('role'),eventId,userId,role:'judge',panel,teamId,email:person.email,...(person.name?{name:person.name}:{})});
     }
   }
   private canScore(eventId: string, panel: Panel, teamId: string) {
     return this.rolesOf(eventId).some(r=>r.role==='judge' && r.panel===panel && (r.teamId===null || r.teamId===teamId)) && !this.exemptions.some(x=>x.eventId===eventId && x.judgeId===this.me?.userId && x.teamId===teamId);
+  }
+  async setJudgeName(eventId:string,userId:string,name:string) {
+    this.require(eventId,'chair','organiser');name=this.text(name,'Judge name',100);
+    const rows=this.roles.filter(r=>r.eventId===eventId && r.userId===userId);
+    if(!rows.length)throw new ApiError('invalid','Invite this person first');
+    rows.forEach(r=>{r.name=name;});
   }
   async removeRole(roleId: string) {
     const r = this.roles.find((x) => x.id === roleId);

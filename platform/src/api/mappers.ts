@@ -63,9 +63,11 @@ export const toEventRow = (r: Row): EventRow => ({
 });
 export const toTeamRow = (r: Row): TeamRow => ({ id: r.id, eventId: r.event_id, number: r.number, name: r.name, school: r.school ?? '' });
 export const toRoleRow = (r: Row): RoleRow => ({
+  ...(r.display_name ? {name:r.display_name} : {}),
   id: r.id, eventId: r.event_id, userId: r.user_id, role: r.role, panel: r.panel ?? null, teamId: r.team_id ?? null, email: r.email ?? null,
 });
 export const toInviteRow = (r: Row): InviteRow => ({
+  ...(r.display_name ? {name:r.display_name} : {}),
   id: r.id, eventId: r.event_id, email: r.email, role: r.role, panel: r.panel ?? null, teamId: r.team_id ?? null,
   emailStatus: r.email_status ?? 'not_sent', emailSentAt: r.email_sent_at ?? null, emailFailure: r.email_failure ?? null,
 });

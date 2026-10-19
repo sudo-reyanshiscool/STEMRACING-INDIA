@@ -57,7 +57,7 @@ describe('restorable event deletion',()=>{
     await restore();expect((await as(db,'organiser',q=>q('select id from list_deleted_events() where id=$1',[w.eventId]))).rows).toEqual([]);
   });
   it('defers invitations until a deleted event is restored',async()=>{
-    await as(db,'organiser',q=>q("insert into invitations(event_id,email,role,panel) values($1,'new.judge@x.test','judge','verbal')",[w.eventId]));
+    await as(db,'organiser',q=>q("insert into invitations(event_id,email,role,panel,display_name) values($1,'new.judge@x.test','judge','verbal','Test Judge')",[w.eventId]));
     await deletion();expect((await as(db,'invitee',q=>q('select claim_invitations() as n'))).rows[0].n).toBe(0);
     await restore();expect((await as(db,'invitee',q=>q('select claim_invitations() as n'))).rows[0].n).toBeGreaterThanOrEqual(1);
   });

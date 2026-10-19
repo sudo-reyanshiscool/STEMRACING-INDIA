@@ -40,7 +40,7 @@ describe('multiple team and panel assignments',()=>{
   await denied(as(db,'judgeV',q=>q('delete from scorecards where id=$1 returning id',[own])));
  });
  it('claims a team-scoped invitation and refuses a selected team with a declared conflict',async()=>{
-  await as(db,'organiser',q=>q("insert into invitations(event_id,email,role,panel,team_id) values($1,'new.judge@x.test','judge','verbal',$2)",[w.eventId,w.team1]));
+  await as(db,'organiser',q=>q("insert into invitations(event_id,email,role,panel,team_id,display_name) values($1,'new.judge@x.test','judge','verbal',$2,'Test Judge')",[w.eventId,w.team1]));
   await as(db,'invitee',q=>q('select claim_invitations()'));await card('invitee',w.team1,'verbal-technique');await expect(card('invitee',w.team2,'verbal-technique')).rejects.toThrow();
   await as(db,'judgeV',q=>q('insert into judge_conflicts(event_id,team_id) values($1,$2)',[w.eventId,w.team2]));
   await expect(assign('verbal',[w.team2])).rejects.toThrow(/declared conflict/);

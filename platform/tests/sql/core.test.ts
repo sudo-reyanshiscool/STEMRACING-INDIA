@@ -115,11 +115,11 @@ describe('roles and invitations', () => {
   });
 
   it('lets only the Organiser or Chair invite', async () => {
-    await denied(as(w.db, 'judgeV', (q) => q(`insert into invitations(event_id, email, role, panel) values ($1, 'z@x.test', 'judge', 'verbal')`, [w.eventId])));
+    await denied(as(w.db, 'judgeV', (q) => q(`insert into invitations(event_id, email, role, panel, display_name) values ($1, 'z@x.test', 'judge', 'verbal', 'Test Judge')`, [w.eventId])));
   });
 
   it('turns an invitation into a role once, matching the email case-insensitively', async () => {
-    await as(w.db, 'organiser', (q) => q(`insert into invitations(event_id, email, role, panel) values ($1, 'new.judge@x.test', 'judge', 'enterprise')`, [w.eventId]));
+    await as(w.db, 'organiser', (q) => q(`insert into invitations(event_id, email, role, panel, display_name) values ($1, 'new.judge@x.test', 'judge', 'enterprise', 'Test Judge')`, [w.eventId]));
     expect(await as(w.db, 'outsider', async (q) => (await q('select claim_invitations() as n')).rows[0].n)).toBe(0);
     expect(await as(w.db, 'invitee', async (q) => (await q('select claim_invitations() as n')).rows[0].n)).toBe(1);
     const role = await as(w.db, 'invitee', async (q) => (await q('select role, panel from event_roles where event_id = $1', [w.eventId])).rows);
@@ -176,14 +176,14 @@ describe('function privileges', () => {
 
 describe('invitation claiming needs a verified email', () => {
   it('lets an unconfirmed address claim nothing', async () => {
-    await as(w.db, 'organiser', (q) => q(`insert into invitations(event_id, email, role, panel) values ($1, 'unverified@x.test', 'judge', 'verbal')`, [w.eventId]));
+    await as(w.db, 'organiser', (q) => q(`insert into invitations(event_id, email, role, panel, display_name) values ($1, 'unverified@x.test', 'judge', 'verbal', 'Test Judge')`, [w.eventId]));
     expect(await as(w.db, 'unverified', async (q) => (await q('select claim_invitations() as n')).rows[0].n)).toBe(0);
     const roles = await as(w.db, 'unverified', async (q) => (await q('select 1 from event_roles where user_id = $1', [ids.unverified])).rows);
     expect(roles).toEqual([]);
   });
 
   it('matches on the account email, not on a claim in the token', async () => {
-    await as(w.db, 'organiser', (q) => q(`insert into invitations(event_id, email, role, panel) values ($1, 'victim@x.test', 'judge', 'verbal')`, [w.eventId]));
+    await as(w.db, 'organiser', (q) => q(`insert into invitations(event_id, email, role, panel, display_name) values ($1, 'victim@x.test', 'judge', 'verbal', 'Test Judge')`, [w.eventId]));
     await w.db.exec(`set role authenticated`);
     await w.db.query(`select set_config('request.jwt.claims', $1, false)`, [JSON.stringify({ sub: ids.outsider, email: 'victim@x.test' })]);
     try {

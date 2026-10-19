@@ -76,7 +76,7 @@ describe.skipIf(!run)('local Supabase smoke test', () => {
     expect(t1.school).toBe('School One');
     expect(await code(org.createTeam(ev.id, { number: ' 1 ', name: 'Dup' }))).toBe('duplicate');
     await org.invite(ev.id, { email: emails.chair, role: 'chair' });
-    await org.invite(ev.id, { email: emails.judge, role: 'judge', panel: 'verbal' });
+    await org.invite(ev.id, { email: emails.judge, name:'Test Judge',role: 'judge', panel: 'verbal' });
     await org.invite(ev.id, { email: emails.mgr, role: 'team_manager', teamId: t1.id });
     await org.invite(ev.id, { email: emails.unconfirmed, role: 'chair' });
     expect((await org.listInvitations(ev.id)).length).toBe(4);

@@ -72,14 +72,14 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
     peopleHolder.replaceChildren(
       h('h2', null, 'People'),
       h('ul', { class: 'list' }, allRoles.map((r) => {
-        const who = r.email ?? 'Account without a visible email';
+        const who = r.name || r.email || 'Account without a visible email';
         const isSelf = r.userId === session?.userId;
         const orgCount = allRoles.filter((x) => x.role === 'organiser').length;
         const removable = !isSelf && r.email?.toLowerCase() !== platformAccess.ownerEmail && (
           r.role === 'organiser' ? (isOrganiser && orgCount > 1 || platformAccess.canManage) : true
         );
         return h('li', null,
-          h('strong', null, who), h('span', { class: 'muted small' }, describe(r)),
+          h('strong', null, who), r.name ? h('span', {class:'muted small'}, r.email ?? '') : null, h('span', { class: 'muted small' }, describe(r)),
           removable ? h('button', { class: 'btn btn--ghost btn--small', type: 'button', 'aria-label': r.role === 'judge' ? `Remove ${describe(r)} assignment for ${who}` : `Remove ${who}`, onclick: () => void run(async () => { await ctx.api.removeRole(r.id); await refresh(); }) }, r.role === 'judge' ? 'Remove assignment' : 'Remove') : null);
       })),
     );
@@ -87,7 +87,7 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
       h('h2', null, 'Invitations waiting'),
       invites.length === 0 ? h('p', { class: 'muted' }, 'No pending invitations.')
         : h('ul', { class: 'list' }, invites.map((i) => h('li', null,
-            h('strong', null, i.email), h('span', { class: 'muted small' }, describe(i)),
+            h('strong', null, i.name || i.email), i.name ? h('span', {class:'muted small'},i.email) : null, h('span', { class: 'muted small' }, describe(i)),
             h('span', { class: `small ${i.emailStatus === 'failed' ? 'invite-email-failed' : 'muted'}` }, i.emailStatus === 'sent' ? `Email sent${i.emailSentAt ? ` · ${new Date(i.emailSentAt).toLocaleString()}` : ''}` : i.emailStatus === 'sending' ? 'Email delivery pending — check before resending' : i.emailStatus === 'failed' ? i.emailFailure === 'rate_limit' ? 'Email not sent — provider sending limit reached' : 'Email not sent — resend to try again' : 'Email not sent'),
             h('div', { class: 'actions' },
               h('button', { class: 'btn btn--ghost btn--small', type: 'button', 'aria-label': `Resend invitation for ${i.email}`, onclick: () => void run(async () => {
@@ -111,7 +111,11 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
   const teamSelect = h('select', { name: 'team', required: true }, h('option', { value: '' }, 'Choose a team'), teams.map((t) => h('option', { value: t.id }, `Team ${t.number} · ${t.name}`)));
   const panelField = h('label', { class: 'field', 'data-field': 'panel', hidden: true }, h('span', { class: 'field__label' }, 'Panel'), panelSelect);
   const teamField = h('label', { class: 'field', 'data-field': 'team', hidden: true }, h('span', { class: 'field__label' }, 'Team'), teamSelect);
+  const nameInput = h('input', {name:'name', type:'text', maxlength:100, autocomplete:'name'});
+  const nameLabel = h('span', {class:'field__label'}, 'Full name (optional)');
   const sync = () => {
+    nameInput.required = isJudgeRole(roleSelect.value);
+    nameLabel.textContent = nameInput.required ? 'Judge full name (required)' : 'Full name (optional)';
     panelField.hidden = !isJudgeRole(roleSelect.value);
     teamField.hidden = roleSelect.value !== 'team_manager';
   };
@@ -122,9 +126,18 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
   const inviteButton = h('button', { class: 'btn btn--primary', type: 'submit' }, 'Send invitation');
   const existingPerson = () => members.find(r => r.email?.trim().toLowerCase() === emailInput.value.trim().toLowerCase());
   const syncSubmit = () => { inviteButton.textContent = roleSelect.value === 'judge' && existingPerson() ? 'Add judging assignment' : 'Send invitation'; };
-  emailInput.addEventListener('input', syncSubmit);
+  let autoName='';
+  const fillExistingName = () => {
+    const person=existingPerson();
+    if(person?.name && (!nameInput.value || nameInput.value===autoName)) {nameInput.value=person.name;autoName=person.name;}
+    else if(!person && autoName && nameInput.value===autoName) {nameInput.value='';autoName='';}
+    syncSubmit();
+  };
+  emailInput.addEventListener('input', fillExistingName);
+  emailInput.addEventListener('change', fillExistingName);
   roleSelect.addEventListener('change', syncSubmit);
   const form: HTMLFormElement = h('form', { class: 'form', novalidate: true },
+    h('label', {class:'field'},nameLabel,nameInput),
     h('label', { class: 'field' }, h('span', { class: 'field__label' }, 'Email address'), emailInput),
     h('label', { class: 'field' }, h('span', { class: 'field__label' }, 'Role'), roleSelect),
     panelField, teamField,
@@ -134,9 +147,13 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
     e.preventDefault();
     void run(async () => {
       const role = roleSelect.value as Role;
+      const existing = existingPerson();
+      if(!nameInput.value.trim() && existing?.name) nameInput.value=existing.name;
       const problem = !isPlausibleEmail(emailInput.value) ? 'Enter a valid email address, for example name@school.org.'
         : !role ? 'Choose a role.'
         : isJudgeRole(role) && !panelSelect.value ? 'Choose a panel for this judge.'
+        : isJudgeRole(role) && !nameInput.value.trim() ? 'Enter the judge’s full name.'
+        : nameInput.value.trim().length > 100 ? 'Use a name of 100 characters or fewer.'
         : role === 'team_manager' && teams.length === 0 ? 'Add a team first, then invite its manager.'
         : role === 'team_manager' && !teamSelect.value ? 'Choose a team for this team manager.'
         : null;
@@ -145,7 +162,6 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
         error.hidden = false;
         return;
       }
-      const existing = existingPerson();
       if (role === 'organiser' && existing) {
         if (members.some(r => r.userId === existing.userId && r.role === 'organiser')) {
           status.textContent = `${emailInput.value.trim().toLowerCase()} is already an organiser of this event.`;
@@ -155,34 +171,37 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
       }
       if (role === 'judge' && existing) {
         const panel = panelSelect.value as Panel;
+        if(nameInput.value.trim() !== existing.name) await ctx.api.setJudgeName(eventId,existing.userId,nameInput.value.trim());
         const alreadyAssigned = members.some(r => r.userId === existing.userId && r.role === 'judge' && r.panel === panel);
         if (alreadyAssigned) {
+          await refresh();
           status.textContent = `This person already judges ${PANEL_LABEL[panel]}. Use Judge assignments to change their team scope.`;
           status.hidden = false;
           return;
         }
         await ctx.api.setJudgeAssignment(eventId, existing.userId, panel, null);
         const email = emailInput.value.trim().toLowerCase();
-        emailInput.value = '';
+        emailInput.value = ''; nameInput.value = '';
         await refresh();
         status.textContent = `${PANEL_LABEL[panel]} added for ${email}. Their existing panels remain active. No new invitation is needed.`;
         status.hidden = false;
         return;
       }
       try { await ctx.api.invite(eventId, {
+        name: nameInput.value.trim(),
         email: emailInput.value,
         role,
         panel: isJudgeRole(role) ? (panelSelect.value as Panel) : undefined,
         teamId: role === 'team_manager' ? teamSelect.value : undefined,
       }); } catch (e) {
         if (e instanceof ApiError && (e.code === 'email-delivery' || e.code === 'rate-limited')) {
-          emailInput.value = ''; await refresh();
+          emailInput.value = ''; nameInput.value = ''; await refresh();
         }
         throw e;
       }
       status.textContent = `Invitation email sent to ${emailInput.value.trim().toLowerCase()}.`;
       status.hidden = false;
-      emailInput.value = '';
+      emailInput.value = ''; nameInput.value = '';
       await refresh();
     });
   });

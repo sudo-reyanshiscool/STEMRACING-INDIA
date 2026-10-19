@@ -253,7 +253,7 @@ describe('moderationScreen', () => {
   it('gives the same judge the same label in every row', async () => {
     const { api, ev, t1, t2 } = await world();
     await api.signIn(EMAILS.org);
-    await api.invite(ev.id, { email: 'judge2@x.test', role: 'judge', panel: 'verbal' });
+    await api.invite(ev.id, { email: 'judge2@x.test', name:'Test Judge',role: 'judge', panel: 'verbal' });
     await api.signIn('judge2@x.test');
     await api.claimInvitations();
     const c = await api.openCard(ev.id, t1.id, 'verbal-technique');

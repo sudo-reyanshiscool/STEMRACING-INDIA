@@ -83,7 +83,7 @@ export async function moderationScreen(ctx: Ctx, eventId: string): Promise<HTMLE
     // Fallback labels come from one sorted list of every judge with a card in this event, so the same person has the
     // same "Judge N" in every row and every area.
     const judgeIds = [...new Set(data.cards.map((c) => c.judgeId))].sort();
-    const who = (judgeId: string) => data.allRoles.find((r) => r.userId === judgeId && r.email)?.email ?? `Judge ${judgeIds.indexOf(judgeId) + 1}`;
+    const who = (judgeId: string) => (()=>{const r=data.allRoles.find(r=>r.userId===judgeId);return r?.name||r?.email;})() ?? `Judge ${judgeIds.indexOf(judgeId) + 1}`;
     const conflicted = (judgeId: string, teamId: string) => data.conflicts.some((c) => c.judgeId === judgeId && c.teamId === teamId);
     const canChange = isChair && !released;
     const judgeReview = (cardId: string) => {
