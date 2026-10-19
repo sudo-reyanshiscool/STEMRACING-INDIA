@@ -6,6 +6,7 @@ export type Panel = PanelId;
 export interface Session { userId: string; email: string }
 export interface EventRow { id: string; name: string; startsOn: string | null; ruleset: Ruleset; resultsReleased: boolean }
 export interface TeamRow { id: string; eventId: string; number: string; name: string; school: string }
+export interface NewTeam { number: string; name: string; school?: string }
 export interface RoleRow { id: string; eventId: string; userId: string; role: Role; panel: Panel | null; teamId: string | null; email: string | null }
 export interface InviteRow { id: string; eventId: string; email: string; role: Role; panel: Panel | null; teamId: string | null }
 export interface CardRow { id: string; eventId: string; teamId: string; areaId: string; panel: Panel; judgeId: string; status: 'draft' | 'submitted'; reopenedCount: number; scores: Record<string, number>; comments: Record<string, string> }
@@ -34,6 +35,10 @@ export interface Api {
   claimInvitations(): Promise<number>;
   listEvents(): Promise<EventRow[]>;
   createEvent(i: { name: string; startsOn?: string }): Promise<EventRow>;
+  /** Restorable deletion; confirmation must exactly match the event's current name. Organisers only. */
+  deleteEvent(eventId: string, confirmation: string): Promise<void>;
+  listDeletedEvents(): Promise<EventRow[]>;
+  restoreEvent(eventId: string): Promise<void>;
   getEvent(id: string): Promise<EventRow | null>;
   setReleased(eventId: string, released: boolean): Promise<void>;
   myRoles(eventId: string): Promise<RoleRow[]>;
@@ -43,7 +48,9 @@ export interface Api {
   removeRole(roleId: string): Promise<void>;
   removeInvitation(inviteId: string): Promise<void>;
   listTeams(eventId: string): Promise<TeamRow[]>;
-  createTeam(eventId: string, i: { number: string; name: string; school?: string }): Promise<TeamRow>;
+  createTeam(eventId: string, i: NewTeam): Promise<TeamRow>;
+  /** All rows are validated and inserted together. Duplicate numbers reject the entire batch. */
+  importTeams(eventId: string, teams: NewTeam[]): Promise<TeamRow[]>;
   /** 'locked' once the judge has a submitted card for the team, or while results are released. */
   declareConflict(eventId: string, teamId: string): Promise<void>;
   myConflicts(eventId: string): Promise<string[]>;

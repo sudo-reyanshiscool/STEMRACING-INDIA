@@ -258,9 +258,9 @@ describe('hardening across the whole schema after 0004', () => {
       expect(f.pub, `${f.proname} public`).toBe(false);
     }
     const anon = fns.rows.filter((f) => f.anon).map((f) => f.proname);
-    expect(anon).toEqual(['event_released', 'has_role', 'is_chair_or_organiser', 'is_member', 'judges_panel', 'leads_panel', 'manages_team', 'sees_all_teams']);
+    expect(anon).toEqual(['event_active', 'event_released', 'has_role', 'is_chair_or_organiser', 'is_member', 'judges_panel', 'leads_panel', 'manages_team', 'sees_all_teams']);
     const auth = fns.rows.filter((f) => f.auth && !f.anon).map((f) => f.proname);
-    expect(auth).toEqual(['claim_invitations', 'create_event', 'is_conflicted', 'judges_panel_any', 'leads_panel_any', 'release_results', 'reopen_scorecard', 'save_card_review', 'snapshot_inputs', 'withdraw_results']);
+    expect(auth).toEqual(['claim_invitations', 'create_event', 'delete_event', 'import_teams', 'is_conflicted', 'judges_panel_any', 'leads_panel_any', 'list_deleted_events', 'release_results', 'reopen_scorecard', 'restore_event', 'save_card_review', 'snapshot_inputs', 'withdraw_results']);
     for (const hidden of ['conflicts_guard', 'event_released_locked', 'snapshots_guard']) {
       const f = fns.rows.find((x) => x.proname === hidden)!;
       expect([f.anon, f.auth, f.pub], hidden).toEqual([false, false, false]);

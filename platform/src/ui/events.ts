@@ -6,7 +6,9 @@ import { routeHref } from './router';
 const today = () => new Date().toISOString().slice(0, 10);
 
 export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
-  const events = await ctx.api.listEvents();
+  const [events, deleted] = await Promise.all([ctx.api.listEvents(), ctx.api.listDeletedEvents()]);
+  let alive = true;
+  ctx.onLeave(() => { alive = false; });
   const error = h('p', { class: 'alert', role: 'alert', hidden: true });
   const submitBtn = h('button', { class: 'btn btn--primary', type: 'submit' }, 'Create event');
   const form = h('form', { class: 'form', novalidate: true },
@@ -15,6 +17,18 @@ export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
     submitBtn,
   );
   let busy = false;
+  const deletedSection = h('details', { class: 'section' }, h('summary', null, `Deleted events (${deleted.length})`));
+  if (deleted.length) deletedSection.append(h('ul', { class: 'list' }, deleted.map((event) => {
+    const restore = h('button', { class: 'btn btn--ghost btn--small', type: 'button', 'aria-label': `Restore ${event.name}` }, 'Restore event');
+    const failure = h('p', { class: 'alert', role: 'alert', hidden: true });
+    restore.addEventListener('click', async () => {
+      if (restore.disabled) return;
+      restore.disabled = true; failure.hidden = true;
+      try { await ctx.api.restoreEvent(event.id); if (alive) ctx.rerender(); }
+      catch (e) { if (alive) { reportActionError(ctx, failure, e); restore.disabled = false; } }
+    });
+    return h('li', null, h('strong', null, event.name), h('span', { class: 'muted small' }, event.startsOn ?? ''), restore, failure);
+  })));
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (busy) return;
@@ -47,5 +61,6 @@ export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
             h('li', null, h('a', { href: routeHref({ name: 'event', eventId: e.id }) }, h('strong', null, e.name)),
               h('span', { class: 'muted small' }, e.startsOn ?? ''), e.resultsReleased ? h('span', { class: 'tag tag--pass' }, 'Results released') : null)))),
     h('section', { class: 'section' }, h('h2', null, 'New event'), error, form),
+    deleted.length ? deletedSection : null,
   );
 }

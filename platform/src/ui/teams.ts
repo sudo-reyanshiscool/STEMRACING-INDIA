@@ -2,6 +2,7 @@ import { reportActionError } from './actions';
 import type { Ctx } from './ctx';
 import { notFound } from './common';
 import { h } from './dom';
+import { teamImport } from './team-import';
 
 export async function teamsScreen(ctx: Ctx, eventId: string): Promise<HTMLElement> {
   const [event, roles] = await Promise.all([ctx.api.getEvent(eventId), ctx.api.myRoles(eventId)]);
@@ -77,5 +78,6 @@ export async function teamsScreen(ctx: Ctx, eventId: string): Promise<HTMLElemen
     h('div', { class: 'stack' }, h('a', { class: 'back', href: `#/event/${encodeURIComponent(eventId)}` }, event.name), h('h1', null, 'Teams')),
     h('section', { class: 'section' }, listHolder),
     form ? h('section', { class: 'section' }, h('h2', null, 'Add a team'), error, status, form) : null,
+    canEdit ? teamImport(ctx, eventId, showTeams) : null,
   );
 }

@@ -358,3 +358,23 @@ describe('feedback and private review adapter', () => {
     expect(await api.listFeedback('e')).toEqual([{cardId:'c',overall:'Good',strengths:'',improvements:''}]);
   });
 });
+
+describe('event lifecycle and CSV import RPCs',()=>{
+  it('passes event confirmation to deletion and uses the restore RPC',async()=>{
+    const {api,calls}=fake(()=>({data:null}));
+    await api.deleteEvent('e','National Finals');await api.restoreEvent('e');
+    expect(calls.map(c=>[c.name,c.args])).toEqual([['delete_event',{p_event:'e',p_confirmation:'National Finals'}],['restore_event',{p_event:'e'}]]);
+  });
+  it('imports a batch in one request and maps the returned teams',async()=>{
+    const {api,calls}=fake(()=>({data:[{id:'t',event_id:'e',number:'001',name:'One',school:'School'}]}));
+    const batch=[{number:'001',name:'One',school:'School'}];
+    expect(await api.importTeams('e',batch)).toEqual([{id:'t',eventId:'e',...batch[0]}]);
+    expect(calls).toEqual([{kind:'rpc',name:'import_teams',args:{p_event:'e',p_teams:batch},steps:[]}]);
+  });
+  it('maps duplicate import errors and reads deleted events through the organiser-only RPC',async()=>{
+    const error=fake(()=>({error:{code:'23505',message:'raw constraint'}}));
+    expect(await fail(error.api.importTeams('e',[{number:'1',name:'One'}]))).toBe('duplicate');
+    const {api,calls}=fake(()=>({data:[{id:'e',name:'Deleted',ruleset:{},results_released:false}]}));
+    expect((await api.listDeletedEvents())[0].id).toBe('e');expect(calls[0].name).toBe('list_deleted_events');expect(has(calls[0],'range')).toBe(true);
+  });
+});

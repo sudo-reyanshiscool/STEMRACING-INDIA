@@ -1,5 +1,7 @@
 import { validateScores, type Area } from '../engine';
 import { INDIA_2026 } from '../rulesets';
+import { cleanTeam, MAX_IMPORT_TEAMS } from './team-input';
+import type { NewTeam } from './types';
 import { blankReview, validateReview, type CardReview, type FeedbackRow, type NominationRow } from './review';
 import {
   ApiError, type Api, type CardRow, type ConflictRow, type EventRow, type InviteRow, type NewSnapshot, type OverrideRow, type Panel,
@@ -26,6 +28,7 @@ export class MemoryApi implements Api {
   private me: Session | null = null;
   private listeners = new Set<(s: Session | null) => void>();
   private events: EventRow[] = [];
+  private deletedEvents = new Set<string>();
   private roles: RoleRow[] = [];
   private invites: InviteRow[] = [];
   private teams: TeamRow[] = [];
@@ -65,27 +68,27 @@ export class MemoryApi implements Api {
   async claimInvitations() {
     if (!this.me) return 0;
     const me = this.me;
-    const mine = this.invites.filter((i) => i.email === me.email);
+    const mine = this.invites.filter((i) => i.email === me.email && !this.deletedEvents.has(i.eventId));
     for (const i of mine) {
       const dupe = this.roles.some((r) => r.eventId === i.eventId && r.userId === me.userId && r.role === i.role && r.panel === i.panel && r.teamId === i.teamId);
       if (!dupe) this.roles.push({ id: nid('role'), eventId: i.eventId, userId: me.userId, role: i.role, panel: i.panel, teamId: i.teamId, email: me.email });
     }
-    this.invites = this.invites.filter((i) => i.email !== me.email);
+    this.invites = this.invites.filter((i) => !mine.includes(i));
     return mine.length;
   }
 
   // ---- helpers
-  private rolesOf(eventId: string) { return this.roles.filter((r) => r.eventId === eventId && !!this.me && r.userId === this.me.userId); }
+  private rolesOf(eventId: string) { return this.deletedEvents.has(eventId) ? [] : this.roles.filter((r) => r.eventId === eventId && !!this.me && r.userId === this.me.userId); }
   private has(eventId: string, ...roles: Role[]) { return this.rolesOf(eventId).some((r) => roles.includes(r.role)); }
   private require(eventId: string, ...roles: Role[]) {
     if (!this.has(eventId, ...roles)) throw new ApiError('forbidden', 'You do not have permission to do that');
   }
   private eventOrThrow(eventId: string) {
     const e = this.events.find((x) => x.id === eventId);
-    if (!e) throw new ApiError('not-found', 'Event not found');
+    if (!e || this.deletedEvents.has(eventId)) throw new ApiError('not-found', 'Event not found');
     return e;
   }
-  private released(eventId: string) { return this.events.find((e) => e.id === eventId)?.resultsReleased ?? false; }
+  private released(eventId: string) { return !this.deletedEvents.has(eventId) && (this.events.find((e) => e.id === eventId)?.resultsReleased ?? false); }
   private area(eventId: string, areaId: string): Area | undefined {
     return this.eventOrThrow(eventId).ruleset.areas.find((a) => a.id === areaId);
   }
@@ -101,12 +104,13 @@ export class MemoryApi implements Api {
     return t;
   }
   private frozen(eventId: string, what: string) {
+    this.eventOrThrow(eventId);
     if (this.released(eventId)) throw new ApiError('locked', `Results are released; withdraw the release before changing ${what}`);
   }
 
   // ---- events
   async listEvents() {
-    return copy(this.events.filter((e) => e.resultsReleased || this.rolesOf(e.id).length > 0));
+    return copy(this.events.filter((e) => !this.deletedEvents.has(e.id) && (e.resultsReleased || this.rolesOf(e.id).length > 0)));
   }
   async createEvent(i: { name: string; startsOn?: string }) {
     if (!this.me) throw new ApiError('unauthenticated', 'Sign in first');
@@ -123,8 +127,26 @@ export class MemoryApi implements Api {
   }
   async getEvent(id: string) {
     const e = this.events.find((x) => x.id === id);
-    if (!e || !(e.resultsReleased || this.rolesOf(id).length > 0)) return null;
+    if (!e || this.deletedEvents.has(id) || !(e.resultsReleased || this.rolesOf(id).length > 0)) return null;
     return copy(e);
+  }
+  private organiserOf(eventId: string) {
+    return !!this.me && this.roles.some((r) => r.eventId === eventId && r.userId === this.me!.userId && r.role === 'organiser');
+  }
+  async deleteEvent(eventId: string, confirmation: string) {
+    if (!this.me) throw new ApiError('unauthenticated', 'Sign in first');
+    if (!this.organiserOf(eventId)) throw new ApiError('forbidden', 'Only organisers can delete an event');
+    const event = this.events.find((e) => e.id === eventId)!;
+    if (confirmation !== event.name) throw new ApiError('invalid', 'The event name does not match');
+    this.deletedEvents.add(eventId);
+  }
+  async listDeletedEvents() {
+    return copy(this.events.filter((e) => this.deletedEvents.has(e.id) && this.organiserOf(e.id)));
+  }
+  async restoreEvent(eventId: string) {
+    if (!this.me) throw new ApiError('unauthenticated', 'Sign in first');
+    if (!this.organiserOf(eventId)) throw new ApiError('forbidden', 'Only organisers can restore an event');
+    this.deletedEvents.delete(eventId);
   }
   async setReleased(eventId: string, released: boolean) {
     this.require(eventId, 'chair', 'organiser');
@@ -206,6 +228,22 @@ export class MemoryApi implements Api {
     return copy(team);
   }
 
+  async importTeams(eventId: string, inputs: NewTeam[]) {
+    this.require(eventId, 'chair', 'organiser');
+    this.eventOrThrow(eventId);
+    if (!Array.isArray(inputs) || !inputs.length || inputs.length > MAX_IMPORT_TEAMS) throw new ApiError('invalid', 'Import between 1 and 1000 teams');
+    const teams = inputs.map(cleanTeam);
+    const numbers = new Set(this.teams.filter((t) => t.eventId === eventId).map((t) => normNumber(t.number)));
+    for (const team of teams) {
+      if (numbers.has(normNumber(team.number))) throw new ApiError('duplicate', 'A team number is already used');
+      numbers.add(normNumber(team.number));
+    }
+    // No await between validation and insertion: a batch can never be partially imported.
+    const rows = teams.map((t) => ({ ...t, id: nid('team'), eventId }));
+    this.teams.push(...rows); this.version += rows.length;
+    return copy(rows);
+  }
+
   // ---- conflicts and scorecards
   async declareConflict(eventId: string, teamId: string) {
     this.require(eventId, ...JUDGE_ROLES);
@@ -218,10 +256,11 @@ export class MemoryApi implements Api {
     if (!this.conflicts.some((c) => c.eventId === eventId && c.judgeId === judgeId && c.teamId === teamId)) this.conflicts.push({ eventId, judgeId, teamId });
   }
   async myConflicts(eventId: string) {
+    if (this.deletedEvents.has(eventId)) return [];
     return this.conflicts.filter((c) => c.eventId === eventId && !!this.me && c.judgeId === this.me.userId).map((c) => c.teamId);
   }
   async listConflicts(eventId: string): Promise<ConflictRow[]> {
-    if (!this.me) return [];
+    if (!this.me || this.deletedEvents.has(eventId)) return [];
     const staff = this.has(eventId, 'chair', 'organiser');
     return this.conflicts.filter((c) => c.eventId === eventId && (staff || c.judgeId === this.me!.userId))
       .map((c) => ({ eventId: c.eventId, judgeId: c.judgeId, teamId: c.teamId }));
@@ -324,7 +363,7 @@ export class MemoryApi implements Api {
     this.version += 1;
   }
   async listCards(eventId: string) {
-    if (!this.me) return [];
+    if (!this.me || this.deletedEvents.has(eventId)) return [];
     const me = this.me.userId;
     const staff = this.has(eventId, 'chair', 'organiser');
     const released = this.released(eventId);

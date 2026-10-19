@@ -146,6 +146,16 @@ export function createApiFromClient(sb: SupabaseClient, options: SupabaseApiOpti
       const data = ok(await guard(() => sb.rpc('create_event', { p_name: i.name, p_starts_on: i.startsOn ?? null, p_ruleset: INDIA_2026 })));
       return toEventRow(firstRow(data));
     },
+    async deleteEvent(eventId, confirmation) {
+      ok(await guard(() => sb.rpc('delete_event', { p_event: eventId, p_confirmation: confirmation })));
+    },
+    async listDeletedEvents() {
+      if (!(await session())) return [];
+      return (await pages<never>((a, b) => sb.rpc('list_deleted_events').order('created_at', { ascending: false }).order('id').range(a, b))).map(toEventRow);
+    },
+    async restoreEvent(eventId) {
+      ok(await guard(() => sb.rpc('restore_event', { p_event: eventId })));
+    },
     async getEvent(id) {
       // A hand-typed or stale link can carry anything; Postgres would answer 22P02 for a non-UUID. Not a UUID, not found.
       if (!UUID.test(id)) return null;
@@ -198,6 +208,10 @@ export function createApiFromClient(sb: SupabaseClient, options: SupabaseApiOpti
         .insert({ event_id: eventId, number: i.number.trim(), name: i.name.trim(), school: (i.school ?? '').trim() })
         .select(TEAM_COLS).single()));
       return toTeamRow(row);
+    },
+    async importTeams(eventId, teams) {
+      const rows = ok(await guard(() => sb.rpc('import_teams', { p_event: eventId, p_teams: teams })));
+      return (rows as Record<string, any>[]).map(toTeamRow);
     },
 
     async declareConflict(eventId, teamId) {

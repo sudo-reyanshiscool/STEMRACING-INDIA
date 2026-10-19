@@ -275,7 +275,7 @@ describe('privileges of the new objects', () => {
               or exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a where a.grantee = 0 and a.privilege_type = 'EXECUTE'))
        order by 1`);
     expect(exposed.rows.map((x) => x.proname)).toEqual(
-      ['event_released', 'has_role', 'is_chair_or_organiser', 'is_member', 'judges_panel', 'leads_panel', 'manages_team', 'sees_all_teams']);
+      ['event_active', 'event_released', 'has_role', 'is_chair_or_organiser', 'is_member', 'judges_panel', 'leads_panel', 'manages_team', 'sees_all_teams']);
   });
 });
 

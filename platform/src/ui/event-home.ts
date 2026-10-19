@@ -4,6 +4,7 @@ import { notFound } from './common';
 import { h } from './dom';
 import { PANEL_LABEL, ROLE_LABEL } from './labels';
 import { routeHref, type Route } from './router';
+import { deleteEventControl } from './delete-event';
 
 export async function eventHomeScreen(ctx: Ctx, eventId: string): Promise<HTMLElement> {
   const [event, roles] = await Promise.all([ctx.api.getEvent(eventId), ctx.api.myRoles(eventId)]);
@@ -30,5 +31,6 @@ export async function eventHomeScreen(ctx: Ctx, eventId: string): Promise<HTMLEl
       mine.length > 0 ? h('p', { class: 'lead' }, `You are: ${mine.join('; ')}`) : null,
     ),
     h('div', { class: 'tiles' }, tiles),
+    has('organiser') ? deleteEventControl(ctx, event) : null,
   );
 }

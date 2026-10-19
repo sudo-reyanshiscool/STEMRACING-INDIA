@@ -36,6 +36,23 @@ list; it does not choose award winners or change points.
     npm run typecheck
     npm run build
 
+## Events and team imports
+
+An **Organiser** can open an event, choose **Delete event** under Manage event and type its exact name to confirm.
+Deleted events and all their data disappear from ordinary views, including public results. The organiser can use
+**Deleted events** on the Events page to restore them. Deletion retains scorecards, feedback, invitations, published
+snapshots and the audit log. Invitations wait until restoration, and event permissions are inactive while deleted.
+
+The Chair and Organiser can use **Teams → Import teams from CSV**. Download the template, choose a UTF-8 CSV and
+review the preview, then confirm the import. Required headings are `number` and `name`; `school` is optional.
+`Team Number`, `Team Name`, `School Name` and `School or Club` are also recognised. Extra columns are listed and
+ignored. Quoted commas, escaped quotes and line breaks are supported. Numbers remain text, so `001` stays `001`.
+Import up to 1000 teams in a file no larger than 1 MB. Any invalid row or duplicate team number blocks the whole batch;
+existing teams are never overwritten. The server repeats validation and inserts the batch in one transaction.
+
+Apply `0006_event_management.sql` before using these controls with a Supabase backend. The demo supports the same
+controls in memory; reloading resets its sample data, including deleted events.
+
 Demo mode is used when `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are not set. Nothing is saved in demo mode:
 reloading the page restores the sample data.
 
