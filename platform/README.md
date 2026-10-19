@@ -36,6 +36,14 @@ list; it does not choose award winners or change points.
     npm run typecheck
     npm run build
 
+## Upgrading an older cached scrutineering installation
+
+The Events deployment keeps `/sw.js` as a one-time retirement worker for browsers that previously installed the
+offline scrutineering app on this origin. It removes only Workbox precache assets, unregisters itself and opens
+`/?app=events-v1#/` to avoid an HTTP-cached copy of the old HTML. IndexedDB and localStorage records remain intact;
+they are not imported into the Events demo. Keep this worker URL available for returning browsers. The standalone
+scrutineering deployment still uses its own offline worker.
+
 ## Events and team imports
 
 An **Organiser** can open an event, choose **Delete event** under Manage event and type its exact name to confirm.
