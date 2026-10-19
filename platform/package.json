@@ -12,7 +12,9 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.117.3"
+    "@supabase/supabase-js": "^2.117.3",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.9"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",

@@ -8,6 +8,7 @@ import { PANEL_LABEL } from './labels';
 import { liveRefresh } from './live-refresh';
 import { routeHref } from './router';
 import { INDIA_TECHNICAL, summarise, type Inspection } from '../technical';
+import { downloadSheet } from '../pdf/resultSheet';
 
 export async function scoresScreen(ctx: Ctx, eventId: string): Promise<HTMLElement> {
   const [event, roles, session] = await Promise.all([ctx.api.getEvent(eventId), ctx.api.myRoles(eventId), ctx.api.getSession()]);
@@ -115,7 +116,37 @@ export async function scoresScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
             h('dt', null, 'Performance breaches'), h('dd', null, String(sum.perfFailures.length)),
           ),
           ...failing.map((r) => h('p', { class: 'small results-comment' }, h('strong', null, `${r.article} ${r.name}: `), `−${r.penalty} pts (${r.detail.join(', ')})`)),
-          canInspect ? h('a', { class: 'btn btn--ghost btn--small', href: routeHref({ name: 'inspection', eventId, teamId: insp.teamId, car: insp.car }) }, insp.status === 'submitted' ? 'View technical inspection' : 'Continue inspection') : null,
+          canInspect ? h('div', { class: 'inline-form', style: 'margin-top: 6px; gap: 8px;' },
+            h('a', { class: 'btn btn--ghost btn--small', href: routeHref({ name: 'inspection', eventId, teamId: insp.teamId, car: insp.car }) }, insp.status === 'submitted' ? 'View technical inspection' : 'Continue inspection'),
+            h('button', {
+              class: 'btn btn--ghost btn--small',
+              type: 'button',
+              onclick: async (e: Event) => {
+                const btn = e.currentTarget as HTMLButtonElement;
+                btn.disabled = true;
+                const old = btn.textContent;
+                btn.textContent = 'Generating PDF…';
+                try {
+                  const t = data.teams.find((x) => x.id === insp.teamId);
+                  await downloadSheet({
+                    eventName: event.name,
+                    teamNumber: t?.number ?? '',
+                    teamName: t?.name ?? '',
+                    school: t?.school ?? '',
+                    carLabel: insp.car,
+                    scrutineer: judge,
+                    date: (insp.startedAt || new Date().toISOString()).slice(0, 10),
+                    rulesetName: INDIA_TECHNICAL.name,
+                    rulesetIssued: INDIA_TECHNICAL.issued,
+                    summary: sum,
+                  });
+                } finally {
+                  btn.disabled = false;
+                  btn.textContent = old;
+                }
+              },
+            }, 'Export PDF'),
+          ) : null,
         );
         const scoreText = sum.total === 0 ? '0 penalties' : `−${sum.total} pts`;
         const scoreExtra = sum.safetyFailures.length > 0 || sum.perfFailures.length > 0

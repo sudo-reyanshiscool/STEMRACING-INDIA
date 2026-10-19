@@ -43,6 +43,7 @@ const CARD_COLS = 'id,event_id,team_id,area_id,panel,judge_id,status,reopened_co
 const OVERRIDE_COLS = 'event_id,team_id,area_id,value,reason';
 const PENALTY_COLS = 'id,event_id,team_id,points,reason';
 const SNAPSHOT_COLS = 'id,event_id,created_at,ruleset_id,input_hash,rows,released';
+const INSPECTION_COLS = 'id,event_id,team_id,car,inspector_id,status,ruleset_id,measurements,notes,started_at,submitted_at,updated_at,revision';
 
 /** PostgREST caps every response at `max_rows` (1000 by default) and says nothing when it cuts a list off. */
 export const PAGE_SIZE = 1000;
@@ -426,12 +427,12 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
     },
     async listInspections(eventId) {
       if (!(await session())) return [];
-      const rows = ok(await guard(() => sb.from('technical_inspections').select('*').eq('event_id', eventId))) as never[];
+      const rows = ok(await guard(() => sb.from('technical_inspections').select(INSPECTION_COLS).eq('event_id', eventId))) as never[];
       return rows.map(toInspectionRow);
     },
     async getInspection(eventId, teamId, car) {
       if (!(await session())) return null;
-      const rows = ok(await guard(() => sb.from('technical_inspections').select('*').eq('event_id', eventId).eq('team_id', teamId).eq('car', car).limit(1))) as never[];
+      const rows = ok(await guard(() => sb.from('technical_inspections').select(INSPECTION_COLS).eq('event_id', eventId).eq('team_id', teamId).eq('car', car).limit(1))) as never[];
       return rows.length > 0 ? toInspectionRow(rows[0]) : null;
     },
     async saveInspection(eventId, teamId, car, measurements, notes) {
@@ -444,12 +445,12 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
         notes: notes ?? {},
         updated_at: new Date().toISOString(),
       };
-      const { data, error } = await guard(() => sb.from('technical_inspections').insert(payload).select().single());
+      const { data, error } = await guard(() => sb.from('technical_inspections').insert(payload).select(INSPECTION_COLS).single());
       if (!error && data) return toInspectionRow(data);
       if (error && error.code !== '23505') throw mapPgError(error);
       const updated = one(await guard(() => sb.from('technical_inspections')
         .update({ measurements, notes: notes ?? {}, updated_at: new Date().toISOString() })
-        .eq('event_id', eventId).eq('team_id', teamId).eq('car', car).select().single()));
+        .eq('event_id', eventId).eq('team_id', teamId).eq('car', car).select(INSPECTION_COLS).single()));
       return toInspectionRow(updated);
     },
     async submitInspection(inspectionId) {

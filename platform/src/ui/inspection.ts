@@ -1,5 +1,6 @@
 import type { Car, Inspection, Measurements, Value } from '../technical';
 import { INDIA_TECHNICAL, SECTIONS, summarise } from '../technical';
+import { downloadSheet } from '../pdf/resultSheet';
 import { reportActionError } from './actions';
 import { notFound, tag } from './common';
 import type { Ctx } from './ctx';
@@ -77,6 +78,41 @@ export async function inspectionScreen(ctx: Ctx, eventId: string, teamId: string
       });
   };
 
+  const exportPdfBtn = (extraCls = '') => {
+    const btn = h('button', {
+      class: `btn btn--ghost ${extraCls}`.trim(),
+      type: 'button',
+      'aria-label': `Export Car ${car} inspection sheet to PDF`,
+    }, 'Export PDF');
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      const originalText = btn.textContent;
+      btn.textContent = 'Generating PDF…';
+      try {
+        const s = summarise(INDIA_TECHNICAL.rules, measurements);
+        const inspector = roles.find((r) => r.userId === insp.inspectorId)?.email || session?.email || '';
+        await downloadSheet({
+          eventName: event.name,
+          teamNumber: team.number,
+          teamName: team.name,
+          school: team.school,
+          carLabel: car,
+          scrutineer: inspector,
+          date: (insp.startedAt || new Date().toISOString()).slice(0, 10),
+          rulesetName: INDIA_TECHNICAL.name,
+          rulesetIssued: INDIA_TECHNICAL.issued,
+          summary: s,
+        });
+      } catch (e) {
+        if (alive) reportActionError(ctx, error, e);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = originalText;
+      }
+    });
+    return btn;
+  };
+
   const total = h('span', { class: 'bar__total' }, '0');
   const meta = h('span', { class: 'bar__meta' });
   const otherCar = car === 'A' ? 'B' : 'A';
@@ -85,6 +121,7 @@ export async function inspectionScreen(ctx: Ctx, eventId: string, teamId: string
     h('span', null, h('span', { class: 'eyebrow' }, `Penalty points · Car ${car}`), h('br'), total),
     meta,
     h('div', { class: 'actions' },
+      exportPdfBtn('btn--small'),
       h('a', {
         class: 'btn btn--ghost btn--small',
         href: routeHref({ name: 'inspection', eventId, teamId, car: otherCar }),
@@ -174,6 +211,7 @@ export async function inspectionScreen(ctx: Ctx, eventId: string, teamId: string
   if (isStaff && insp.status === 'submitted' && !event.resultsReleased) {
     actionArea.appendChild(reopenBtn);
   }
+  actionArea.appendChild(exportPdfBtn());
 
   const screen = h('div', { class: 'stack stack--lg' },
     h('div', { class: 'stack' },

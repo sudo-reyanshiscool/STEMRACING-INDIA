@@ -27,7 +27,7 @@ function buildInputs(teams: TeamRow[], cards: CardRow[], overrides: OverrideRow[
   for (const t of teams) {
     const a = inspections.find((i) => i.teamId === t.id && i.car === 'A');
     const b = inspections.find((i) => i.teamId === t.id && i.car === 'B');
-    if (a && b) {
+    if (a && b && a.status === 'submitted' && b.status === 'submitted') {
       const sumA = summarise(INDIA_TECHNICAL.rules, a.measurements);
       const sumB = summarise(INDIA_TECHNICAL.rules, b.measurements);
       derived[t.id] = { specifications: specificationsScore(sumA, sumB) };
