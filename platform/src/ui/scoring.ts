@@ -26,6 +26,16 @@ export async function scoringScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
   const error = h('p', { class: 'alert', role: 'alert', hidden: true });
   const body = h('div', { class: 'stack stack--lg' });
   /** Which team's declare button is armed (waiting for the second, confirming press). One at a time. */
+  const selectionKey = `stem-racing-judge-panel:${eventId}:${session?.userId ?? ''}`;
+  let selectedPanel = panels[0];
+  try { const saved = sessionStorage.getItem(selectionKey) as Panel | null; if (saved && panels.includes(saved)) selectedPanel = saved; } catch { /* Storage can be disabled. */ }
+  const panelButtons = panels.map(panel => h('button', {
+    type: 'button', class: 'btn btn--ghost', 'aria-pressed': String(panel === selectedPanel),
+    'aria-controls': `judge-panel-${panel}`,
+  }, PANEL_LABEL[panel]));
+  const chooser = panels.length > 1 ? h('div', { class: 'stack' },
+    h('p', { class: 'small muted' }, `You are assigned to ${panels.length} judging panels. Choose a panel:`),
+    h('div', { class: 'panel-switcher', role: 'group', 'aria-label': 'Your judging panels' }, panelButtons)) : null;
   let armed: string | null = null;
   let declaring = false;
 
@@ -41,8 +51,8 @@ export async function scoringScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
     body.replaceChildren(
       ...panels.map((panel) => {
         const areas = event.ruleset.areas.filter((a) => a.kind === 'scorecard' && a.panel === panel);
-        return h('section', { class: 'section' },
-          h('h2', null, PANEL_LABEL[panel]),
+        return h('section', { class: 'section', id: `judge-panel-${panel}`, hidden: panel !== selectedPanel, 'aria-labelledby': `judge-panel-heading-${panel}` },
+          h('h2', { id: `judge-panel-heading-${panel}` }, PANEL_LABEL[panel]),
           h('div', { class: 'grid' }, teams.filter(t=>roles.some(r=>r.role==='judge' && r.panel===panel && (r.teamId===null || r.teamId===t.id))).map((t) => {
             const conflicted = conflicts.has(t.id);
             const exemption = exemptionList.find(x=>x.judgeId===session?.userId && x.teamId===t.id);
@@ -90,6 +100,12 @@ export async function scoringScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
       }),
     );
   };
+  panelButtons.forEach((button, index) => button.addEventListener('click', () => {
+    selectedPanel = panels[index]; armed = null;
+    try { sessionStorage.setItem(selectionKey,selectedPanel); } catch { /* Selection still works without storage. */ }
+    panelButtons.forEach((b,i) => b.setAttribute('aria-pressed',String(i === index)));
+    render();
+  }));
   render();
   const assignmentFingerprint = JSON.stringify([roles, exemptionList]);
   const refreshAssignments = async () => {
@@ -107,7 +123,7 @@ export async function scoringScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
   liveRefresh(ctx,refreshAssignments,e=>reportActionError(ctx,error,e));
 
   return h('div', { class: 'stack stack--lg' },
-    h('div', { class: 'stack' }, h('a', { class: 'back', href: eventHref }, event.name), h('h1', null, 'My scorecards'),
+    h('div', { class: 'stack' }, h('a', { class: 'back', href: eventHref }, event.name), h('h1', null, 'My scorecards'), chooser,
       h('p', { class: 'lead' }, 'Choose one of your assigned teams and an area. Scores save as you type and can be edited until you submit.'),
       h('p', { class: 'small muted' }, 'If you have a conflict of interest with a team, declare it. A declaration cannot be removed on this screen: ask the Chair.')),
     h('div', { class: 'actions' }, refresh, h('p', { class: 'small muted' }, 'Assignments update every 10 seconds and when you return to this page.')), error, body,

@@ -106,3 +106,20 @@ it('detects a newly assigned panel on refresh and when returning to the page, wi
  vi.mocked(ctx.rerender).mockClear();window.dispatchEvent(new Event('focus'));await wait();expect(ctx.rerender).toHaveBeenCalledOnce();
  leaves.forEach(f=>f());vi.mocked(ctx.rerender).mockClear();window.dispatchEvent(new Event('focus'));await wait();expect(ctx.rerender).not.toHaveBeenCalled();
 });
+
+
+it('shows both D&E and Scrutineering as panel choices and keeps each team list in the selected panel',async()=>{
+ const {api,ev,t1,t2}=await world();await api.signIn(EMAILS.judge);const user=(await api.getSession())!.userId;
+ await api.signIn(EMAILS.org);await api.setJudgeAssignment(ev.id,user,'design_engineering',[t1.id]);await api.setJudgeAssignment(ev.id,user,'scrutineering',[t2.id]);await api.signIn(EMAILS.judge);
+ const {ctx,leaves}=makeCtx(api);const el=await scoringScreen(ctx,ev.id);
+ const buttons=[...el.querySelectorAll<HTMLButtonElement>('[aria-label="Your judging panels"] button')];
+ expect(buttons.map(text)).toEqual(['Verbal Presentation','Design & Engineering','Specification & Scrutineering']);
+ expect(buttons.map(b=>b.getAttribute('aria-pressed'))).toEqual(['true','false','false']);
+ const design=()=>el.querySelector<HTMLElement>('#judge-panel-design_engineering')!;
+ const spec=()=>el.querySelector<HTMLElement>('#judge-panel-scrutineering')!;
+ buttons[1].click();expect(design().hidden).toBe(false);expect(spec().hidden).toBe(true);
+ buttons[2].click();expect(design().hidden).toBe(true);expect(spec().hidden).toBe(false);expect(buttons[2].getAttribute('aria-pressed')).toBe('true');
+ expect(spec().querySelector(`a[href$="/${t2.id}/renders"]`)).not.toBeNull();expect(spec().querySelector(`a[href$="/${t1.id}/renders"]`)).toBeNull();
+ leaves.forEach(f=>f());const again=await scoringScreen(makeCtx(api).ctx,ev.id);
+ expect(again.querySelector<HTMLElement>('#judge-panel-scrutineering')!.hidden).toBe(false);
+});

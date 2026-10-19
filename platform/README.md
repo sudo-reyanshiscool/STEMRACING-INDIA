@@ -47,7 +47,9 @@ The People list shows each assignment and lets staff remove it individually. Ent
 in the invitation form and selecting a new Judge panel adds the assignment immediately without another email.
 Repeating an existing panel leaves its team scope intact. My scorecards checks for assignment changes every 10
 seconds, on focus, and with Refresh assignments. The separate Scrutineer role is inspection staff access;
-Specification scorecards require Judge → Specification & Scrutineering.
+Specification scorecards require Judge → Specification & Scrutineering. Judges with several panels see a panel
+selector above the team list in My scorecards. Each panel opens its own assigned teams, and the selected panel
+is remembered for that judge and event in the current browser session.
 
 Under **People → Judge exemptions**, the Chair or Organiser can exempt someone from a team across every panel.
 Exemptions override assignments, including All teams, without removing them. Remove an exemption to restore access.
