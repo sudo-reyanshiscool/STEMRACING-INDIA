@@ -11,7 +11,8 @@ hosted email templates.
 
 This Supabase project also hosts another application. Both subject and body
 templates check `RedirectTo` against the Events Platform's production URL, with
-or without a trailing slash. Requests from other applications retain the original
+or without a trailing slash, plus the exact `/?invite=1` callback. Invitations
+use the same secure verification links with invitation-specific copy. Requests from other applications retain the original
 generic Supabase message. Add a new explicitly trusted URL to both checks if the
 Events Platform moves.
 

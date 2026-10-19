@@ -65,6 +65,7 @@ export const toRoleRow = (r: Row): RoleRow => ({
 });
 export const toInviteRow = (r: Row): InviteRow => ({
   id: r.id, eventId: r.event_id, email: r.email, role: r.role, panel: r.panel ?? null, teamId: r.team_id ?? null,
+  emailStatus: r.email_status ?? 'not_sent', emailSentAt: r.email_sent_at ?? null, emailFailure: r.email_failure ?? null,
 });
 export const toCardRow = (r: Row): CardRow => {
   const scores: Record<string, number> = {};

@@ -239,11 +239,11 @@ otp_expiry = 3600
 # content_path = "./supabase/templates/invite.html"
 
 [auth.email.template.magic_link]
-subject = "{{ if or (eq .RedirectTo \"https://stemracingindia-events.vercel.app\") (eq .RedirectTo \"https://stemracingindia-events.vercel.app/\") }}Your sign-in link | STEM Racing India{{ else }}Your sign-in link{{ end }}"
+subject = "{{ if eq .RedirectTo \"https://stemracingindia-events.vercel.app/?invite=1\" }}Your invitation | STEM Racing India{{ else if or (eq .RedirectTo \"https://stemracingindia-events.vercel.app\") (eq .RedirectTo \"https://stemracingindia-events.vercel.app/\") }}Your sign-in link | STEM Racing India{{ else }}Your sign-in link{{ end }}"
 content_path = "./supabase/templates/magic-link.html"
 
 [auth.email.template.confirmation]
-subject = "{{ if or (eq .RedirectTo \"https://stemracingindia-events.vercel.app\") (eq .RedirectTo \"https://stemracingindia-events.vercel.app/\") }}Confirm your email | STEM Racing India{{ else }}Confirm your email address{{ end }}"
+subject = "{{ if eq .RedirectTo \"https://stemracingindia-events.vercel.app/?invite=1\" }}Your invitation | STEM Racing India{{ else if or (eq .RedirectTo \"https://stemracingindia-events.vercel.app\") (eq .RedirectTo \"https://stemracingindia-events.vercel.app/\") }}Confirm your email | STEM Racing India{{ else }}Confirm your email address{{ end }}"
 content_path = "./supabase/templates/confirmation.html"
 
 # Uncomment to customize notification email template
@@ -409,3 +409,6 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 # declarative_schema_path = "./database"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+[functions.send-invitation]
+verify_jwt = true

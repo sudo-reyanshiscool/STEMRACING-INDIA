@@ -77,7 +77,7 @@ describe('row mappers', () => {
   it('maps teams, invitations, overrides and penalties', () => {
     expect(toTeamRow({ id: 't', event_id: 'e', number: '7', name: 'Seven' })).toEqual({ id: 't', eventId: 'e', number: '7', name: 'Seven', school: '' });
     expect(toInviteRow({ id: 'i', event_id: 'e', email: 'a@x.test', role: 'team_manager', panel: null, team_id: 't' })).toEqual({
-      id: 'i', eventId: 'e', email: 'a@x.test', role: 'team_manager', panel: null, teamId: 't',
+      id: 'i', eventId: 'e', email: 'a@x.test', role: 'team_manager', panel: null, teamId: 't', emailStatus: 'not_sent', emailSentAt: null, emailFailure: null,
     });
     // numeric(5,1) can arrive as a string from some drivers: always a number out.
     expect(toOverrideRow({ event_id: 'e', team_id: 't', area_id: 'a', value: '12.5', reason: 'why' })).toEqual({

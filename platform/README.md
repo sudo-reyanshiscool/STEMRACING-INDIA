@@ -211,3 +211,31 @@ track operation.
 Judging schedule generator, protest and appeal lodging, judge-to-team assignment, server-side snapshot verification,
 specification scores from scrutineering, automatic race-point calculations and knock-out brackets (later phases). See the design spec in
 `docs/superpowers/specs/2026-10-10-event-platform-design.md`.
+
+## Invitation emails
+
+The People screen saves the invitation, then invokes the `send-invitation` Edge
+Function. The function verifies the caller and the event's Chair/Organiser role,
+looks up the recipient from the pending invitation, and sends a Supabase email
+sign-in link through the project's configured SMTP provider. Both new and
+existing accounts are supported. The sender's browser session stays signed in.
+The recipient's verified email claims their pending roles through the existing
+`claim_invitations` flow. Withdrawing the invitation removes that pending access.
+
+Deploy migration `0009_invitation_email.sql` and `supabase functions deploy
+send-invitation --project-ref YOUR_PROJECT --use-api` before deploying the client.
+For this shared project use the isolated migration installer described above.
+The Edge Function uses Supabase's built-in server runtime credentials; no service
+key belongs in Vite or Vercel's browser variables. Keep JWT verification enabled.
+
+Add `https://stemracingindia-events.vercel.app/?invite=1` to the redirect allow-list
+and publish both auth templates and subjects from `supabase/templates` and
+`config.toml`. Requests from other applications keep their generic emails.
+The host and the fixed callback are intentionally tied to the production site;
+update them together if the domain changes.
+
+Delivery status records SMTP acceptance, not inbox delivery. Failed sends keep
+the invitation available for **Resend invitation**, with a 60-second cooldown
+per invitation plus Supabase/provider sending limits. Previously created pending
+invitations start as **Email not sent**; use Resend to send them. Demo mode
+simulates invitations and never sends email.

@@ -38,7 +38,7 @@ async function guard<T>(run: () => PromiseLike<T>): Promise<T> {
 const EVENT_COLS = 'id,name,starts_on,ruleset,results_released';
 const TEAM_COLS = 'id,event_id,number,name,school';
 const ROLE_COLS = 'id,event_id,user_id,role,panel,team_id,email';
-const INVITE_COLS = 'id,event_id,email,role,panel,team_id';
+const INVITE_COLS = 'id,event_id,email,role,panel,team_id,email_status,email_sent_at,email_failure';
 const CARD_COLS = 'id,event_id,team_id,area_id,panel,judge_id,status,reopened_count,scorecard_scores(criterion_id,score,comment)';
 const OVERRIDE_COLS = 'event_id,team_id,area_id,value,reason';
 const PENALTY_COLS = 'id,event_id,team_id,points,reason';
@@ -113,6 +113,19 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
     if ((await updateScore(cardId, criterionId, patch)).length === 0) throw new ApiError('forbidden', 'You cannot score on this scorecard');
   };
 
+  const sendInvitation = async (invitationId: string) => {
+    try {
+      const {data,error}=await sb.functions.invoke('send-invitation',{body:{invitationId}});
+      if(error){
+        const status=(error as {context?:{status?:number}}).context?.status;
+        if(status===401)throw new ApiError('unauthenticated','Sign in again');
+        if(status===403)throw new ApiError('forbidden','Cannot send this invitation');
+        if(status===429)throw new ApiError('rate-limited','Email rate limit');
+        throw new ApiError('email-delivery','Invitation saved; delivery unconfirmed');
+      }
+      if(data?.status!=='sent')throw new ApiError('email-delivery','Delivery unconfirmed');
+    } catch(error){if(error instanceof ApiError)throw error;throw new ApiError('email-delivery','Invitation saved; email request failed');}
+  };
   const raceRow = (r: any): RaceHeat => {
     const lane = (n: number): RaceLane => ({ teamId: r[`lane${n}_team`], car: r[`lane${n}_car`], status: r[`lane${n}_status`], totalMs: r[`lane${n}_total_ms`], reactionMs: r[`lane${n}_reaction_ms`] });
     return { id: r.id, eventId: r.event_id, number: r.heat_number, label: r.label, phase: r.phase, lane1: lane(1), lane2: lane(2), note: r.note, source: r.source, sourceRunId: r.source_run_id, revision: r.revision, updatedAt: r.updated_at };
@@ -195,13 +208,15 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
       return (await pages<never>((a, b) => sb.from('invitations').select(INVITE_COLS).eq('event_id', eventId).order('id').range(a, b))).map(toInviteRow);
     },
     async invite(eventId, i) {
-      ok(await guard(() => sb.from('invitations').insert({
+      const row=firstRow(one(await guard(() => sb.from('invitations').insert({
         event_id: eventId, email: i.email.trim().toLowerCase(), role: i.role, panel: i.panel ?? null, team_id: i.teamId ?? null,
-      })));
+      }).select('id').single())));
+      await sendInvitation(row.id);
     },
     async removeRole(roleId) {
       await removeById('event_roles', roleId);
     },
+    sendInvitation,
     async removeInvitation(inviteId) {
       await removeById('invitations', inviteId);
     },

@@ -174,3 +174,5 @@ main:has(.race-screen)>* { animation:none; }
 .race-queue-item { overflow-wrap:anywhere; }
 
 .race-screen .inline-form .field { min-width:min(100%,240px); }
+
+.invite-email-failed { color:var(--podium-gold); }

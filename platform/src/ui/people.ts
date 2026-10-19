@@ -1,4 +1,4 @@
-import type { Panel, Role } from '../api';
+import { ApiError, type Panel, type Role } from '../api';
 import { reportActionError } from './actions';
 import type { Ctx } from './ctx';
 import { isPlausibleEmail, notFound } from './common';
@@ -69,8 +69,15 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
       invites.length === 0 ? h('p', { class: 'muted' }, 'No pending invitations.')
         : h('ul', { class: 'list' }, invites.map((i) => h('li', null,
             h('strong', null, i.email), h('span', { class: 'muted small' }, describe(i)),
-            h('button', { class: 'btn btn--ghost btn--small', type: 'button', 'aria-label': `Withdraw invitation for ${i.email}`, onclick: () => void run(async () => { await ctx.api.removeInvitation(i.id); await refresh(); }) }, 'Withdraw')))),
+            h('span', { class: `small ${i.emailStatus === 'failed' ? 'invite-email-failed' : 'muted'}` }, ctx.demo ? 'Demo invitation — no email sent' : i.emailStatus === 'sent' ? `Email sent${i.emailSentAt ? ` · ${new Date(i.emailSentAt).toLocaleString()}` : ''}` : i.emailStatus === 'sending' ? 'Email delivery pending — check before resending' : i.emailStatus === 'failed' ? i.emailFailure === 'rate_limit' ? 'Email not sent — provider sending limit reached' : 'Email not sent — resend to try again' : 'Email not sent'),
+            h('div', { class: 'actions' },
+              h('button', { class: 'btn btn--ghost btn--small', type: 'button', 'aria-label': `Resend invitation for ${i.email}`, onclick: () => void run(async () => {
+                try { await ctx.api.sendInvitation(i.id); status.textContent = ctx.demo ? 'Demo resend simulated. No email was sent.' : `Invitation email sent to ${i.email}.`; status.hidden = false; }
+                finally { await refresh(); }
+              }) }, 'Resend invitation'),
+              h('button', { class: 'btn btn--ghost btn--small', type: 'button', 'aria-label': `Withdraw invitation for ${i.email}`, onclick: () => void run(async () => { await ctx.api.removeInvitation(i.id); await refresh(); }) }, 'Withdraw'))))),
     );
+    if (inFlight) controls().forEach(b => { b.disabled = true; });
   };
 
   const roleSelect = h('select', { name: 'role', required: true }, h('option', { value: '' }, 'Choose a role'), INVITABLE.map((r) => h('option', { value: r }, ROLE_LABEL[r])));
@@ -107,13 +114,18 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
         error.hidden = false;
         return;
       }
-      await ctx.api.invite(eventId, {
+      try { await ctx.api.invite(eventId, {
         email: emailInput.value,
         role,
         panel: isJudgeRole(role) ? (panelSelect.value as Panel) : undefined,
         teamId: role === 'team_manager' ? teamSelect.value : undefined,
-      });
-      status.textContent = `Invitation recorded for ${emailInput.value.trim().toLowerCase()}.`;
+      }); } catch (e) {
+        if (e instanceof ApiError && (e.code === 'email-delivery' || e.code === 'rate-limited')) {
+          emailInput.value = ''; await refresh();
+        }
+        throw e;
+      }
+      status.textContent = ctx.demo ? 'Demo invitation recorded. No email was sent.' : `Invitation email sent to ${emailInput.value.trim().toLowerCase()}.`;
       status.hidden = false;
       emailInput.value = '';
       await refresh();
@@ -124,7 +136,7 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
 
   return h('div', { class: 'stack stack--lg' },
     h('div', { class: 'stack' }, h('a', { class: 'back', href: `#/event/${encodeURIComponent(eventId)}` }, event.name), h('h1', null, 'People'),
-      h('p', { class: 'lead' }, 'Invited people sign in with the email address you enter here and get their role automatically. Each invitation can be used once.')),
+      h('p', { class: 'lead' }, 'We email invited people a secure sign-in link. They receive their assigned role after verifying the same email address. Each invitation can be used once.')),
     error, status,
     h('section', { class: 'section' }, h('h2', null, 'Invite someone'), form),
     h('section', { class: 'section' }, peopleHolder),

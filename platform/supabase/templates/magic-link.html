@@ -1,4 +1,4 @@
-{{ if or (eq .RedirectTo "https://stemracingindia-events.vercel.app") (eq .RedirectTo "https://stemracingindia-events.vercel.app/") }}
+{{ if or (eq .RedirectTo "https://stemracingindia-events.vercel.app") (eq .RedirectTo "https://stemracingindia-events.vercel.app/") (eq .RedirectTo "https://stemracingindia-events.vercel.app/?invite=1") }}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -39,12 +39,12 @@
           <tr>
             <td class="content" bgcolor="#ffffff" style="padding:40px;background-color:#ffffff;border-radius:0 0 12px 12px;">
               <p style="margin:0 0 16px;font-family:'Trebuchet MS',Arial,sans-serif;font-size:11px;line-height:16px;letter-spacing:2px;font-weight:bold;color:#961b81;">ACCOUNT ACCESS</p>
-              <h1 class="title" style="margin:0 0 20px;font-family:'Trebuchet MS',Arial,sans-serif;font-size:38px;line-height:44px;letter-spacing:-1px;font-weight:bold;font-style:italic;color:#05000b;">Your sign-in link.</h1>
-              <p style="margin:0 0 28px;font-family:Arial,sans-serif;font-size:16px;line-height:26px;color:#514a62;">Use this secure link to sign in to the STEM Racing India Events Platform.</p>
+              <h1 class="title" style="margin:0 0 20px;font-family:'Trebuchet MS',Arial,sans-serif;font-size:38px;line-height:44px;letter-spacing:-1px;font-weight:bold;font-style:italic;color:#05000b;">{{ if eq .RedirectTo "https://stemracingindia-events.vercel.app/?invite=1" }}You’re invited{{ else }}Your sign-in link{{ end }}.</h1>
+              <p style="margin:0 0 28px;font-family:Arial,sans-serif;font-size:16px;line-height:26px;color:#514a62;">{{ if eq .RedirectTo "https://stemracingindia-events.vercel.app/?invite=1" }}You’ve been invited to the STEM Racing India Events Platform. Use this secure link to verify your email and access your assigned event and role.{{ else }}Use this secure link to sign in to the STEM Racing India Events Platform.{{ end }}</p>
               <table role="presentation" cellspacing="0" cellpadding="0" border="0">
-                <tr><td bgcolor="#e6007e" style="background-color:#e6007e;border-radius:4px;mso-padding-alt:17px 24px;"><a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:17px 24px;border:1px solid #e6007e;border-radius:4px;font-family:'Trebuchet MS',Arial,sans-serif;font-size:16px;line-height:22px;font-weight:bold;text-align:center;color:#ffffff;text-decoration:none;">Sign in to your workspace&nbsp; &#8594;</a></td></tr>
+                <tr><td bgcolor="#e6007e" style="background-color:#e6007e;border-radius:4px;mso-padding-alt:17px 24px;"><a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:17px 24px;border:1px solid #e6007e;border-radius:4px;font-family:'Trebuchet MS',Arial,sans-serif;font-size:16px;line-height:22px;font-weight:bold;text-align:center;color:#ffffff;text-decoration:none;">{{ if eq .RedirectTo "https://stemracingindia-events.vercel.app/?invite=1" }}Accept invitation{{ else }}Sign in to your workspace{{ end }}&nbsp; &#8594;</a></td></tr>
               </table>
-              <p style="margin:18px 0 28px;font-family:Arial,sans-serif;font-size:13px;line-height:21px;color:#666074;">This link can only be used once. Open it on the device where you requested it.</p>
+              <p style="margin:18px 0 28px;font-family:Arial,sans-serif;font-size:13px;line-height:21px;color:#666074;">{{ if eq .RedirectTo "https://stemracingindia-events.vercel.app/?invite=1" }}This invitation link can only be used once. Sign in with the email address it was sent to.{{ else }}This link can only be used once. Open it on the device where you requested it.{{ end }}</p>
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"><tr><td height="1" bgcolor="#e8e5ed" style="height:1px;font-size:0;line-height:0;">&nbsp;</td></tr></table>
               <p style="margin:24px 0 8px;font-family:Arial,sans-serif;font-size:13px;line-height:21px;color:#666074;">Button not working? Copy this link into your browser:</p>
               <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;line-height:20px;word-break:break-all;overflow-wrap:anywhere;"><a href="{{ .ConfirmationURL }}" style="color:#961b81;text-decoration:underline;word-break:break-all;">{{ .ConfirmationURL }}</a></p>

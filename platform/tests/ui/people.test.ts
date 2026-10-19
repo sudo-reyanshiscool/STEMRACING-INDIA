@@ -54,7 +54,7 @@ describe('peopleScreen', () => {
     await wait();
     expect(text(el)).toContain('new@x.test');
     expect(text(el.querySelector('[data-section=invitations]')!)).toContain('Enterprise');
-    (el.querySelector('[data-section=invitations] button') as HTMLButtonElement).click();
+    (el.querySelector('[data-section=invitations] button[aria-label^="Withdraw invitation"]') as HTMLButtonElement).click();
     await wait();
     expect(el.querySelector('[data-section=invitations] li')).toBeNull();
   });
@@ -113,7 +113,7 @@ describe('peopleScreen', () => {
     const { ctx } = makeCtx(api);
     const el = await peopleScreen(ctx, ev.id);
     expect(el.querySelector('[data-section=people] button')!.getAttribute('aria-label')).toBe('Remove chair@x.test');
-    expect(el.querySelector('[data-section=invitations] button')!.getAttribute('aria-label')).toBe('Withdraw invitation for p@x.test');
+    expect(el.querySelector('[data-section=invitations] button[aria-label^="Withdraw invitation"]')!.getAttribute('aria-label')).toBe('Withdraw invitation for p@x.test');
   });
 
   it('shows the forbidden and locked outcomes of an invitation in plain words', async () => {
@@ -266,5 +266,24 @@ describe('peopleScreen', () => {
     const { ctx } = makeCtx(api);
     const el = await peopleScreen(ctx, ev.id);
     expect(el.querySelector('img')).toBeNull();
+  });
+});
+
+describe('invitation email feedback',()=>{
+  it('keeps a saved invitation visible after mail fails and lets the organiser resend it',async()=>{
+    const {api,ev}=await world();await api.signIn(EMAILS.org);
+    let calls=0;
+    const wrapped=new Proxy(api,{get:(t,k)=>k==='invite'?async(...args:Parameters<Api['invite']>)=>{calls++;await api.invite(...args);throw new ApiError('email-delivery','private provider detail');}:(t as never)[k]});
+    const {ctx}=makeCtx(wrapped);const el=await peopleScreen(ctx,ev.id);
+    pick(el,'role','chair');(el.querySelector('[name=email]') as HTMLInputElement).value='retry@x.test';submit(el);await wait();
+    expect(text(el.querySelector('[role=alert]')!)).toContain('invitation is saved');expect(text(el)).not.toContain('private provider detail');
+    expect(el.querySelectorAll('[data-section=invitations] li')).toHaveLength(1);
+    (el.querySelector('[aria-label="Resend invitation for retry@x.test"]') as HTMLButtonElement).click();await wait();
+    expect(text(el.querySelector('[role=status]')!)).toContain('sent to retry@x.test');expect(calls).toBe(1);
+  });
+  it('clearly labels demo invitations as unsent',async()=>{
+    const {api,ev}=await world();await api.signIn(EMAILS.org);await api.invite(ev.id,{email:'demo@x.test',role:'chair'});
+    const {ctx}=makeCtx(api);ctx.demo=true;const el=await peopleScreen(ctx,ev.id);
+    expect(text(el)).toContain('Demo invitation — no email sent');
   });
 });

@@ -9,7 +9,8 @@ export interface EventRow { id: string; name: string; startsOn: string | null; r
 export interface TeamRow { id: string; eventId: string; number: string; name: string; school: string }
 export interface NewTeam { number: string; name: string; school?: string }
 export interface RoleRow { id: string; eventId: string; userId: string; role: Role; panel: Panel | null; teamId: string | null; email: string | null }
-export interface InviteRow { id: string; eventId: string; email: string; role: Role; panel: Panel | null; teamId: string | null }
+export type EmailStatus = 'not_sent' | 'sending' | 'sent' | 'failed';
+export interface InviteRow { id: string; eventId: string; email: string; role: Role; panel: Panel | null; teamId: string | null; emailStatus?: EmailStatus; emailSentAt?: string | null; emailFailure?: 'provider' | 'rate_limit' | null }
 export interface CardRow { id: string; eventId: string; teamId: string; areaId: string; panel: Panel; judgeId: string; status: 'draft' | 'submitted'; reopenedCount: number; scores: Record<string, number>; comments: Record<string, string> }
 /** A judge's declared conflict of interest with a team. */
 export interface ConflictRow { eventId: string; judgeId: string; teamId: string }
@@ -19,7 +20,7 @@ export interface PenaltyRow { id: string; eventId: string; teamId: string; point
 export interface SnapshotRow { id: string; eventId: string; createdAt: string; rulesetId: string; inputHash: string; rows: RankRow[]; released: boolean }
 export interface NewSnapshot { rulesetId: string; inputHash: string; inputs: unknown; rows: RankRow[] }
 /** 'unauthenticated': no valid session (signed out, token expired). The caller should sign in again; nothing was refused on merit. */
-export type ApiErrorCode = 'unauthenticated' | 'forbidden' | 'locked' | 'invalid' | 'duplicate' | 'conflict' | 'not-found' | 'network' | 'unknown';
+export type ApiErrorCode = 'unauthenticated' | 'forbidden' | 'locked' | 'invalid' | 'duplicate' | 'conflict' | 'email-delivery' | 'rate-limited' | 'not-found' | 'network' | 'unknown';
 
 export class ApiError extends Error {
   constructor(public code: ApiErrorCode, message: string) {
@@ -48,6 +49,7 @@ export interface Api {
   invite(eventId: string, i: { email: string; role: Role; panel?: Panel; teamId?: string }): Promise<void>;
   removeRole(roleId: string): Promise<void>;
   removeInvitation(inviteId: string): Promise<void>;
+  sendInvitation(inviteId: string): Promise<void>;
   listRaces(eventId: string): Promise<RaceHeat[]>;
   saveRace(eventId: string, id: string, revision: number, input: RaceInput): Promise<RaceHeat>;
   getTiming(eventId: string): Promise<TimingState | null>;

@@ -4,7 +4,7 @@ import { ApiError } from '../../src/api';
 import { createApiFromClient } from '../../src/api/supabase';
 
 type Step = [string, ...unknown[]];
-interface Call { kind: 'from' | 'rpc'; name: string; args?: unknown; steps: Step[] }
+interface Call { kind: 'from' | 'rpc' | 'function'; name: string; args?: unknown; steps: Step[] }
 interface Res { data?: unknown; error?: { message: string; code?: string } | null }
 
 /** A scripted stand-in for supabase-js: records each query chain and answers it from `handler`. */
@@ -28,6 +28,7 @@ function fake(handler: (c: Call) => Res | Promise<Res>, user: { id: string; emai
   const sb = {
     from: (name: string) => chain({ kind: 'from', name, steps: [] }),
     rpc: (name: string, args?: unknown) => chain({ kind: 'rpc', name, args, steps: [] }),
+    functions: { invoke: async (name: string, args: unknown) => { const call: Call = {kind:'function',name,args,steps:[]}; calls.push(call); return handler(call); } },
     auth: {
       getSession: async () => (getSession ? getSession(++sessionCalls) : { data: { session: user ? { user } : null }, error: null }),
     },
@@ -381,5 +382,28 @@ describe('event lifecycle and CSV import RPCs',()=>{
     expect(await fail(error.api.importTeams('e',[{number:'1',name:'One'}]))).toBe('duplicate');
     const {api,calls}=fake(()=>({data:[{id:'e',name:'Deleted',ruleset:{},results_released:false}]}));
     expect((await api.listDeletedEvents())[0].id).toBe('e');expect(calls[0].name).toBe('list_deleted_events');expect(has(calls[0],'range')).toBe(true);
+  });
+});
+
+describe('sending invitation email',()=>{
+  it('saves the pending invitation before asking the server to email its ID',async()=>{
+    const {api,calls}=fake(c=>({data:c.kind==='function'?{status:'sent'}:{id:'pending-id'}}));
+    await api.invite('event-id',{email:' NEW@X.test ',role:'chair'});
+    expect(calls.map(c=>c.kind)).toEqual(['from','function']);
+    expect(arg(calls[0],'insert')).toEqual({event_id:'event-id',email:'new@x.test',role:'chair',panel:null,team_id:null});
+    expect(calls[1]).toMatchObject({name:'send-invitation',args:{body:{invitationId:'pending-id'}}});
+  });
+  it('never sends if saving the invitation was refused',async()=>{
+    const {api,calls}=fake(()=>({error:{message:'permission denied',code:'42501'}}));
+    expect(await fail(api.invite('e',{email:'a@x.test',role:'chair'}))).toBe('forbidden');
+    expect(calls.some(c=>c.kind==='function')).toBe(false);
+  });
+  it('resends an existing invitation without creating another or changing auth state',async()=>{
+    const {api,calls}=fake(()=>({data:{status:'sent'}}));await api.sendInvitation('existing');
+    expect(calls).toHaveLength(1);expect(calls[0]).toMatchObject({kind:'function',args:{body:{invitationId:'existing'}}});
+  });
+  it.each([[401,'unauthenticated'],[403,'forbidden'],[429,'rate-limited'],[502,'email-delivery'],[503,'email-delivery']])('maps server status %s to a recoverable error',async(status,code)=>{
+    const {api}=fake(()=>({error:{message:'raw provider detail',context:{status}}} as unknown as Res));
+    expect(await fail(api.sendInvitation('existing'))).toBe(code);
   });
 });

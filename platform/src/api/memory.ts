@@ -193,13 +193,19 @@ export class MemoryApi implements Api {
     if (this.invites.some((x) => x.eventId === eventId && x.email === email && x.role === i.role && x.panel === panel && x.teamId === teamId)) {
       throw new ApiError('duplicate', 'That person is already invited for this role');
     }
-    this.invites.push({ id: nid('invite'), eventId, email, role: i.role, panel, teamId });
+    this.invites.push({ id: nid('invite'), eventId, email, role: i.role, panel, teamId, emailStatus: 'sent', emailSentAt: new Date().toISOString(), emailFailure: null });
   }
   async removeRole(roleId: string) {
     const r = this.roles.find((x) => x.id === roleId);
     if (!r) return;
     this.require(r.eventId, 'chair', 'organiser');
     this.roles = this.roles.filter((x) => x.id !== roleId);
+  }
+  async sendInvitation(inviteId: string) {
+    const invite=this.invites.find(i=>i.id===inviteId);
+    if(!invite)throw new ApiError('not-found','Invitation no longer pending');
+    this.require(invite.eventId,'chair','organiser');
+    invite.emailStatus='sent';invite.emailSentAt=new Date().toISOString();invite.emailFailure=null;
   }
   async removeInvitation(inviteId: string) {
     const i = this.invites.find((x) => x.id === inviteId);
