@@ -281,9 +281,12 @@ describe('invitation email feedback',()=>{
     (el.querySelector('[aria-label="Resend invitation for retry@x.test"]') as HTMLButtonElement).click();await wait();
     expect(text(el.querySelector('[role=status]')!)).toContain('sent to retry@x.test');expect(calls).toBe(1);
   });
-  it('clearly labels demo invitations as unsent',async()=>{
-    const {api,ev}=await world();await api.signIn(EMAILS.org);await api.invite(ev.id,{email:'demo@x.test',role:'chair'});
-    const {ctx}=makeCtx(api);ctx.demo=true;const el=await peopleScreen(ctx,ev.id);
-    expect(text(el)).toContain('Demo invitation — no email sent');
+  it('displays invitation email status', async () => {
+    const { api, ev } = await world();
+    await api.signIn(EMAILS.org);
+    await api.invite(ev.id, { email: 'invitee@x.test', role: 'chair' });
+    const { ctx } = makeCtx(api);
+    const el = await peopleScreen(ctx, ev.id);
+    expect(text(el)).toContain('Email sent');
   });
 });

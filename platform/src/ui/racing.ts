@@ -103,7 +103,7 @@ export async function racingScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
     gateUrl.placeholder=wired?'http://192.168.50.2':'http://10.0.0.1';
     connectionHelp.textContent=wired?'Ethernet: connect to the track’s wired network and enter its configured IP address. A direct cable may need static IP addresses on both the gate and laptop. Keep internet access available for cloud sync.':'Wi-Fi: join the track network. Its address is commonly http://10.0.0.1. Use a separate internet connection for cloud sync.';
   });
-  const pair=h('button',{class:'btn btn--ghost',type:'button',disabled:!canEdit||ctx.demo},'Pair track laptop');
+  const pair=h('button',{class:'btn btn--ghost',type:'button',disabled:!canEdit},'Pair track laptop');
   const pairingHelp=h('div',{class:'stack'});
   pair.addEventListener('click',async()=>{
     if(pair.disabled)return;
@@ -118,7 +118,7 @@ export async function racingScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
       ctx.onLeave(()=>URL.revokeObjectURL(url));
       pairingHelp.replaceChildren(h('p',{class:'small'},'Run the bridge on the laptop connected to this track. Keep the pairing file private. It expires in 8 hours; pairing again replaces it.'),link,h('a',{href:'/tools/denford-bridge.py',download:'denford-bridge.py'},'Get the Python bridge'),h('code',null,'python3 denford-bridge.py --config /path/to/denford-connection.json'));
       timing={connectionId:connection.connectionId,expiresAt:connection.expiresAt,lastSeenAt:null,payload:null};armed=null;updateTrack();
-    }catch(e){fail(e);}finally{pair.disabled=!canEdit||ctx.demo;}
+    }catch(e){fail(e);}finally{pair.disabled=!canEdit;}
   });
   function updateTrack(){
     const connected=!!timing?.lastSeenAt && Date.now()-Date.parse(timing.lastSeenAt)<15000 && Date.parse(timing.expiresAt)>Date.now();
@@ -150,6 +150,6 @@ export async function racingScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
   return h('div',{class:'race-screen stack stack--lg'},h('header',{class:'race-heading'},h('div',null,h('p',{class:'eyebrow'},event.name),h('h1',null,'Race control'),h('p',{class:'lead'},'Two lanes. Every run recorded.')),trackStatus),counters,
     event.resultsReleased?h('p',{class:'notice'},'Results are released. Race records are read-only.'):!canEdit?h('p',{class:'notice'},'Viewing race records. Only organisers, the Chair and race officials can enter results.'):null,
     error,status,h('div',{class:'race-workspace'},h('aside',{class:'stack'},queue,canEdit?addForm:null),editor),
-    h('section',{class:'section stack'},h('div',{class:'row__head'},h('h2',null,'Denford timing'),capture),trackHelp,canEdit?h('div',{class:'inline-form'},field('Connection method',connectionMethod),field('Exact track address',gateUrl),pair):null,canEdit?connectionHelp:null,ctx.demo?h('p',{class:'small muted'},'Hardware pairing is available in the shared workspace. Demo races are sample data.'):null,pairingHelp),
+    h('section',{class:'section stack'},h('div',{class:'row__head'},h('h2',null,'Denford timing'),capture),trackHelp,canEdit?h('div',{class:'inline-form'},field('Connection method',connectionMethod),field('Exact track address',gateUrl),pair):null,canEdit?connectionHelp:null,pairingHelp),
     h('section',{class:'section stack'},h('h2',null,'Reaction racing standings'),h('p',{class:'muted small'},'Times in seconds. Best total and best car time are tracked independently. These standings do not add points to the overall rankings or advance a knockout bracket.'),board));
 }

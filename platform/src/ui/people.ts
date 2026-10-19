@@ -75,10 +75,10 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
       invites.length === 0 ? h('p', { class: 'muted' }, 'No pending invitations.')
         : h('ul', { class: 'list' }, invites.map((i) => h('li', null,
             h('strong', null, i.email), h('span', { class: 'muted small' }, describe(i)),
-            h('span', { class: `small ${i.emailStatus === 'failed' ? 'invite-email-failed' : 'muted'}` }, ctx.demo ? 'Demo invitation — no email sent' : i.emailStatus === 'sent' ? `Email sent${i.emailSentAt ? ` · ${new Date(i.emailSentAt).toLocaleString()}` : ''}` : i.emailStatus === 'sending' ? 'Email delivery pending — check before resending' : i.emailStatus === 'failed' ? i.emailFailure === 'rate_limit' ? 'Email not sent — provider sending limit reached' : 'Email not sent — resend to try again' : 'Email not sent'),
+            h('span', { class: `small ${i.emailStatus === 'failed' ? 'invite-email-failed' : 'muted'}` }, i.emailStatus === 'sent' ? `Email sent${i.emailSentAt ? ` · ${new Date(i.emailSentAt).toLocaleString()}` : ''}` : i.emailStatus === 'sending' ? 'Email delivery pending — check before resending' : i.emailStatus === 'failed' ? i.emailFailure === 'rate_limit' ? 'Email not sent — provider sending limit reached' : 'Email not sent — resend to try again' : 'Email not sent'),
             h('div', { class: 'actions' },
               h('button', { class: 'btn btn--ghost btn--small', type: 'button', 'aria-label': `Resend invitation for ${i.email}`, onclick: () => void run(async () => {
-                try { await ctx.api.sendInvitation(i.id); status.textContent = ctx.demo ? 'Demo resend simulated. No email was sent.' : `Invitation email sent to ${i.email}.`; status.hidden = false; }
+                try { await ctx.api.sendInvitation(i.id); status.textContent = `Invitation email sent to ${i.email}.`; status.hidden = false; }
                 finally { await refresh(); }
               }) }, 'Resend invitation'),
               h('button', { class: 'btn btn--ghost btn--small', type: 'button', 'aria-label': `Withdraw invitation for ${i.email}`, onclick: () => void run(async () => { await ctx.api.removeInvitation(i.id); await refresh(); }) }, 'Withdraw'))))),
@@ -159,7 +159,7 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
         }
         throw e;
       }
-      status.textContent = ctx.demo ? 'Demo invitation recorded. No email was sent.' : `Invitation email sent to ${emailInput.value.trim().toLowerCase()}.`;
+      status.textContent = `Invitation email sent to ${emailInput.value.trim().toLowerCase()}.`;
       status.hidden = false;
       emailInput.value = '';
       await refresh();

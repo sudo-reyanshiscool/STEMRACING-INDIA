@@ -94,7 +94,7 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
   const retryReview = h('button', { class: 'btn btn--ghost btn--small', type: 'button', hidden: true }, 'Save notes and feedback again');
   const reviewFields: Array<HTMLTextAreaElement | HTMLInputElement> = [];
   const scoreButtons = new Map<string, HTMLButtonElement[]>();
-  const review = new ReviewDraft(ctx.api, session.userId, card.id, card.reopenedCount, savedReview, area, ctx.demo,
+  const review = new ReviewDraft(ctx.api, session.userId, card.id, card.reopenedCount, savedReview, area, false,
     () => { if (alive) refresh(); }, !locked);
   const invalidate = () => { reviewed = false; reviewSummary.hidden = true; };
   let sessionNote = false;
@@ -116,7 +116,7 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
       b.bands.parentElement?.querySelectorAll('.rubric-band').forEach((band, i) => band.setAttribute('data-selected', String(i === selected)));
     }
     reviewStatus.textContent = review.pending
-      ? review.error ? `Notes and feedback have not saved. ${errorText(review.error)}${!ctx.demo && !review.storageFailed ? ' A draft is saved on this device.' : ''}`
+      ? review.error ? `Notes and feedback have not saved. ${errorText(review.error)}${!review.storageFailed ? ' A draft is saved on this device.' : ''}`
         : review.saving ? 'Saving notes and feedback…' : 'Notes and feedback waiting to save'
       : 'Notes and feedback saved';
     if (review.pending && review.storageFailed) reviewStatus.textContent += '. This browser cannot keep a draft. Keep this page open until saving succeeds.';

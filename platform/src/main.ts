@@ -3,10 +3,9 @@ import './styles/fonts.css';
 import './styles/base.css';
 import './styles/components.css';
 import './styles/platform.css';
-import { MemoryApi, createSupabaseApi, localStorageKV, memoryKV, type Api, type KV } from './api';
+import { createSupabaseApi, localStorageKV, type Api } from './api';
 import { notFound, codeText } from './ui/common';
 import type { Ctx } from './ui/ctx';
-import { DEMO_PERSONAS, seedDemo } from './ui/demo';
 import { h } from './ui/dom';
 import { errorScreen } from './ui/errorscreen';
 import { eventHomeScreen } from './ui/event-home';
@@ -33,30 +32,25 @@ import { eventNav } from './ui/event-nav';
 
 const url = import.meta.env.VITE_SUPABASE_URL;
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
-/** With neither value set the app runs on the in-memory backend with sample data. */
-const demo = new URLSearchParams(location.search).get('demo') === '1' || !(url && key);
 
 async function boot(): Promise<void> {
-  const callback = demo ? null : readEmailCallback(location.hash);
+  if (!url || !key) {
+    throw new Error('Supabase environment variables (VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY) are missing.');
+  }
+
+  const callback = readEmailCallback(location.hash);
   let showEmailCode = false;
   let emailToken = callback?.kind === 'confirm' ? callback.tokenHash : null;
   let authError = callback?.kind === 'invalid' ? codeText('invalid-auth') : undefined;
   if (callback && callback.kind !== 'legacy') clearEmailCallback();
   const shell = mountShell(document.getElementById('app')!);
-  const api: Api = demo ? new MemoryApi() : createSupabaseApi(url!, key!, undefined, { schema: import.meta.env.VITE_SUPABASE_DB_SCHEMA ?? 'public' });
-  if (demo) await seedDemo(api as MemoryApi);
+  const api: Api = createSupabaseApi(url, key, undefined, { schema: import.meta.env.VITE_SUPABASE_DB_SCHEMA ?? 'public' });
 
   // One queue (and rejected ledger) per signed-in user, stored under that user's id. A signed-out device has no queue.
-  const memory = new Map<string, KV>();
-  const kv = (name: string): KV => {
-    if (!demo) return localStorageKV(`stem-racing-india-${name}`);
-    if (!memory.has(name)) memory.set(name, memoryKV());
-    return memory.get(name)!;
-  };
   const host = new QueueHost({
     api,
-    storage: (userId) => ({ queue: kv(`scores:${userId}`), rejected: kv(`scores-rejected:${userId}`) }),
-    lastUser: kv('last-user'),
+    storage: (userId) => ({ queue: localStorageKV(`stem-racing-india-scores:${userId}`), rejected: localStorageKV(`stem-racing-india-scores-rejected:${userId}`) }),
+    lastUser: localStorageKV('stem-racing-india-last-user'),
   });
   await host.track();
   if (callback?.kind === 'legacy') {
@@ -69,7 +63,7 @@ async function boot(): Promise<void> {
   let token = 0;
   let leaves: Array<() => void | Promise<void>> = [];
   const ctx: Ctx = {
-    api, queue: host, enqueueScore: (i) => host.enqueueScore(i), flush: () => host.flush(), main: shell.main, demo,
+    api, queue: host, enqueueScore: (i) => host.enqueueScore(i), flush: () => host.flush(), main: shell.main, demo: false,
     rerender: () => void render(current),
     onLeave: (fn) => { leaves.push(fn); },
   };
@@ -80,31 +74,6 @@ async function boot(): Promise<void> {
     await Promise.allSettled(outgoing.map((fn) => Promise.resolve().then(fn)));
     await host.flush();
   };
-  if (demo) {
-    shell.demoBar.hidden = false;
-    const select = h('select', { 'aria-label': 'Demo persona' },
-      DEMO_PERSONAS.map((p) => h('option', { value: p.email }, p.label)));
-    select.addEventListener('change', async () => {
-      select.disabled = true; changingSession = true;
-      const previous = current;
-      try {
-        // Save under the outgoing judge's session before choosing another demo role.
-        await finishScreen();
-        await api.signIn(select.value);
-        await api.claimInvitations();
-        if ('eventId' in previous && await api.getEvent(previous.eventId)) {
-          location.hash = `#/event/${encodeURIComponent(previous.eventId)}`;
-        } else location.hash = '#/';
-        await render(parseHash(location.hash));
-      } catch (e) {
-        shell.main.replaceChildren(errorScreen(ctx, e));
-      } finally { select.disabled = false; changingSession = false; }
-    });
-    shell.demoBar.replaceChildren(h('strong', null, 'Demo mode'), 'Sample data in this tab only; not saved or shared across devices. View as:', select);
-  } else {
-    shell.demoBar.hidden = false;
-    shell.demoBar.replaceChildren(h('strong', null, 'Shared workspace'), 'Events and saved scores are shared across signed-in devices.');
-  }
 
   const signOut = async () => {
     try {

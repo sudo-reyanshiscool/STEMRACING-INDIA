@@ -66,7 +66,7 @@ export function loginScreen(ctx: Ctx, options: { authError?: string; showCode?: 
     waiting > 0
       ? h('p', { class: 'notice' }, `${codeText('unauthenticated')}. ${waiting} score${waiting === 1 ? ' is' : 's are'} waiting on this device and will be sent once you are signed in.`)
       : null,
-    notice, error, form, ctx.demo ? null : codeSection,
+    notice, error, form, codeSection,
     h('p', { class: 'muted small' }, 'Final standings are public. Detailed scores and feedback are private to signed-in team managers.'),
   );
 }

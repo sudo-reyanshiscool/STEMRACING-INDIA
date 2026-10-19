@@ -17,7 +17,7 @@ export interface Ctx {
   /** Sends whatever is waiting, exactly as queued. Never re-records a value. */
   flush(): Promise<void>;
   main: HTMLElement;
-  demo: boolean;
+  demo?: boolean;
   /** Re-render the current route. */
   rerender(): void;
   /** Register cleanup to run when the current screen is replaced. */
