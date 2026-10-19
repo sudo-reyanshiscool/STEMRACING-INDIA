@@ -116,7 +116,11 @@ Deno.serve(broadcastHandler({
     }
 
     try {
-      const transporter = nodemailer.createTransport({
+      const isGmail = smtpHost.includes('gmail');
+      const transporter = nodemailer.createTransport(isGmail ? {
+        service: 'gmail',
+        auth: { user: smtpUser, pass: smtpPass },
+      } : {
         host: smtpHost,
         port: smtpPort,
         secure: smtpPort === 465,
