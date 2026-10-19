@@ -127,3 +127,11 @@ main:has(.scorecard-screen) { max-width: 1520px; }
   .score-direct { align-self: flex-start; }
   .score-section-nav a { flex: 1; text-align: center; }
 }
+
+.event-nav { display: flex; flex-wrap: wrap; gap: 8px; border-bottom: 1px solid var(--rule); padding-bottom: 16px; }
+.event-nav a { padding: 10px 14px; border: 1px solid var(--rule); border-radius: var(--radius-button); text-decoration: none; font-size: 14px; }
+.event-nav a[aria-current="page"] { border-color: var(--pitlane-pink); background: var(--bg-raised); color: var(--fg-strong); }
+.score-filters { align-items: end; }
+.score-filters .field { flex: 1; min-width: 180px; }
+.score-breakdown { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 20px; margin-block: 12px; }
+.score-breakdown dd { margin: 0; font-variant-numeric: tabular-nums; white-space: nowrap; }

@@ -6,6 +6,9 @@ export const DEMO_PERSONAS = [
   { email: 'chair@demo.test', label: 'Chair of Judges' },
   { email: 'judge-verbal@demo.test', label: 'Judge: Verbal Presentation' },
   { email: 'judge-design@demo.test', label: 'Judge: Design & Engineering' },
+  { email: 'judge-scrutineering-1@demo.test', label: 'Judge: Specification & Scrutineering' },
+  { email: 'judge-pm-1@demo.test', label: 'Judge: Project Management' },
+  { email: 'judge-enterprise-1@demo.test', label: 'Judge: Enterprise' },
   { email: 'team1@demo.test', label: 'Team manager: Sample team 1' },
 ] as const;
 
@@ -18,6 +21,9 @@ export async function seedDemo(api: MemoryApi): Promise<string> {
   await api.invite(ev.id, { email: 'chair@demo.test', role: 'chair' });
   await api.invite(ev.id, { email: 'judge-verbal@demo.test', role: 'judge', panel: 'verbal' });
   await api.invite(ev.id, { email: 'judge-design@demo.test', role: 'judge', panel: 'design_engineering' });
+  await api.invite(ev.id, { email: 'judge-scrutineering-1@demo.test', role: 'judge', panel: 'scrutineering' });
+  await api.invite(ev.id, { email: 'judge-pm-1@demo.test', role: 'judge', panel: 'project_management' });
+  await api.invite(ev.id, { email: 'judge-enterprise-1@demo.test', role: 'judge', panel: 'enterprise' });
   await api.invite(ev.id, { email: 'team1@demo.test', role: 'team_manager', teamId: teams[0].id });
   for (const p of DEMO_PERSONAS.slice(1)) {
     await api.signIn(p.email);

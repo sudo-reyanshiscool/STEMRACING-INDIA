@@ -28,6 +28,40 @@ Star Quality nominations appear in Moderation for the Chair and panel leads, cou
 Repeated nominations in several sections count once per judge, team, award and panel. The tally informs the short
 list; it does not choose award winners or change points.
 
+## Connected role interfaces
+
+All role interfaces use the same event and team ids. The event navigation links Judges to **My scorecards** and
+**Scores**, Organisers to **Teams**, **People**, **Scores** and **Rankings**, and the Chair to **Moderation** as well.
+**Scores** shows saved drafts, submitted totals, criterion breakdowns and team feedback, with team/panel filters. It
+refreshes every 10 seconds while visible and when focus or connectivity returns, retaining filters and expanded rows.
+Only submitted cards count in Rankings; an organiser can inspect drafts without editing another judge's work.
+Private notes remain restricted to the author, panel lead and Chair. Managers can read only their own team's
+submitted cards and feedback after release. Database row-level security enforces these rules on every device.
+
+Set `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and optionally `VITE_SUPABASE_DB_SCHEMA` to enable the shared
+workspace. The public client key belongs in the build; never include a service-role key. Each person signs in with
+their own email; the organiser creates an event and invites the Chair and panel judges under People. An event may
+assign multiple roles to the same person. Authentication's redirect allow-list must include the deployed address;
+Supabase's default email service is limited, so configure a production SMTP provider before inviting event staff.
+
+`?demo=1` opens an isolated, temporary demonstration with all five judging panels available. The banner explicitly
+states that demonstration data is not saved or shared. Changing persona keeps the current event, and pending
+feedback and scores are flushed under the outgoing judge's session before switching.
+
+### Using an existing Supabase project
+
+Use `scripts/isolated-schema.ts` to render the migrations into the dedicated `stem_racing` schema. The renderer keeps
+an idempotent migration ledger and rejects edits to previously installed migrations. It rewrites function search
+paths and schema-scoped grants, supplies the explicit core permissions that Supabase normally defaults in public,
+and re-applies the declared function allow-list. It leaves existing public tables, functions, privileges and global
+default privileges intact. Expose `stem_racing` in the project's Data API settings while retaining its existing
+exposed schemas, then set `VITE_SUPABASE_DB_SCHEMA=stem_racing` for this app.
+
+The optional `tests/smoke/shared.test.ts` checks independent Organiser, Chair, Judge, unrelated Judge and Manager
+clients against a chosen project. It requires an explicit matching project reference and private temporary credential
+file, creates only synthetic accounts, soft-deletes its connectivity event, and removes the synthetic accounts.
+It exercises score sharing, note privacy, submitted locks, reopening, publication and release without emailing anyone.
+
 ## Run
 
     npm install
@@ -67,7 +101,7 @@ existing teams are never overwritten. The server repeats validation and inserts 
 Apply `0006_event_management.sql` before using these controls with a Supabase backend. The demo supports the same
 controls in memory; reloading resets its sample data, including deleted events.
 
-Demo mode is used when `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are not set. Nothing is saved in demo mode:
+Demo mode is used when `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are not set, or when `?demo=1` is requested. Nothing is saved in demo mode:
 reloading the page restores the sample data.
 
 Demo mode opens with two events:

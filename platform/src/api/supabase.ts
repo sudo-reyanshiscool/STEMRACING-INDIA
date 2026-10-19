@@ -55,17 +55,19 @@ export const OUT_OF_DATE = 'The published ranking is out of date. Publish it aga
 const FORBIDDEN = 'You do not have permission to do that';
 
 /** `client` lets tests pass an already signed-in client; the app passes none and gets a persistent-session client. */
-export function createSupabaseApi(url: string, anonKey: string, client?: SupabaseClient, options?: SupabaseApiOptions): Api {
-  return createApiFromClient(client ?? createClient(url, anonKey, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }), options);
+export function createSupabaseApi(url: string, anonKey: string, client?: SupabaseClient<any, any, any>, options?: SupabaseApiOptions): Api {
+  return createApiFromClient(client ?? createClient(url, anonKey, { db: { schema: options?.schema ?? 'public' }, auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }), options);
 }
 
 export interface SupabaseApiOptions {
+  /** A dedicated schema lets STEM Racing share a Supabase project safely with another app. */
+  schema?: string;
   /** Rows per request. Must not exceed the server's max_rows, or a short page is mistaken for the last one. */
   pageSize?: number;
 }
 
 /** The adapter over an existing client. Split from createSupabaseApi so tests can drive it with a scripted client. */
-export function createApiFromClient(sb: SupabaseClient, options: SupabaseApiOptions = {}): Api {
+export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: SupabaseApiOptions = {}): Api {
   const pageSize = options.pageSize ?? PAGE_SIZE;
   const toSession = (u: { id: string; email?: string | null } | null | undefined): Session | null =>
     u ? { userId: u.id, email: (u.email ?? '').toLowerCase() } : null;

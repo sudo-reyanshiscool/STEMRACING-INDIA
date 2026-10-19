@@ -21,5 +21,5 @@ export interface Ctx {
   /** Re-render the current route. */
   rerender(): void;
   /** Register cleanup to run when the current screen is replaced. */
-  onLeave(fn: () => void): void;
+  onLeave(fn: () => void | Promise<void>): void;
 }

@@ -18,20 +18,22 @@ import { rankingsScreen } from './ui/rankings';
 import { resultsScreen } from './ui/results';
 import { scorecardScreen } from './ui/scorecard';
 import { scoringScreen } from './ui/scoring';
-import { startRouter, type Route } from './ui/router';
+import { parseHash, startRouter, type Route } from './ui/router';
 import { QueueHost } from './ui/queuehost';
 import { mountShell } from './ui/shell';
 import { mountSyncBar } from './ui/syncbar';
 import { teamsScreen } from './ui/teams';
+import { scoresScreen } from './ui/scores';
+import { eventNav } from './ui/event-nav';
 
 const url = import.meta.env.VITE_SUPABASE_URL;
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
 /** With neither value set the app runs on the in-memory backend with sample data. */
-const demo = !(url && key);
+const demo = new URLSearchParams(location.search).get('demo') === '1' || !(url && key);
 
 async function boot(): Promise<void> {
   const shell = mountShell(document.getElementById('app')!);
-  const api: Api = demo ? new MemoryApi() : createSupabaseApi(url!, key!);
+  const api: Api = demo ? new MemoryApi() : createSupabaseApi(url!, key!, undefined, { schema: import.meta.env.VITE_SUPABASE_DB_SCHEMA ?? 'public' });
   if (demo) await seedDemo(api as MemoryApi);
 
   // One queue (and rejected ledger) per signed-in user, stored under that user's id. A signed-out device has no queue.
@@ -51,45 +53,61 @@ async function boot(): Promise<void> {
 
   let current: Route = { name: 'home' };
   let token = 0;
-  let leaves: Array<() => void> = [];
+  let leaves: Array<() => void | Promise<void>> = [];
   const ctx: Ctx = {
     api, queue: host, enqueueScore: (i) => host.enqueueScore(i), flush: () => host.flush(), main: shell.main, demo,
     rerender: () => void render(current),
     onLeave: (fn) => { leaves.push(fn); },
   };
 
+  let changingSession = false;
+  const finishScreen = async () => {
+    const outgoing = leaves; leaves = [];
+    await Promise.allSettled(outgoing.map((fn) => Promise.resolve().then(fn)));
+    await host.flush();
+  };
   if (demo) {
     shell.demoBar.hidden = false;
     const select = h('select', { 'aria-label': 'Demo persona' },
       DEMO_PERSONAS.map((p) => h('option', { value: p.email }, p.label)));
     select.addEventListener('change', async () => {
+      select.disabled = true; changingSession = true;
+      const previous = current;
       try {
+        // Save under the outgoing judge's session before choosing another demo role.
+        await finishScreen();
         await api.signIn(select.value);
         await api.claimInvitations();
-        location.hash = '#/';
-        ctx.rerender();
+        if ('eventId' in previous && await api.getEvent(previous.eventId)) {
+          location.hash = `#/event/${encodeURIComponent(previous.eventId)}`;
+        } else location.hash = '#/';
+        await render(parseHash(location.hash));
       } catch (e) {
         shell.main.replaceChildren(errorScreen(ctx, e));
-      }
+      } finally { select.disabled = false; changingSession = false; }
     });
-    shell.demoBar.replaceChildren(h('strong', null, 'Demo mode'), 'Sample data in memory, not saved. View as:', select);
+    shell.demoBar.replaceChildren(h('strong', null, 'Demo mode'), 'Sample data in this tab only; not saved or shared across devices. View as:', select);
+  } else {
+    shell.demoBar.hidden = false;
+    shell.demoBar.replaceChildren(h('strong', null, 'Shared workspace'), 'Events and saved scores are shared across signed-in devices.');
   }
 
   const signOut = async () => {
     try {
+      changingSession = true; await finishScreen();
       await api.signOut();
       location.hash = '#/';
-      ctx.rerender();
+      await render({ name: 'home' });
     } catch (e) {
       shell.main.replaceChildren(errorScreen(ctx, e));
-    }
+    } finally { changingSession = false; }
   };
 
   async function render(route: Route): Promise<void> {
     current = route;
     const mine = ++token;
     for (const fn of leaves) {
-      try { fn(); } catch (e) { console.error(e); }
+      try { void Promise.resolve(fn()).catch(console.error); } catch (e) { console.error(e); }
     }
     leaves = [];
     try {
@@ -104,6 +122,11 @@ async function boot(): Promise<void> {
       if (!session && route.name !== 'results') node = loginScreen(ctx);
       else node = await screenFor(route, ctx);
       if (mine !== token) return;
+      if ('eventId' in route && session) {
+        const [event, roles] = await Promise.all([api.getEvent(route.eventId), api.myRoles(route.eventId)]);
+        if (mine !== token) return;
+        if (event) node.prepend(eventNav(event, roles, route.name));
+      }
       shell.main.replaceChildren(node);
       window.scrollTo(0, 0);
     } catch (e) {
@@ -112,7 +135,7 @@ async function boot(): Promise<void> {
     }
   }
 
-  api.onAuthChange(() => void render(current));
+  api.onAuthChange(() => { if (!changingSession) void render(current); });
   startRouter((route) => void render(route));
 }
 
@@ -125,6 +148,7 @@ async function screenFor(route: Route, ctx: Ctx): Promise<HTMLElement> {
     case 'people': return peopleScreen(ctx, route.eventId);
     case 'score': return scoringScreen(ctx, route.eventId);
     case 'scorecard': return scorecardScreen(ctx, route.eventId, route.teamId, route.areaId);
+    case 'scores': return scoresScreen(ctx, route.eventId);
     case 'moderate': return moderationScreen(ctx, route.eventId);
     case 'rankings': return rankingsScreen(ctx, route.eventId);
     case 'results': return resultsScreen(ctx, route.eventId);

@@ -325,8 +325,9 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
   });
   ctx.onLeave(() => {
     alive = false; unsubscribe();
-    if (!locked && review.pending) void review.flush().finally(() => review.dispose()); else review.dispose();
     window.removeEventListener('online', reconnect); clearInterval(retryTimer);
+    if (!locked && review.pending) return review.flush().then(() => undefined).finally(() => review.dispose());
+    review.dispose();
   });
 
   dismissRejected.addEventListener('click', () => {
