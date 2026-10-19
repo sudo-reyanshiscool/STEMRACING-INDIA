@@ -19,7 +19,9 @@ describe('event deletion controls',()=>{
   it('requires exact confirmation, supports cancelling and moves deleted events to the restore list',async()=>{
     const {api,ev,ctx}=await open();const el=await eventHomeScreen(ctx,ev.id);document.body.append(el);
     button(el,'Delete event').click();const name=el.querySelector<HTMLInputElement>('[aria-label="Event name to confirm deletion"]')!;
-    type(name,'Wrong');expect(button(el,'Confirm delete event').disabled).toBe(true);
+    const deletion=vi.spyOn(api,'deleteEvent');
+    type(name,'Wrong');button(el,'Confirm delete event').click();
+    expect(deletion).not.toHaveBeenCalled();expect(text(el)).toContain(`Type “${ev.name}” above to confirm deletion.`);expect(name.getAttribute('aria-invalid')).toBe('true');
     button(el,'Cancel').click();expect(name.value).toBe('');expect(el.querySelector('form')!.hidden).toBe(true);
     button(el,'Delete event').click();type(name,ev.name);expect(button(el,'Confirm delete event').disabled).toBe(false);
     button(el,'Confirm delete event').click();await vi.waitFor(()=>expect(ctx.rerender).toHaveBeenCalled());
@@ -27,6 +29,26 @@ describe('event deletion controls',()=>{
     const list=await eventsScreen(ctx);expect(text(list)).toContain('Deleted events (1)');
     expect(list.querySelector(`a[href="#/event/${ev.id}"]`)).toBeNull();
     button(list,'Restore event').click();await vi.waitFor(async()=>expect(await api.getEvent(ev.id)).not.toBeNull());
+  });
+  it('accepts pasted spaces and reads the current field even without an input event',async()=>{
+    const {api,ev,ctx}=await open();const el=await eventHomeScreen(ctx,ev.id);document.body.append(el);
+    const deletion=vi.spyOn(api,'deleteEvent');button(el,'Delete event').click();
+    const name=el.querySelector<HTMLInputElement>('[aria-label="Event name to confirm deletion"]')!;
+    name.value=`  ${ev.name}\u00a0`;
+    button(el,'Confirm delete event').click();
+    await vi.waitFor(()=>expect(ctx.rerender).toHaveBeenCalled());
+    expect(deletion).toHaveBeenCalledExactlyOnceWith(ev.id,ev.name);
+    expect(await api.getEvent(ev.id)).toBeNull();
+  });
+  it('does not delete an empty or differently capitalised confirmation',async()=>{
+    const {api,ev,ctx}=await open();const el=await eventHomeScreen(ctx,ev.id);document.body.append(el);
+    const deletion=vi.spyOn(api,'deleteEvent');button(el,'Delete event').click();
+    const name=el.querySelector<HTMLInputElement>('[aria-label="Event name to confirm deletion"]')!;
+    for(const value of ['',ev.name.toLowerCase()]){
+      type(name,value);button(el,'Confirm delete event').click();expect(name.getAttribute('aria-invalid')).toBe('true');
+    }
+    expect(deletion).not.toHaveBeenCalled();expect(await api.getEvent(ev.id)).not.toBeNull();
+    type(name,ev.name);expect(name.hasAttribute('aria-invalid')).toBe(false);
   });
   it('hides deletion from judges, the Chair and managers',async()=>{
     const {api,ev,ctx}=await open();for(const who of [EMAILS.judge,EMAILS.chair,EMAILS.mgr]) {
