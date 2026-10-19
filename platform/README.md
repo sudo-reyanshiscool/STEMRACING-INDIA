@@ -43,7 +43,11 @@ submitted cards and feedback after release. Database row-level security enforces
 Under **People → Judge assignments**, choose an existing event member, a panel, and either **All teams** or
 **Selected teams**. Save each panel separately; one judge can have several panels and several selected teams.
 All teams includes teams added later. Specific team assignments with a declared conflict are refused.
-The People list shows each assignment and lets staff remove it individually.
+The People list shows each assignment and lets staff remove it individually. Entering an existing member’s email
+in the invitation form and selecting a new Judge panel adds the assignment immediately without another email.
+Repeating an existing panel leaves its team scope intact. My scorecards checks for assignment changes every 10
+seconds, on focus, and with Refresh assignments. The separate Scrutineer role is inspection staff access;
+Specification scorecards require Judge → Specification & Scrutineering.
 
 Under **People → Judge exemptions**, the Chair or Organiser can exempt someone from a team across every panel.
 Exemptions override assignments, including All teams, without removing them. Remove an exemption to restore access.

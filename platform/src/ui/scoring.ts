@@ -3,6 +3,7 @@ import { reportActionError } from './actions';
 import { notFound, tag } from './common';
 import type { Ctx } from './ctx';
 import { h } from './dom';
+import { liveRefresh } from './live-refresh';
 import { PANEL_LABEL } from './labels';
 import { routeHref } from './router';
 
@@ -90,11 +91,25 @@ export async function scoringScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
     );
   };
   render();
+  const assignmentFingerprint = JSON.stringify([roles, exemptionList]);
+  const refreshAssignments = async () => {
+    await ctx.api.claimInvitations();
+    const fresh = await Promise.all([ctx.api.myRoles(eventId), ctx.api.listJudgeExemptions(eventId)]);
+    if (alive && JSON.stringify(fresh) !== assignmentFingerprint) ctx.rerender();
+  };
+  const refresh = h('button', { class: 'btn btn--ghost btn--small', type: 'button' }, 'Refresh assignments');
+  refresh.addEventListener('click', async () => {
+    if (refresh.disabled) return;
+    refresh.disabled = true; error.hidden = true;
+    try { await refreshAssignments(); } catch (e) { if (alive) reportActionError(ctx,error,e); }
+    finally { if (alive) refresh.disabled = false; }
+  });
+  liveRefresh(ctx,refreshAssignments,e=>reportActionError(ctx,error,e));
 
   return h('div', { class: 'stack stack--lg' },
     h('div', { class: 'stack' }, h('a', { class: 'back', href: eventHref }, event.name), h('h1', null, 'My scorecards'),
       h('p', { class: 'lead' }, 'Choose one of your assigned teams and an area. Scores save as you type and can be edited until you submit.'),
       h('p', { class: 'small muted' }, 'If you have a conflict of interest with a team, declare it. A declaration cannot be removed on this screen: ask the Chair.')),
-    error, body,
+    h('div', { class: 'actions' }, refresh, h('p', { class: 'small muted' }, 'Assignments update every 10 seconds and when you return to this page.')), error, body,
   );
 }

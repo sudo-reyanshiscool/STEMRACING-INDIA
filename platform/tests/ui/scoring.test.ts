@@ -96,3 +96,13 @@ describe('scoringScreen', () => {
     expect(text(await scoringScreen(ctx, ev.id))).toContain('not a judge on any panel');
   });
 });
+
+it('detects a newly assigned panel on refresh and when returning to the page, without duplicate timers after leaving',async()=>{
+ const {api,ev}=await world();await api.signIn(EMAILS.judge);const user=(await api.getSession())!.userId;
+ const {ctx,leaves}=makeCtx(api);const el=await scoringScreen(ctx,ev.id);
+ await api.signIn(EMAILS.org);await api.setJudgeAssignment(ev.id,user,'scrutineering',null);await api.signIn(EMAILS.judge);
+ const refresh=[...el.querySelectorAll('button')].find(b=>text(b)==='Refresh assignments')!;
+ refresh.click();await wait();expect(ctx.rerender).toHaveBeenCalledOnce();
+ vi.mocked(ctx.rerender).mockClear();window.dispatchEvent(new Event('focus'));await wait();expect(ctx.rerender).toHaveBeenCalledOnce();
+ leaves.forEach(f=>f());vi.mocked(ctx.rerender).mockClear();window.dispatchEvent(new Event('focus'));await wait();expect(ctx.rerender).not.toHaveBeenCalled();
+});

@@ -35,3 +35,32 @@ describe('judge exemption editor',()=>{
   const button=el.querySelector('[aria-label^="Remove exemption for"]') as HTMLButtonElement;button.click();await wait();expect(await api.listJudgeExemptions(ev.id)).toHaveLength(0);
  });
 });
+
+describe('additional panels through the email form',()=>{
+ it('adds Scrutineering immediately alongside D&E for an existing email without sending another invitation',async()=>{
+  const {api,ev,t1}=await world();await api.signIn(EMAILS.judge);const user=(await api.getSession())!.userId;
+  await api.signIn(EMAILS.org);await api.setJudgeAssignment(ev.id,user,'design_engineering',[t1.id]);
+  const {ctx}=makeCtx(api);const el=await peopleScreen(ctx,ev.id);
+  const form=el.querySelector('form')!;const email=form.querySelector<HTMLInputElement>('[name=email]')!;
+  email.value=`  ${EMAILS.judge.toUpperCase()}  `;email.dispatchEvent(new Event('input'));
+  change(form,'role','judge');change(form,'panel','scrutineering');
+  expect(text(form.querySelector('button')!)).toBe('Add judging assignment');
+  const invite=vi.spyOn(api,'invite');form.dispatchEvent(new Event('submit',{cancelable:true}));await wait();
+  expect(invite).not.toHaveBeenCalled();expect(await api.listInvitations(ev.id)).toEqual([]);
+  expect(text(el)).toContain('Specification & Scrutineering added');
+  await api.signIn(EMAILS.judge);
+  const tasks=await scoringScreen(ctx,ev.id);
+  expect(tasks.querySelector(`a[href$="/${t1.id}/de-portfolio"]`)).not.toBeNull();
+  expect(tasks.querySelector(`a[href$="/${t1.id}/renders"]`)).not.toBeNull();
+ });
+ it('keeps an existing panel’s selected-team scope when its email is submitted again',async()=>{
+  const {api,ev,t1}=await world();await api.signIn(EMAILS.judge);const user=(await api.getSession())!.userId;
+  await api.signIn(EMAILS.org);await api.setJudgeAssignment(ev.id,user,'design_engineering',[t1.id]);
+  const {ctx}=makeCtx(api);const el=await peopleScreen(ctx,ev.id);const form=el.querySelector('form')!;
+  form.querySelector<HTMLInputElement>('[name=email]')!.value=EMAILS.judge;
+  change(form,'role','judge');change(form,'panel','design_engineering');
+  const save=vi.spyOn(api,'setJudgeAssignment');form.dispatchEvent(new Event('submit',{cancelable:true}));await wait();
+  expect(save).not.toHaveBeenCalled();expect(text(el)).toContain('already judges Design & Engineering');
+  await api.signIn(EMAILS.judge);expect((await api.myRoles(ev.id)).find(r=>r.panel==='design_engineering')?.teamId).toBe(t1.id);
+ });
+});

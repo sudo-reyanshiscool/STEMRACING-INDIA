@@ -1,4 +1,4 @@
-import { ApiError, type Panel, type Role } from '../api';
+import { ApiError, type Panel, type Role, type RoleRow } from '../api';
 import { reportActionError } from './actions';
 import type { Ctx } from './ctx';
 import { isPlausibleEmail, notFound } from './common';
@@ -22,6 +22,7 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
     return t ? `Team ${t.number} · ${t.name}` : '';
   };
 
+  let members: RoleRow[] = [];
   let alive = true;
   ctx.onLeave(() => { alive = false; });
 
@@ -57,6 +58,8 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
   const refresh = async () => {
     const [allRoles, invites, exemptions] = await Promise.all([ctx.api.listRoles(eventId), ctx.api.listInvitations(eventId), ctx.api.listJudgeExemptions(eventId)]);
     if (!alive) return;
+    members = allRoles;
+    syncSubmit();
     peopleHolder.replaceChildren(
       h('h2', null, 'People'),
       h('ul', { class: 'list' }, allRoles.map((r) => {
@@ -102,11 +105,16 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
   sync();
 
   const emailInput = h('input', { name: 'email', type: 'email', required: true, autocomplete: 'off' });
+  const inviteButton = h('button', { class: 'btn btn--primary', type: 'submit' }, 'Send invitation');
+  const existingPerson = () => members.find(r => r.email?.trim().toLowerCase() === emailInput.value.trim().toLowerCase());
+  const syncSubmit = () => { inviteButton.textContent = roleSelect.value === 'judge' && existingPerson() ? 'Add judging assignment' : 'Send invitation'; };
+  emailInput.addEventListener('input', syncSubmit);
+  roleSelect.addEventListener('change', syncSubmit);
   const form: HTMLFormElement = h('form', { class: 'form', novalidate: true },
     h('label', { class: 'field' }, h('span', { class: 'field__label' }, 'Email address'), emailInput),
     h('label', { class: 'field' }, h('span', { class: 'field__label' }, 'Role'), roleSelect),
     panelField, teamField,
-    h('button', { class: 'btn btn--primary', type: 'submit' }, 'Send invitation'),
+    inviteButton,
   );
   form.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -121,6 +129,23 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
       if (problem) {
         error.textContent = problem;
         error.hidden = false;
+        return;
+      }
+      const existing = existingPerson();
+      if (role === 'judge' && existing) {
+        const panel = panelSelect.value as Panel;
+        const alreadyAssigned = members.some(r => r.userId === existing.userId && r.role === 'judge' && r.panel === panel);
+        if (alreadyAssigned) {
+          status.textContent = `This person already judges ${PANEL_LABEL[panel]}. Use Judge assignments to change their team scope.`;
+          status.hidden = false;
+          return;
+        }
+        await ctx.api.setJudgeAssignment(eventId, existing.userId, panel, null);
+        const email = emailInput.value.trim().toLowerCase();
+        emailInput.value = '';
+        await refresh();
+        status.textContent = `${PANEL_LABEL[panel]} added for ${email}. Their existing panels remain active. No new invitation is needed.`;
+        status.hidden = false;
         return;
       }
       try { await ctx.api.invite(eventId, {
@@ -147,7 +172,9 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
     h('div', { class: 'stack' }, h('a', { class: 'back', href: `#/event/${encodeURIComponent(eventId)}` }, event.name), h('h1', null, 'People'),
       h('p', { class: 'lead' }, 'We email invited people a secure sign-in link. They receive their assigned role after verifying the same email address. Each invitation can be used once.')),
     error, status,
-    h('section', { class: 'section' }, h('h2', null, 'Invite someone'), form),
+    h('section', { class: 'section' }, h('h2', null, 'Invite someone or add an assignment'),
+      h('p', { class: 'muted' }, 'For someone already in this event, entering their email and choosing another Judge panel adds it immediately alongside their existing panels.'),
+      h('p', { class: 'small muted' }, 'For Specification scorecards, choose Judge → Specification & Scrutineering. The separate Scrutineer role is inspection staff access.'), form),
     h('section', { class: 'section' }, assignmentHolder),
     h('section', { class: 'section' }, peopleHolder),
     h('section', { class: 'section' }, inviteHolder),
