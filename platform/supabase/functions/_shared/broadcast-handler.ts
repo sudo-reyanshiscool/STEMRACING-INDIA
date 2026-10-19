@@ -1,4 +1,4 @@
-import { renderBroadcastHtml } from '../../../src/engine/broadcast-template';
+import { renderBroadcastHtml } from './broadcast-template.ts';
 
 export interface BroadcastDeps {
   authenticate(token: string): Promise<{ userId: string; email: string } | null>;
