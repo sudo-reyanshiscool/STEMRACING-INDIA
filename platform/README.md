@@ -4,6 +4,30 @@ Online judging, scorecards, moderation, penalties and rankings for a STEM Racing
 (Phase 1a). Rules come from the India National Finals 2026 Competition Regulations and are plain data in
 `src/rulesets/india-2026.ts`.
 
+## Digital scorecards
+
+Each criterion shows the four rubric bands and a button for every permitted score, with a numeric entry alternative.
+The full band descriptions come from the supplied Competition Regulations, pages 32–37, and live in
+`src/rulesets/rubrics.ts`. New events pin these descriptions alongside their scoring rules; existing events keep
+their pinned rulesets. Scores and category maxima have not changed. Section links switch between a panel's cards.
+
+Judges can write private notes for each criterion before entering a score, plus an overall private note. The judge,
+their panel lead and the Chair can read these notes; organisers and team managers cannot. Existing criterion comments
+remain explicitly team-facing and are available under “Criterion feedback for the team”. Team feedback has Overall
+Comment (required when checking a card), Key Strengths and Areas for Improvement. Managers see only their own team's
+submitted feedback after results are released.
+
+Use **Check card**, review the scores and feedback, then **Submit scorecard**. Editing afterwards requires another
+check. Notes, feedback and nominations save together, with per-user browser drafts while offline. Reopening the card
+restores pending drafts; an open card retries on reconnect and every 15 seconds. Demo drafts remain in memory.
+Submitted and released cards are read-only. Apply migration `0005_scorecard_reviews.sql` before using this UI with a
+Supabase backend. The existing submission API remains compatible with older clients and cards without feedback;
+the new required-comment and check step is enforced by this UI.
+
+Star Quality nominations appear in Moderation for the Chair and panel leads, counting submitted cards only.
+Repeated nominations in several sections count once per judge, team, award and panel. The tally informs the short
+list; it does not choose award winners or change points.
+
 ## Run
 
     npm install

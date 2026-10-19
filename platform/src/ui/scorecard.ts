@@ -5,6 +5,8 @@ import { codeText, errorText, notFound, rejectedText } from './common';
 import type { Ctx } from './ctx';
 import { h } from './dom';
 import { routeHref } from './router';
+import { BAND_LABELS, NOMINATION_AWARDS } from '../rulesets/rubrics';
+import { ReviewDraft } from './review-draft';
 
 export type ParsedScore = { kind: 'empty' } | { kind: 'ok'; value: number } | { kind: 'bad'; message: string };
 
@@ -45,6 +47,8 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
     return notFound(message, back, 'Back to my scorecards');
   }
 
+  const [savedReview, session] = await Promise.all([ctx.api.getReview(card.id), ctx.api.getSession()]);
+  if (!session) return notFound('Sign in to open your scorecard.', back, 'Back to my scorecards');
   let alive = true;
   let locked = card.status === 'submitted' || conflicted || event.resultsReleased;
   let lockNote = card.status === 'submitted' ? 'Submitted. Only the Chair can reopen this scorecard.' : '';
@@ -80,12 +84,40 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
   const submitRow = h('div', { class: 'stack' }, missingNote, submit);
   const submitHolder = h('div', null);
   const blocks: { c: Criterion; bands: HTMLElement; note: HTMLElement; hint: HTMLElement; input: HTMLInputElement; comment: HTMLTextAreaElement }[] = [];
+  let reviewed = false;
+  const check = h('button', { class: 'btn btn--primary', type: 'button' }, 'Check card');
+  const reviewSummary = h('section', { class: 'card stack score-review', hidden: true, tabindex: -1, 'aria-label': 'Scorecard review' });
+  const reviewStatus = h('p', { class: 'small', 'aria-live': 'polite' });
+  const retryReview = h('button', { class: 'btn btn--ghost btn--small', type: 'button', hidden: true }, 'Save notes and feedback again');
+  const reviewFields: Array<HTMLTextAreaElement | HTMLInputElement> = [];
+  const scoreButtons = new Map<string, HTMLButtonElement[]>();
+  const review = new ReviewDraft(ctx.api, session.userId, card.id, card.reopenedCount, savedReview, area, ctx.demo,
+    () => { if (alive) refresh(); }, !locked);
+  const invalidate = () => { reviewed = false; reviewSummary.hidden = true; };
   let sessionNote = false;
   let submitting = false;
 
   const missing = () => area.criteria.filter((c) => values[c.id] === undefined);
 
   const refresh = () => {
+    submit.hidden = !reviewed;
+    check.hidden = locked;
+    check.disabled = submitting;
+    for (const field of reviewFields) field.disabled = locked || submitting;
+    for (const [id, buttons] of scoreButtons) for (const button of buttons) {
+      button.disabled = locked || submitting;
+      button.setAttribute('aria-pressed', String(values[id] === Number(button.value)));
+    }
+    for (const b of blocks) {
+      const selected = bandIndex(b.c, values[b.c.id]);
+      b.bands.parentElement?.querySelectorAll('.rubric-band').forEach((band, i) => band.setAttribute('data-selected', String(i === selected)));
+    }
+    reviewStatus.textContent = review.pending
+      ? review.error ? `Notes and feedback have not saved. ${errorText(review.error)}${!ctx.demo && !review.storageFailed ? ' A draft is saved on this device.' : ''}`
+        : review.saving ? 'Saving notes and feedback…' : 'Notes and feedback waiting to save'
+      : 'Notes and feedback saved';
+    if (review.pending && review.storageFailed) reviewStatus.textContent += '. This browser cannot keep a draft. Keep this page open until saving succeeds.';
+    retryReview.hidden = locked || !review.pending || review.saving;
     total.textContent = `${areaTotal(area, values)} / ${area.max}`;
     for (const b of blocks) {
       const v = values[b.c.id];
@@ -136,7 +168,7 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
     else if (pending > 0 && s.lastError?.code === 'network') parts.push(`Offline: ${changes(pending)} will save when you reconnect`);
     else if (pending > 0 && s.lastError) parts.push(`${changes(pending)} waiting to save. The server had a problem; saving will be tried again.`);
     else if (pending > 0) parts.push(`${changes(pending)} waiting to save`);
-    else if (rejectedHere.length === 0) parts.push('All changes saved');
+    else if (rejectedHere.length === 0) parts.push(review.pending ? 'Scores saved' : 'All changes saved');
     if (rejectedHere.length > 0) parts.push(`Not saved: ${notSaved.join(', ')}. Enter ${rejectedHere.length === 1 ? 'it' : 'them'} again`);
     if (s.persistFailed) parts.push('Scores could not be stored on this device. Keep this page open until they have been sent.');
     if (badEntries.size > 0) parts.push(`${badEntries.size === 1 ? '1 entry is' : `${badEntries.size} entries are`} not a valid score and has not been saved.`);
@@ -175,13 +207,14 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
     const err = h('p', { class: 'field__error', role: 'alert', hidden: true });
     const comment = h('textarea', { 'aria-label': `${c.name} comment`, maxlength: 1000, rows: 2, disabled: locked });
     comment.value = comments[c.id] ?? '';
-    const bands = h('div', { class: 'bands' }, c.bands.map((b) => h('span', { 'aria-current': 'false' }, `${b.min}–${b.max}`)));
+    const bands = h('div', { class: 'bands score-bands-summary' }, c.bands.map((b) => h('span', { 'aria-current': 'false' }, `${b.min}–${b.max}`)));
     const note = h('p', { class: 'small' });
     const hint = h('p', { class: 'small muted', hidden: true }, 'A saved score cannot be removed. Enter a new score to change it.');
     blocks.push({ c, bands, note, hint, input, comment });
 
     input.addEventListener('input', () => {
       if (locked || submitting) return;
+      invalidate();
       const p = parseScore(input.value, c.max);
       err.hidden = p.kind !== 'bad';
       err.textContent = p.kind === 'bad' ? p.message : '';
@@ -201,22 +234,80 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
     });
     comment.addEventListener('input', () => {
       if (locked || submitting) return;
+      invalidate();
       comments[c.id] = comment.value;
       dirty.add(c.id);
       if (values[c.id] !== undefined && !badEntries.has(c.id)) sendScore(c);
       refresh();
     });
 
-    return h('section', { class: 'row' },
-      h('div', { class: 'row__head' }, h('h3', null, c.name), h('span', { class: 'small muted' }, `0 to ${c.max}`)),
-      bands,
-      note,
-      h('label', { class: 'field' }, h('span', { class: 'field__label' }, 'Score'), input),
-      err,
-      hint,
-      h('label', { class: 'field' }, h('span', { class: 'field__label' }, 'Comment (optional)'), comment),
+    const buttons: HTMLButtonElement[] = [];
+    scoreButtons.set(c.id, buttons);
+    const rubric = h('div', { class: 'rubric-grid', role: 'group', 'aria-label': `${c.name} scores` }, c.bands.map((band, index) => {
+      const choices = h('div', { class: 'score-choices' });
+      for (let n = band.min; n <= band.max; n++) {
+        const button = h('button', { type: 'button', class: 'score-choice', value: n, 'aria-label': `${c.name}: ${n} points`, 'aria-pressed': String(values[c.id] === n), disabled: locked }, String(n));
+        button.addEventListener('click', () => {
+          if (locked || submitting) return;
+          input.value = String(n);
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+        });
+        buttons.push(button); choices.append(button);
+      }
+      return h('div', { class: 'rubric-band', 'data-band': index },
+        h('p', { class: 'rubric-band__label' }, BAND_LABELS[index], ' ', h('span', null, `${band.min}–${band.max}`)),
+        band.description ? h('p', { class: 'rubric-band__description' }, band.description) : null, choices);
+    }));
+    const privateNote = h('textarea', { rows: 2, maxlength: 1000, 'aria-label': `${c.name} private notes`, placeholder: 'Judges only — not shared with the team', disabled: locked });
+    privateNote.value = review.value.criterionNotes[c.id] ?? '';
+    reviewFields.push(privateNote);
+    privateNote.addEventListener('input', () => {
+      if (locked || submitting) return;
+      invalidate(); review.edit((r) => { r.criterionNotes[c.id] = privateNote.value; });
+    });
+    return h('section', { class: 'score-criterion' },
+      h('div', { class: 'row__head' }, h('h3', null, c.name), h('span', { class: 'muted' }, `${c.max} pts`)),
+      bands, rubric, note,
+      h('label', { class: 'field score-direct' }, h('span', { class: 'field__label' }, 'Or enter a score'), input), err, hint,
+      h('label', { class: 'field' }, h('span', { class: 'field__label' }, 'Internal notes and questions to ask (judges only)'), privateNote),
+      h('details', { class: 'legacy-feedback', open: !!comments[c.id] }, h('summary', null, 'Criterion feedback for the team (optional)'),
+        h('label', { class: 'field' }, h('span', { class: 'field__label' }, 'Shared with the team after results are released'), comment)),
     );
   };
+
+  const feedbackField = (key: 'overall' | 'strengths' | 'improvements' | 'internalNotes', label: string, hint: string) => {
+    const box = h('textarea', { rows: 4, maxlength: 4000, 'aria-label': label, required: key === 'overall', disabled: locked });
+    box.value = review.value[key]; reviewFields.push(box);
+    box.addEventListener('input', () => {
+      if (locked || submitting) return;
+      invalidate(); box.setAttribute('aria-invalid', 'false'); review.edit((r) => { r[key] = box.value; });
+    });
+    return h('label', { class: 'field' }, h('span', { class: 'field__label' }, label, key === 'overall' ? h('span', { class: 'required' }, ' *') : null), box,
+      h('span', { class: 'muted small' }, hint));
+  };
+  const overallField = feedbackField('overall', 'Overall Comment', 'General feedback for the team');
+  const overallInput = overallField.querySelector('textarea')!;
+  const feedback = h('section', { class: 'score-feedback stack stack--lg' }, h('h3', null, 'Team Feedback'),
+    h('p', { class: 'small muted' }, 'Shared with this team after results are released.'),
+    overallField,
+    feedbackField('strengths', 'Key Strengths', 'Notable strengths demonstrated by the team'),
+    feedbackField('improvements', 'Areas for Improvement', 'Suggestions for how the team could improve'),
+    feedbackField('internalNotes', 'Internal Notes', 'Private notes for the judge, panel lead and Chair'),
+    h('fieldset', { class: 'nomination-field stack' }, h('legend', null, 'Star Quality nominations'),
+      h('p', { class: 'muted' }, 'Tick any award this team deserves to be nominated for. The tally across panels builds the short list.'),
+      ...NOMINATION_AWARDS.map((award) => {
+        const box = h('input', { type: 'checkbox', value: award.id, checked: review.value.nominations.includes(award.id), disabled: locked });
+        reviewFields.push(box);
+        box.addEventListener('change', () => {
+          if (locked || submitting) return;
+          invalidate(); review.edit((r) => { r.nominations = box.checked ? [...r.nominations, award.id] : r.nominations.filter((id) => id !== award.id); });
+        });
+        return h('label', { class: 'nomination-option' }, box, award.name);
+      })), reviewStatus, retryReview);
+  retryReview.addEventListener('click', () => { void review.flush(); });
+  const reconnect = () => { if (!locked) void review.flush(); };
+  window.addEventListener('online', reconnect);
+  const retryTimer = setInterval(reconnect, 15000);
 
   const unsubscribe = ctx.queue.subscribe((e) => {
     if (!alive) return;
@@ -232,7 +323,11 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
     }
     refresh();
   });
-  ctx.onLeave(() => { alive = false; unsubscribe(); });
+  ctx.onLeave(() => {
+    alive = false; unsubscribe();
+    if (!locked && review.pending) void review.flush().finally(() => review.dispose()); else review.dispose();
+    window.removeEventListener('online', reconnect); clearInterval(retryTimer);
+  });
 
   dismissRejected.addEventListener('click', () => {
     for (const r of ctx.queue.rejected()) if (r.item.cardId === card.id) ctx.queue.clearRejected(r.id);
@@ -244,11 +339,45 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
     ctx.flush().catch((e) => { if (alive) reportActionError(ctx, alertBox, e); });
   });
 
+  check.addEventListener('click', async () => {
+    if (locked || submitting) return;
+    alertBox.hidden = true;
+    if (missing().length || badEntries.size) {
+      showAlert('Score every criterion with a whole number in range before checking the card.');
+      blocks.find((b) => values[b.c.id] === undefined || badEntries.has(b.c.id))?.input.focus(); return;
+    }
+    if (!review.value.overall.trim()) {
+      showAlert('Add an Overall Comment for the team before checking the card.');
+      overallInput.setAttribute('aria-invalid', 'true'); overallInput.focus(); return;
+    }
+    submitting = true; refresh();
+    try {
+      await ctx.flush();
+      const saved = await review.flush();
+      if (!alive) return;
+      if (!saved || ctx.queue.pendingFor(card.id).length || ctx.queue.rejected().some((r) => r.item.cardId === card.id)) {
+        showAlert('Some scores, notes or feedback have not saved. Save them before submitting.'); return;
+      }
+      reviewed = true;
+      reviewSummary.replaceChildren(h('h3', null, 'Check your scorecard'),
+        h('ul', { class: 'list' }, area.criteria.map((c) => h('li', null, `${c.name}: ${values[c.id]} / ${c.max}`))),
+        h('p', null, `Total: ${areaTotal(area, values)} / ${area.max}`),
+        h('p', { class: 'results-comment' }, review.value.overall),
+        ...[['Key Strengths', review.value.strengths], ['Areas for Improvement', review.value.improvements]]
+          .filter(([, value]) => value.trim()).map(([label, value]) => h('p', { class: 'results-comment' }, h('strong', null, `${label}: `), value)),
+        ...(review.value.nominations.length ? [h('p', null, 'Award nominations: ', NOMINATION_AWARDS.filter((a) => review.value.nominations.includes(a.id)).map((a) => a.name).join(', '))] : []),
+        h('p', { class: 'small muted' }, 'Submitting locks this card. Only the Chair can reopen it.'));
+      reviewSummary.hidden = false; reviewSummary.focus();
+    } catch (e) { if (alive) showAlert(errorText(e)); }
+    finally { submitting = false; if (alive) refresh(); }
+  });
+
   submit.addEventListener('click', async () => {
     // Validate before going busy.
     alertBox.hidden = true;
     const stillToScore = missing();
     if (locked || submitting) return;
+    if (!reviewed || review.pending || !review.value.overall.trim()) { showAlert('Use Check card to review your scores and feedback before submitting.'); return; }
     if (stillToScore.length > 0 || badEntries.size > 0) {
       showAlert(`Not submitted. ${stillToScore.length > 0 ? `Still to score: ${stillToScore.map((c) => c.name).join(', ')}.` : 'Fix the scores marked as not valid.'}`);
       blocks.find((b) => stillToScore.includes(b.c) || badEntries.has(b.c.id))?.input.focus();
@@ -287,7 +416,8 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
     }
   });
 
-  const screen = h('div', { class: 'stack stack--lg' },
+  const siblings = event.ruleset.areas.filter((a) => a.kind === 'scorecard' && a.panel === area.panel);
+  const screen = h('div', { class: 'stack stack--lg scorecard-screen' },
     h('div', { class: 'stack' },
       h('a', { class: 'back', href: back }, 'My scorecards'),
       h('p', { class: 'eyebrow' }, event.name),
@@ -297,8 +427,14 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
     ),
     rejectedBox,
     alertBox,
-    ...area.criteria.map(criterionBlock),
-    h('div', { class: 'stack' }, h('p', null, 'Total: ', total), status, saveNow, submitHolder),
+    siblings.length > 1 ? h('nav', { class: 'score-section-nav', 'aria-label': 'Scorecard sections' }, siblings.map((a) => h('a', {
+      href: routeHref({ name: 'scorecard', eventId, teamId, areaId: a.id }), 'aria-current': a.id === area.id ? 'page' : undefined,
+    }, a.name.replace(/^[^:]+: /, '')))) : null,
+    h('div', { class: 'score-sheet' },
+      h('header', { class: 'score-section-heading' }, h('h2', null, area.name.replace(/^[^:]+: /, '')), h('span', { class: 'muted' }, `Max: ${area.max} pts`)),
+      ...area.criteria.map(criterionBlock),
+      h('div', { class: 'score-subtotal' }, h('span', null, 'Section Subtotal'), total), feedback),
+    h('div', { class: 'stack score-actions' }, status, saveNow, check, reviewSummary, submitHolder),
   );
   refresh();
   return screen;

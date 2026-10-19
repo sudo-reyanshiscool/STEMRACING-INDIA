@@ -1,4 +1,5 @@
 import type { PanelId, RankRow, Ruleset } from '../engine';
+import type { CardReview, FeedbackRow, NominationRow } from './review';
 
 export type Role = 'organiser' | 'chair' | 'lead_judge' | 'judge' | 'scrutineer' | 'race_official' | 'team_manager';
 export type Panel = PanelId;
@@ -54,6 +55,11 @@ export interface Api {
    * starts with ''); a string, including '', replaces it.
    */
   saveScore(cardId: string, criterionId: string, score: number, comment?: string): Promise<void>;
+  getReview(cardId: string): Promise<CardReview>;
+  saveReview(cardId: string, review: CardReview): Promise<void>;
+  listFeedback(eventId: string): Promise<FeedbackRow[]>;
+  /** Submitted nominations visible to the Chair and the corresponding panel lead only. */
+  listNominations(eventId: string): Promise<NominationRow[]>;
   submitCard(cardId: string): Promise<void>;
   reopenCard(cardId: string, reason: string): Promise<void>;
   listCards(eventId: string): Promise<CardRow[]>;

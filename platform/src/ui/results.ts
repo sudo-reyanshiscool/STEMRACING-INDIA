@@ -1,4 +1,4 @@
-import { ApiError, type CardRow, type PenaltyRow, type RoleRow, type TeamRow } from '../api';
+import { ApiError, type CardRow, type FeedbackRow, type PenaltyRow, type RoleRow, type TeamRow } from '../api';
 import type { RankRow, Ruleset } from '../engine';
 import { errorText, notFound, tag } from './common';
 import type { Ctx } from './ctx';
@@ -23,7 +23,7 @@ function availableMax(ruleset: Ruleset, rows: RankRow[]): number {
  * Own team only. Cards arrive already limited by the Api to this manager's submitted, released cards; they are filtered
  * to the managed teams again here, so a person who also holds a staff role never sees other teams' detail.
  */
-function teamSection(ruleset: Ruleset, team: TeamRow, row: RankRow | undefined, cards: CardRow[], penalties: PenaltyRow[]): HTMLElement {
+function teamSection(ruleset: Ruleset, team: TeamRow, row: RankRow | undefined, cards: CardRow[], penalties: PenaltyRow[], feedback: FeedbackRow[]): HTMLElement {
   const mine = cards.filter((c) => c.teamId === team.id && c.status === 'submitted');
   const areas = ruleset.areas.filter((a) => a.kind === 'scorecard' && (mine.some((c) => c.areaId === a.id) || row?.areas[a.id] != null));
   const ownPenalties = penalties.filter((p) => p.teamId === team.id);
@@ -44,7 +44,10 @@ function teamSection(ruleset: Ruleset, team: TeamRow, row: RankRow | undefined, 
           h('p', { class: 'small muted' }, `Judge ${i + 1}`),
           h('ul', { class: 'list' }, a.criteria.map((cr) => h('li', null,
             h('strong', null, `${cr.name}: ${c.scores[cr.id] === undefined ? '—' : num(c.scores[cr.id])} / ${cr.max}`),
-            c.comments[cr.id] ? h('span', { class: 'small results-comment' }, c.comments[cr.id]) : null))))));
+            c.comments[cr.id] ? h('span', { class: 'small results-comment' }, c.comments[cr.id]) : null))),
+          ...feedback.filter((f) => f.cardId === c.id).flatMap((f) => [
+            ['Overall Comment', f.overall], ['Key Strengths', f.strengths], ['Areas for Improvement', f.improvements],
+          ].filter(([, value]) => value.trim()).map(([label, value]) => h('p', { class: 'small results-comment' }, h('strong', null, `${label}: `), value))))));
     }),
     ownPenalties.length === 0 ? null : h('section', { class: 'stack' },
       h('h4', null, 'Penalties'),
@@ -109,11 +112,11 @@ export async function resultsScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
   let mine: HTMLElement | null = null;
   if (managed.length > 0 && event.resultsReleased && snapshot.released) {
     try {
-      const [cards, penalties, teams] = await Promise.all([ctx.api.listCards(eventId), ctx.api.listPenalties(eventId), ctx.api.listTeams(eventId)]);
+      const [cards, penalties, teams, feedback] = await Promise.all([ctx.api.listCards(eventId), ctx.api.listPenalties(eventId), ctx.api.listTeams(eventId), ctx.api.listFeedback(eventId)]);
       const own = teams.filter((t) => managed.includes(t.id)).sort((a, b) => a.number.localeCompare(b.number, 'en', { numeric: true }));
       mine = h('section', { class: 'section stack' },
         h('h2', null, own.length > 1 ? 'Your teams' : 'Your team'),
-        ...own.map((t) => teamSection(event.ruleset, t, rows.find((r) => r.teamId === t.id), cards, penalties)));
+        ...own.map((t) => teamSection(event.ruleset, t, rows.find((r) => r.teamId === t.id), cards, penalties, feedback)));
     } catch (e) {
       if (e instanceof ApiError && e.code === 'unauthenticated') throw e;
       console.error(e);

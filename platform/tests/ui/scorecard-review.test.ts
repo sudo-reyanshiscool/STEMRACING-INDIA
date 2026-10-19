@@ -4,7 +4,7 @@ import { ApiError, ScoreQueue, memoryKV } from '../../src/api';
 import { scorecardScreen } from '../../src/ui/scorecard';
 import { scoringScreen } from '../../src/ui/scoring';
 import { mountSyncBar } from '../../src/ui/syncbar';
-import { EMAILS, makeCtx, text, world } from './helpers';
+import { EMAILS, makeCtx, reviewScorecard, text, world } from './helpers';
 
 const ENGAGE = 'Engagement & Presentation Dynamics';
 const ENGAGE_ID = 'engagement-presentation-dynamics';
@@ -136,6 +136,7 @@ describe('review fixes: scorecard', () => {
     await queue.flush();
     let release!: () => void;
     vi.spyOn(api, 'submitCard').mockImplementationOnce(() => new Promise<void>((r) => { release = r; }));
+    await reviewScorecard(el);
     button(el, 'Submit scorecard')!.click();
     await tick();
     expect(input(el, ENGAGE).disabled).toBe(true);

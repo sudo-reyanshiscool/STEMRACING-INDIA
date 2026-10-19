@@ -7,7 +7,7 @@ export type CategoryId =
   | 'verbal'
   | 'racing';
 
-export interface Band { min: number; max: number }
+export interface Band { min: number; max: number; description?: string }
 export interface Criterion { id: string; name: string; max: number; bands: Band[] }
 
 export interface Area {

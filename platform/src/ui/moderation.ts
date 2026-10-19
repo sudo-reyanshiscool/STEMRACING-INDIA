@@ -2,10 +2,11 @@ import type { CardRow, OverrideRow, Panel, TeamRow } from '../api';
 import { ApiError } from '../api';
 import { areaTotal, round1, validateScores, type Area } from '../engine';
 import { reportActionError } from './actions';
-import { notFound, tag } from './common';
+import { errorText, notFound, tag } from './common';
 import type { Ctx } from './ctx';
 import { h } from './dom';
 import { routeHref } from './router';
+import { nominationSummary } from './nominations';
 
 export interface ModerationRow {
   teamId: string;
@@ -55,19 +56,22 @@ export async function moderationScreen(ctx: Ctx, eventId: string): Promise<HTMLE
   const status = h('p', { class: 'notice', role: 'status', hidden: true });
   const releasedNote = h('p', { class: 'notice', hidden: true });
   const table = h('div', { class: 'table-wrap' });
+  const nominations = h('div');
   let busy = false;
   let shown = 0;
 
   const load = async () => {
-    const [event, teams, cards, overrides, allRoles, conflicts] = await Promise.all([
+    const [event, teams, cards, overrides, allRoles, conflicts, awards] = await Promise.all([
       ctx.api.getEvent(eventId), ctx.api.listTeams(eventId), ctx.api.listCards(eventId), ctx.api.listOverrides(eventId), ctx.api.listRoles(eventId),
       ctx.api.listConflicts(eventId),
+      ctx.api.listNominations(eventId),
     ]);
-    return { event, teams, cards, overrides, allRoles, conflicts };
+    return { event, teams, cards, overrides, allRoles, conflicts, awards };
   };
   type Loaded = Awaited<ReturnType<typeof load>>;
 
   const draw = (data: Loaded) => {
+    nominations.replaceChildren(nominationSummary(data.awards, data.teams));
     const area = areas.find((a) => a.id === select.value) ?? areas[0];
     if (!area) {
       table.replaceChildren(h('p', { class: 'muted' }, 'There are no scorecard areas for you to moderate.'));
@@ -82,6 +86,27 @@ export async function moderationScreen(ctx: Ctx, eventId: string): Promise<HTMLE
     const who = (judgeId: string) => data.allRoles.find((r) => r.userId === judgeId && r.email)?.email ?? `Judge ${judgeIds.indexOf(judgeId) + 1}`;
     const conflicted = (judgeId: string, teamId: string) => data.conflicts.some((c) => c.judgeId === judgeId && c.teamId === teamId);
     const canChange = isChair && !released;
+    const judgeReview = (cardId: string) => {
+      const body = h('div', { class: 'stack' });
+      const details = h('details', null, h('summary', null, 'Feedback and private notes'), body);
+      let loaded = false;
+      details.addEventListener('toggle', async () => {
+        if (!details.open || loaded) return;
+        loaded = true;
+        try {
+          const r = await ctx.api.getReview(cardId);
+          if (!alive) return;
+          body.replaceChildren(
+            ...[['Overall Comment', r.overall], ['Key Strengths', r.strengths], ['Areas for Improvement', r.improvements], ['Internal Notes', r.internalNotes]]
+              .filter(([, text]) => text).map(([label, text]) => h('p', { class: 'small results-comment' }, h('strong', null, `${label}: `), text)),
+            ...Object.entries(r.criterionNotes).filter(([, note]) => note).map(([id, note]) => h('p', { class: 'small results-comment' },
+              h('strong', null, `${area.criteria.find((c) => c.id === id)?.name ?? id} (private): `), note)),
+          );
+          if (!body.childNodes.length) body.append(h('p', { class: 'small muted' }, 'No feedback or private notes yet.'));
+        } catch (e) { loaded = false; if (alive) body.replaceChildren(h('p', { class: 'small', role: 'alert' }, errorText(e))); }
+      });
+      return details;
+    };
     const drafts = (r: ModerationRow) => r.judges.filter((j) => j.status === 'draft').length;
     let armedRemove: HTMLButtonElement | null = null;
     /** Removing an override restores the judges' mean, so it takes a deliberate second click. */
@@ -169,6 +194,7 @@ export async function moderationScreen(ctx: Ctx, eventId: string): Promise<HTMLE
               ? h('span', { class: 'small', 'data-conflict': j.cardId }, ' ', tag('Conflict declared', 'risk'),
                 j.status === 'submitted' ? ' This judge declared a conflict with this team after submitting, and the card still counts. Reopen it to leave it out.' : ' Not counted while a draft.')
               : null,
+            judgeReview(j.cardId),
             canChange && j.status === 'submitted' ? reopenForm(j.cardId, judge, r.teamLabel) : null);
         }),
           drafts(r) > 0 ? h('li', { class: 'small' }, `${drafts(r)} card${drafts(r) === 1 ? '' : 's'} still in draft, not counted`) : null])),
@@ -239,6 +265,6 @@ export async function moderationScreen(ctx: Ctx, eventId: string): Promise<HTMLE
         : "Review your panel's scores. Only the Chair can change them.")),
     releasedNote, error, status,
     h('label', { class: 'field', style: 'max-width: 420px' }, h('span', { class: 'field__label' }, 'Area'), select),
-    table,
+    table, nominations,
   );
 }

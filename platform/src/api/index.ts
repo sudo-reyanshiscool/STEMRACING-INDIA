@@ -1,4 +1,5 @@
 export * from './types';
+export * from './review';
 export { MemoryApi } from './memory';
 export { createSupabaseApi } from './supabase';
 export {

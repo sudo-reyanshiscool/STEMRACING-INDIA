@@ -1,4 +1,5 @@
 import type { Area, Band, CategoryId, Criterion, PanelId, Ruleset } from '../engine/types';
+import { RUBRICS } from './rubrics';
 
 // Band ranges as printed on the India National Finals 2026 scorecards.
 const BANDS: Record<number, Band[]> = {
@@ -7,8 +8,8 @@ const BANDS: Record<number, Band[]> = {
   10: [{ min: 0, max: 2 }, { min: 3, max: 4 }, { min: 5, max: 7 }, { min: 8, max: 10 }],
 };
 
-const crit = (id: string, name: string, max: 20 | 15 | 10): Criterion => ({
-  id, name, max, bands: BANDS[max].map((b) => ({ ...b })),
+const crit = (id: string, name: string, max: 20 | 15 | 10, rubricKey = id): Criterion => ({
+  id, name, max, bands: BANDS[max].map((b, i) => ({ ...b, description: RUBRICS[rubricKey]?.[i] })),
 });
 
 const card = (id: string, name: string, categoryId: CategoryId, panel: PanelId, criteria: Criterion[]): Area => ({
@@ -52,7 +53,7 @@ export const INDIA_2026: Ruleset = {
       crit('research-development', 'Research & Development', 20),
       crit('testing', 'Testing', 20),
       crit('design-process-evaluation', 'Design Process Evaluation', 20),
-      crit('document-presentation', 'Document Presentation', 20),
+      crit('document-presentation', 'Document Presentation', 20, 'de-portfolio/document-presentation'),
     ]),
 
     card('pm-initiating', 'Project Management: Initiating', 'project-management', 'project_management', [
@@ -76,7 +77,7 @@ export const INDIA_2026: Ruleset = {
       crit('sponsorship-return', 'Sponsorship & Return on Investment (ROI)', 20),
       crit('digital-media-proficiency', 'Digital Media Proficiency', 20),
       crit('sustainability', 'Sustainability', 20),
-      crit('document-presentation', 'Document Presentation', 20),
+      crit('document-presentation', 'Document Presentation', 20, 'enterprise-portfolio/document-presentation'),
     ]),
     card('team-identity', 'Team Identity', 'enterprise', 'enterprise', [
       crit('overall-team-identity', 'Overall Team Identity', 20),

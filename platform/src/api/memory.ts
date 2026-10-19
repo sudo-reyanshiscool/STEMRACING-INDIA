@@ -1,5 +1,6 @@
 import { validateScores, type Area } from '../engine';
 import { INDIA_2026 } from '../rulesets';
+import { blankReview, validateReview, type CardReview, type FeedbackRow, type NominationRow } from './review';
 import {
   ApiError, type Api, type CardRow, type ConflictRow, type EventRow, type InviteRow, type NewSnapshot, type OverrideRow, type Panel,
   type PenaltyRow, type Role, type RoleRow, type Session, type SnapshotRow, type TeamRow,
@@ -30,6 +31,7 @@ export class MemoryApi implements Api {
   private teams: TeamRow[] = [];
   private conflicts: { eventId: string; judgeId: string; teamId: string }[] = [];
   private cards: CardRow[] = [];
+  private reviews = new Map<string, CardReview>();
   private overrides: OverrideRow[] = [];
   private penalties: PenaltyRow[] = [];
   private snapshots: SnapshotRow[] = [];
@@ -276,6 +278,39 @@ export class MemoryApi implements Api {
     if (problems.length > 0) throw new ApiError('invalid', problems[0].message);
     card.status = 'submitted';
     this.version += 1;
+  }
+  async getReview(cardId: string): Promise<CardReview> {
+    const card = this.cards.find((c) => c.id === cardId);
+    if (!card || !(await this.listCards(card.eventId)).some((c) => c.id === cardId)) throw new ApiError('forbidden', 'That scorecard is not available');
+    const review = copy(this.reviews.get(cardId) ?? blankReview());
+    if (!this.canReadPrivate(card)) {
+      review.criterionNotes = {}; review.internalNotes = ''; review.nominations = [];
+    }
+    return review;
+  }
+  private canReadPrivate(c: CardRow) {
+    return c.judgeId === this.me?.userId || this.has(c.eventId, 'chair')
+      || this.rolesOf(c.eventId).some((r) => r.role === 'lead_judge' && r.panel === c.panel);
+  }
+  async saveReview(cardId: string, review: CardReview) {
+    const card = this.myCard(cardId);
+    if (!this.rolesOf(card.eventId).some((r) => r.role === 'judge' && r.panel === card.panel) || this.conflicted(card.eventId, card.teamId)) {
+      throw new ApiError('forbidden', 'You cannot edit this scorecard');
+    }
+    this.frozen(card.eventId, 'feedback');
+    if (card.status !== 'draft') throw new ApiError('locked', 'This scorecard has been submitted');
+    this.reviews.set(cardId, validateReview(review, this.area(card.eventId, card.areaId)!));
+  }
+  async listFeedback(eventId: string): Promise<FeedbackRow[]> {
+    return (await this.listCards(eventId)).filter((c) => this.reviews.has(c.id)).map((c) => {
+      const r = this.reviews.get(c.id)!;
+      return { cardId: c.id, overall: r.overall, strengths: r.strengths, improvements: r.improvements };
+    });
+  }
+  async listNominations(eventId: string): Promise<NominationRow[]> {
+    return this.cards.filter((c) => c.eventId === eventId && c.status === 'submitted'
+      && (this.has(eventId, 'chair') || this.rolesOf(eventId).some((r) => r.role === 'lead_judge' && r.panel === c.panel)))
+      .map((c) => ({ cardId: c.id, teamId: c.teamId, panel: c.panel, judgeId: c.judgeId, nominations: copy(this.reviews.get(c.id)?.nominations ?? []) }));
   }
   async reopenCard(cardId: string, reason: string) {
     const card = this.cards.find((c) => c.id === cardId);

@@ -60,3 +60,16 @@ export async function releaseResults(api: MemoryApi, eventId: string, rows: Rank
   }
   if (before) await api.signIn(before.email);
 }
+
+/** Complete the required feedback and review step before testing final submission. */
+export async function reviewScorecard(el: HTMLElement) {
+  const overall = el.querySelector<HTMLTextAreaElement>('textarea[aria-label="Overall Comment"]')!;
+  overall.value = 'Clear presentation and strong teamwork.';
+  overall.dispatchEvent(new Event('input', { bubbles: true }));
+  [...el.querySelectorAll('button')].find((b) => b.textContent === 'Check card')!.click();
+  await vi.waitFor(() => expectVisible());
+  function expectVisible() {
+    const summary = el.querySelector<HTMLElement>('[aria-label="Scorecard review"]');
+    if (!summary || summary.hidden) throw new Error('Scorecard review has not opened');
+  }
+}

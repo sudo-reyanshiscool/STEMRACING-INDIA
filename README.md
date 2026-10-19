@@ -1,4 +1,27 @@
-# STEM Racing India digital scrutineering
+# STEM Racing India
+
+Digital judging and offline scrutineering tools for STEM Racing India.
+
+## Digital scorecard demo
+
+The event platform in [`platform/`](platform/) includes rubric-based scorecards, private judging notes, team feedback,
+award nominations, moderation and rankings. Run the demo locally:
+
+```sh
+cd platform
+npm install
+npm run dev
+```
+
+Open the local URL printed by Vite. Select **Judge: Verbal Presentation** or **Judge: Design & Engineering** in the
+demo persona bar, open **Sample event (demo data)**, then **My scorecards**. Select Team 2 or Team 3; the sample
+verbal judge has a declared conflict with Team 1. **National Finals rehearsal (demo data)** has submitted sample
+scores for trying the Chair's moderation and ranking screens.
+
+Demo mode needs no Supabase account or environment variables. Data stays in memory and resets when the page reloads.
+For a real backend, database migrations and configuration, see the [platform README](platform/README.md).
+
+## Offline digital scrutineering
 
 Offline-first checklist for scrutineers at STEM Racing events. Enter measurements for each car, see penalties
 from the Aramco STEM Racing World Finals 2026 Technical Regulations (Professional class) computed live, and print a

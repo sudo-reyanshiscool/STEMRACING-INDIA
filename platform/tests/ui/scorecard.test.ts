@@ -2,7 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../src/api';
 import { parseScore, scorecardScreen } from '../../src/ui/scorecard';
-import { EMAILS, makeCtx, releaseResults, text, world } from './helpers';
+import { EMAILS, makeCtx, releaseResults, reviewScorecard, text, world } from './helpers';
 
 const ENGAGE = 'Engagement & Presentation Dynamics';
 const TEAM = 'Team Contribution';
@@ -135,6 +135,7 @@ describe('scorecardScreen', () => {
     expect(text(el)).toContain(`Still to score: ${TEAM}`);
     type(input(el, TEAM), '12');
     await queue.flush();
+    await reviewScorecard(el);
     expect(submitBtn(el)!.disabled).toBe(false);
     submitBtn(el)!.click();
     await vi.waitFor(async () => expect((await api.listCards(ev.id))[0].status).toBe('submitted'));
@@ -158,6 +159,7 @@ describe('scorecardScreen', () => {
     type(input(el, ENGAGE), '14');
     type(input(el, TEAM), '12');
     await queue.flush();
+    await reviewScorecard(el);
     vi.spyOn(api, 'submitCard').mockRejectedValueOnce(new ApiError('network', 'raw: ECONNRESET db.internal'));
     submitBtn(el)!.click();
     await vi.waitFor(() => expect(visibleAlert(el)).not.toBeNull());
@@ -176,6 +178,7 @@ describe('scorecardScreen', () => {
     type(input(el, ENGAGE), '14');
     type(input(el, TEAM), '12');
     await queue.flush();
+    await reviewScorecard(el);
     vi.spyOn(api, 'submitCard').mockRejectedValueOnce(new ApiError('invalid', 'Team Contribution has no score'));
     // The server disagrees with the local view (another device cleared a score): the form must say what to do.
     const card = (await api.listCards(ev.id))[0];

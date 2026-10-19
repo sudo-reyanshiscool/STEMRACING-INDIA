@@ -339,3 +339,22 @@ describe('getEvent with ids that are not UUIDs', () => {
     expect(calls).toHaveLength(1);
   });
 });
+
+describe('feedback and private review adapter', () => {
+  it('reads the two visibility domains separately and defaults private fields when RLS hides them', async () => {
+    const {api,calls}=fake((c)=>({data:c.name==='scorecard_feedback'?{overall:'Good presentation',strengths:'Teamwork',improvements:''}:null}));
+    expect(await api.getReview('c')).toEqual({overall:'Good presentation',strengths:'Teamwork',improvements:'',criterionNotes:{},internalNotes:'',nominations:[]});
+    expect(calls.map((c)=>c.name).sort()).toEqual(['scorecard_feedback','scorecard_private_reviews']);
+    expect(String(arg(calls.find((c)=>c.name==='scorecard_feedback')!,'select'))).not.toContain('internal');
+  });
+  it('saves both halves through one atomic RPC and maps refused writes',async()=>{
+    const {api,calls}=fake(()=>({error:{code:'55000',message:'locked'}}));
+    const review={overall:'Good',strengths:'',improvements:'',criterionNotes:{},internalNotes:'Private',nominations:['team-identity']};
+    expect(await fail(api.saveReview('c',review))).toBe('locked');
+    expect(calls).toEqual([{kind:'rpc',name:'save_card_review',args:{p_card:'c',p_review:review},steps:[]}]);
+  });
+  it('paginates feedback without mixing private fields into the returned team feedback',async()=>{
+    const {api}=fake(()=>({data:[{scorecard_id:'c',overall:'Good',strengths:'',improvements:'',internal_notes:'MUST NOT RETURN'}]}));
+    expect(await api.listFeedback('e')).toEqual([{cardId:'c',overall:'Good',strengths:'',improvements:''}]);
+  });
+});

@@ -6,6 +6,7 @@ import {
 } from './mappers';
 import type { Api, Session } from './types';
 import { ApiError } from './types';
+import { blankReview } from './review';
 
 type Failure = { message: string; code?: string } | null;
 
@@ -228,6 +229,39 @@ export function createApiFromClient(sb: SupabaseClient, options: SupabaseApiOpti
       const created = await findCard(eventId, teamId, areaId, s.userId);
       if (!created) throw new ApiError('forbidden', 'You cannot score this team in this area');
       return toCardRow(created);
+    },
+    async getReview(cardId) {
+      const [feedback, notes] = await Promise.all([
+        guard(() => sb.from('scorecard_feedback').select('overall,strengths,improvements').eq('scorecard_id', cardId).maybeSingle()),
+        guard(() => sb.from('scorecard_private_reviews').select('criterion_notes,internal_notes,nominations').eq('scorecard_id', cardId).maybeSingle()),
+      ]);
+      const f = ok(feedback);
+      const n = ok(notes);
+      return { ...blankReview(), ...(f ?? {}), criterionNotes: n?.criterion_notes ?? {}, internalNotes: n?.internal_notes ?? '', nominations: n?.nominations ?? [] };
+    },
+    async saveReview(cardId, review) {
+      ok(await guard(() => sb.rpc('save_card_review', { p_card: cardId, p_review: review })));
+    },
+    async listFeedback(eventId) {
+      const rows = await pages<Record<string, any>>((a, b) => sb.from('scorecard_feedback')
+        .select('scorecard_id,overall,strengths,improvements,scorecards!inner(event_id)').eq('scorecards.event_id', eventId).order('scorecard_id').range(a, b));
+      return rows.map((r) => ({ cardId: r.scorecard_id, overall: r.overall, strengths: r.strengths, improvements: r.improvements }));
+    },
+    async listNominations(eventId) {
+      const s = await session();
+      if (!s) return [];
+      const roles = await pages<Record<string, any>>((a, b) => sb.from('event_roles').select(ROLE_COLS)
+        .eq('event_id', eventId).eq('user_id', s.userId).order('id').range(a, b));
+      const chair = roles.some((r) => r.role === 'chair');
+      const panels = roles.filter((r) => r.role === 'lead_judge').map((r) => r.panel);
+      if (!chair && panels.length === 0) return [];
+      const rows = await pages<Record<string, any>>((a, b) => sb.from('scorecard_private_reviews')
+        .select('scorecard_id,nominations,scorecards!inner(event_id,team_id,panel,judge_id,status)')
+        .eq('scorecards.event_id', eventId).eq('scorecards.status', 'submitted').order('scorecard_id').range(a, b));
+      return rows.filter((r) => chair || panels.includes(r.scorecards.panel)).map((r) => ({
+        cardId: r.scorecard_id, teamId: r.scorecards.team_id, panel: r.scorecards.panel,
+        judgeId: r.scorecards.judge_id, nominations: r.nominations,
+      }));
     },
     async saveScore(cardId, criterionId, score, comment) {
       try {
