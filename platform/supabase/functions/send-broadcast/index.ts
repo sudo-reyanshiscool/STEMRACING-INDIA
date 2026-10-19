@@ -81,9 +81,38 @@ Deno.serve(broadcastHandler({
   async sendMail(recipients, subject, html) {
     if (recipients.length === 0) return { ok: true };
 
+    const resendApiKey = Deno.env.get('RESEND_API_KEY');
+    if (resendApiKey) {
+      try {
+        const res = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            from: smtpFrom,
+            to: smtpFrom,
+            bcc: recipients,
+            subject,
+            html,
+          }),
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          return { ok: false, error: `Resend error: ${errData.message || res.statusText}` };
+        }
+        return { ok: true };
+      } catch (err: any) {
+        return { ok: false, error: `Resend delivery failed: ${err.message}` };
+      }
+    }
+
     if (!smtpHost) {
-      console.warn('No SMTP_HOST configured. Broadcast email logged but not sent over SMTP.');
-      return { ok: true };
+      return {
+        ok: false,
+        error: 'No SMTP provider configured. Set SMTP_HOST, SMTP_USER, SMTP_PASS (or RESEND_API_KEY) in Supabase Secrets to send live emails.',
+      };
     }
 
     try {
@@ -104,9 +133,9 @@ Deno.serve(broadcastHandler({
       });
 
       return { ok: true };
-    } catch (e) {
+    } catch (e: any) {
       console.error('SMTP sending error:', e);
-      return { ok: false };
+      return { ok: false, error: e?.message || 'SMTP sending failed' };
     }
   },
 }));

@@ -5,7 +5,7 @@ export interface BroadcastDeps {
   isChairOrOrganiser(token: string, eventId: string): Promise<boolean>;
   getRecipients(token: string, eventId: string, input: any): Promise<string[]>;
   recordBroadcast(token: string, eventId: string, sender: { userId: string; email: string }, input: any, recipientCount: number): Promise<any>;
-  sendMail(recipients: string[], subject: string, html: string): Promise<{ ok: boolean; failed?: string[] }>;
+  sendMail(recipients: string[], subject: string, html: string): Promise<{ ok: boolean; error?: string; failed?: string[] }>;
 }
 
 const origins = new Set([
@@ -81,7 +81,10 @@ export function broadcastHandler(deps: BroadcastDeps) {
 
     const sendRes = await deps.sendMail(uniqueRecipients, subject, html);
     if (!sendRes.ok) {
-      return reply(502, { code: 'delivery_failed', message: 'Failed to dispatch emails via SMTP' });
+      return reply(502, {
+        code: 'delivery_failed',
+        message: sendRes.error || 'Failed to dispatch emails via SMTP. Ensure SMTP credentials are set in Supabase Secrets.',
+      });
     }
 
     const record = await deps.recordBroadcast(token, eventId, sender, body, uniqueRecipients.length);
