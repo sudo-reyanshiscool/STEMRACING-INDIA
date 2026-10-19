@@ -22,3 +22,18 @@ describe('local Supabase config', () => {
     expect(max).toBeGreaterThanOrEqual(1000);
   });
 });
+
+describe('hosted invitation configuration', () => {
+  it('keeps subject templates within the dashboard length limit', () => {
+    const subjects = [...toml.matchAll(/^subject = (".*")$/gm)].map(m => JSON.parse(m[1]) as string);
+    expect(subjects).toHaveLength(2);
+    for (const subject of subjects) {
+      expect(subject.length).toBeLessThanOrEqual(255);
+      expect(subject).toContain('Your invitation');
+      expect(subject).toContain('STEM Racing India');
+    }
+  });
+  it('keeps JWT verification enabled for the server-side mail function', () => {
+    expect(toml).toMatch(/\[functions\.send-invitation\]\s+verify_jwt = true/);
+  });
+});

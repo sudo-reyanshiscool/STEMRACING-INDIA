@@ -2,7 +2,8 @@
 
 `magic-link.html` styles returning-user sign-in emails. `confirmation.html`
 styles first-time email confirmation. Their subjects and local file paths are
-registered in `../config.toml`.
+registered in `../config.toml`. The subject templates use Go variables to stay
+within Supabase’s 255-character template limit.
 
 Hosted Supabase templates are configured separately in Authentication → Emails.
 Copy each file into the matching template's Source editor and use the subject
