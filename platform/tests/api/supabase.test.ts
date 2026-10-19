@@ -440,3 +440,35 @@ describe('judge assignments',()=>{
   await api.setJudgeAssignment('event','judge','enterprise',null);expect(calls[1].args).toMatchObject({p_teams:null});
  });
 });
+
+describe('technical inspections', () => {
+  it('saves and fetches inspections, and invokes submit and reopen RPCs', async () => {
+    const inspData = {
+      id: 'insp-1', event_id: 'ev-1', team_id: 't-1', car: 'A', inspector_id: 'u-1',
+      status: 'in_progress', ruleset_id: 'india-nationals-2026-technical', measurements: { 'T3.6': 52.0 },
+      notes: {}, started_at: '2026-10-19T00:00:00Z', submitted_at: null, updated_at: '2026-10-19T00:00:00Z', revision: 1,
+    };
+    const { api, calls } = fake((c) => ({
+      data: c.name === 'technical_inspections' && !c.steps.some((s) => s[0] === 'single' || s[0] === 'limit')
+        ? [inspData]
+        : inspData,
+    }));
+
+    const saved = await api.saveInspection('ev-1', 't-1', 'A', { 'T3.6': 52.0 });
+    expect(saved.id).toBe('insp-1');
+    expect(saved.measurements).toEqual({ 'T3.6': 52.0 });
+
+    const list = await api.listInspections('ev-1');
+    expect(list).toHaveLength(1);
+
+    await api.submitInspection('insp-1');
+    expect(calls.find((c) => c.kind === 'rpc' && c.name === 'submit_inspection')).toMatchObject({
+      args: { p_inspection: 'insp-1' },
+    });
+
+    await api.reopenInspection('insp-1', 'Weight re-checked');
+    expect(calls.find((c) => c.kind === 'rpc' && c.name === 'reopen_inspection')).toMatchObject({
+      args: { p_inspection: 'insp-1', p_reason: 'Weight re-checked' },
+    });
+  });
+});

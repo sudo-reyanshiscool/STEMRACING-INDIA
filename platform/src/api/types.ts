@@ -17,6 +17,32 @@ export interface JudgeExemption { eventId: string; judgeId: string; teamId: stri
 export interface ConflictRow { eventId: string; judgeId: string; teamId: string }
 export interface OverrideRow { eventId: string; teamId: string; areaId: string; value: number; reason: string }
 export interface PenaltyRow { id: string; eventId: string; teamId: string; points: number; reason: string }
+export interface BroadcastEmail {
+  id: string;
+  eventId: string;
+  senderId: string | null;
+  senderEmail: string | null;
+  audienceType: 'all_judges' | 'panel' | 'specific_judges' | 'emails';
+  panel: Panel | null;
+  recipientCount: number;
+  subject: string;
+  category: string | null;
+  body: string;
+  buttonText: string | null;
+  buttonUrl: string | null;
+  createdAt: string;
+}
+export interface NewBroadcastInput {
+  audienceType: 'all_judges' | 'panel' | 'specific_judges' | 'emails';
+  panel?: Panel | null;
+  judgeIds?: string[];
+  customEmails?: string[];
+  subject: string;
+  category?: string;
+  body: string;
+  buttonText?: string;
+  buttonUrl?: string;
+}
 /** What anyone allowed to see a snapshot gets. The inputs are deliberately absent: see Api.getSnapshotInputs. */
 export interface PublicStandings { createdAt: string; rows: Array<Pick<RankRow, 'rank' | 'teamId' | 'number' | 'name' | 'total' | 'tied'>> }
 export interface SnapshotRow { id: string; eventId: string; createdAt: string; rulesetId: string; inputHash: string; rows: RankRow[]; released: boolean }
@@ -30,6 +56,8 @@ export class ApiError extends Error {
     this.name = 'ApiError';
   }
 }
+
+import type { Car, Inspection, Measurements } from '../technical';
 
 export interface Api {
   getSession(): Promise<Session | null>;
@@ -101,4 +129,11 @@ export interface Api {
   releasedResults(eventId: string): Promise<SnapshotRow | null>;
   /** The inputs a snapshot was computed from (every judge's cards, overrides, penalties). Chair and Organiser only. */
   getSnapshotInputs(snapshotId: string): Promise<unknown>;
+  listInspections(eventId: string): Promise<Inspection[]>;
+  getInspection(eventId: string, teamId: string, car: Car): Promise<Inspection | null>;
+  saveInspection(eventId: string, teamId: string, car: Car, measurements: Measurements, notes?: Record<string, string>): Promise<Inspection>;
+  submitInspection(inspectionId: string): Promise<void>;
+  reopenInspection(inspectionId: string, reason: string): Promise<void>;
+  listBroadcasts(eventId: string): Promise<BroadcastEmail[]>;
+  sendBroadcast(eventId: string, input: NewBroadcastInput): Promise<BroadcastEmail>;
 }

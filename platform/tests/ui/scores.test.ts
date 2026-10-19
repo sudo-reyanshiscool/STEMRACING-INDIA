@@ -50,4 +50,23 @@ describe('shared Scores interface',()=>{
     expect([...nav.querySelectorAll('a')].every(a=>a.getAttribute('href')?.startsWith(`#/event/${ev.id}`))).toBe(true);
     expect(text(nav)).not.toContain('Moderation');expect(text(nav)).toContain('Rankings');
   });
+  it('displays technical inspections alongside scorecards when filtered to scrutineering or all panels',async()=>{
+    const {api,ev,t1,ctx}=await setup(EMAILS.org);
+    await api.signIn(EMAILS.org);
+    await api.invite(ev.id, { email: 'scrut@x.test', role: 'scrutineer' });
+    await api.signIn('scrut@x.test');
+    await api.claimInvitations();
+    const insp = await api.saveInspection(ev.id, t1.id, 'A', { 'T3.6': 49.0 });
+    await api.signIn(EMAILS.org);
+    const el = await scoresScreen(ctx, ev.id);
+    expect(text(el)).toContain('Specification · Car A');
+    expect(text(el)).toContain('In progress');
+    expect(text(el)).toContain('safety');
+    await api.signIn('scrut@x.test');
+    await api.submitInspection(insp.id);
+    await api.signIn(EMAILS.org);
+    const el2 = await scoresScreen(ctx, ev.id);
+    expect(text(el2)).toContain('Specification · Car A');
+    expect(text(el2)).toContain('Submitted');
+  });
 });

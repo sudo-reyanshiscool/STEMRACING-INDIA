@@ -1,5 +1,7 @@
 import { ApiError, type CardRow, type EventRow, type OverrideRow, type PenaltyRow, type RoleRow, type SnapshotRow, type TeamRow } from '../api';
 import { canonicalJson, rank, RankingInputError, sha256Hex, validateScores, type RankInputs, type Ranking, type Ruleset } from '../engine';
+import type { Inspection } from '../technical';
+import { INDIA_TECHNICAL, specificationsScore, summarise } from '../technical';
 import { reportActionError } from './actions';
 import { notFound, tag } from './common';
 import type { Ctx } from './ctx';
@@ -18,9 +20,19 @@ const when = (iso: string) => {
 };
 
 /** Exactly what rank() receives and what a snapshot stores: submitted cards only, no comments, in a fixed order. */
-type Inputs = Omit<RankInputs, 'ruleset' | 'derived'>;
+type Inputs = Omit<RankInputs, 'ruleset'>;
 
-function buildInputs(teams: TeamRow[], cards: CardRow[], overrides: OverrideRow[], penalties: PenaltyRow[]): Inputs {
+function buildInputs(teams: TeamRow[], cards: CardRow[], overrides: OverrideRow[], penalties: PenaltyRow[], inspections: Inspection[] = []): Inputs {
+  const derived: Record<string, Record<string, number>> = {};
+  for (const t of teams) {
+    const a = inspections.find((i) => i.teamId === t.id && i.car === 'A');
+    const b = inspections.find((i) => i.teamId === t.id && i.car === 'B');
+    if (a && b) {
+      const sumA = summarise(INDIA_TECHNICAL.rules, a.measurements);
+      const sumB = summarise(INDIA_TECHNICAL.rules, b.measurements);
+      derived[t.id] = { specifications: specificationsScore(sumA, sumB) };
+    }
+  }
   return {
     teams: [...teams].sort((a, b) => natural(a.number, b.number) || byText(a.id, b.id)).map((t) => ({ id: t.id, number: t.number, name: t.name })),
     cards: cards.filter((c) => c.status === 'submitted')
@@ -30,6 +42,7 @@ function buildInputs(teams: TeamRow[], cards: CardRow[], overrides: OverrideRow[
       .sort((a, b) => byText(a.teamId, b.teamId) || byText(a.areaId, b.areaId)),
     penalties: penalties.map((p) => ({ teamId: p.teamId, points: p.points }))
       .sort((a, b) => byText(a.teamId, b.teamId) || a.points - b.points),
+    derived,
   };
 }
 
@@ -106,12 +119,13 @@ export async function rankingsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
   const clear = () => { notice.hidden = true; error.hidden = true; };
 
   const compute = async (): Promise<Computed | null> => {
-    const [event, teams, cards, overrides, penalties, allRoles, latest, conflicts] = await Promise.all([
+    const [event, teams, cards, overrides, penalties, allRoles, latest, conflicts, inspections] = await Promise.all([
       ctx.api.getEvent(eventId), ctx.api.listTeams(eventId), ctx.api.listCards(eventId), ctx.api.listOverrides(eventId),
       ctx.api.listPenalties(eventId), ctx.api.listRoles(eventId), ctx.api.latestSnapshot(eventId), ctx.api.listConflicts(eventId),
+      ctx.api.listInspections(eventId).catch(() => []),
     ]);
     if (!event) return null;
-    const inputs = buildInputs(teams, cards, overrides, penalties);
+    const inputs = buildInputs(teams, cards, overrides, penalties, inspections);
     let outcome: Outcome;
     try {
       outcome = { ok: true, ranking: rank({ ruleset: event.ruleset, ...inputs }), hash: null };

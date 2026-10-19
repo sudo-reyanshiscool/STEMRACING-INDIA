@@ -8,13 +8,16 @@ import { PANEL_LABEL } from './labels';
 import { routeHref } from './router';
 
 export async function scoringScreen(ctx: Ctx, eventId: string): Promise<HTMLElement> {
-  const [event, roles, teams, allCards, conflictList, session, exemptionList] = await Promise.all([
+  const [event, roles, teams, allCards, conflictList, session, exemptionList, inspections] = await Promise.all([
     ctx.api.getEvent(eventId), ctx.api.myRoles(eventId), ctx.api.listTeams(eventId), ctx.api.listCards(eventId), ctx.api.myConflicts(eventId),
-    ctx.api.getSession(), ctx.api.listJudgeExemptions(eventId),
+    ctx.api.getSession(), ctx.api.listJudgeExemptions(eventId), ctx.api.listInspections(eventId).catch(() => []),
   ]);
   if (!event) return notFound('That event was not found.', '#/', 'All events');
   const eventHref = routeHref({ name: 'event', eventId });
-  const panels = [...new Set(roles.filter((r) => r.role === 'judge' && r.panel).map((r) => r.panel as Panel))];
+  const panels = [...new Set([
+    ...roles.filter((r) => r.role === 'judge' && r.panel).map((r) => r.panel as Panel),
+    ...(roles.some((r) => r.role === 'scrutineer') ? ['scrutineering' as Panel] : []),
+  ])];
   if (panels.length === 0) return notFound('You are not a judge on any panel for this event.', eventHref, event.name);
 
   let alive = true;
@@ -47,13 +50,23 @@ export async function scoringScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
     return { label, node: tag(label, 'risk') };
   };
 
+  const stateOfInspection = (teamId: string, car: 'A' | 'B') => {
+    const insp = inspections.find((i) => i.teamId === teamId && i.car === car);
+    if (!insp) return { label: 'Not started', node: tag('Not started', 'todo') };
+    if (insp.status === 'submitted') return { label: 'Submitted', node: tag('Submitted', 'pass') };
+    if (insp.status === 'reopened') return { label: 'Reopened', node: tag('Reopened', 'risk') };
+    const count = Object.keys(insp.measurements).length;
+    const label = `Draft, ${count} measured`;
+    return { label, node: tag(label, 'risk') };
+  };
+
   const render = () => {
     body.replaceChildren(
       ...panels.map((panel) => {
         const areas = event.ruleset.areas.filter((a) => a.kind === 'scorecard' && a.panel === panel);
         return h('section', { class: 'section', id: `judge-panel-${panel}`, hidden: panel !== selectedPanel, 'aria-labelledby': `judge-panel-heading-${panel}` },
           h('h2', { id: `judge-panel-heading-${panel}` }, PANEL_LABEL[panel]),
-          h('div', { class: 'grid' }, teams.filter(t=>roles.some(r=>r.role==='judge' && r.panel===panel && (r.teamId===null || r.teamId===t.id))).map((t) => {
+          h('div', { class: 'grid' }, teams.filter(t=>roles.some(r=>(r.role==='judge' && r.panel===panel && (r.teamId===null || r.teamId===t.id)) || (panel==='scrutineering' && r.role==='scrutineer' && (r.teamId===null || r.teamId===t.id)))).map((t) => {
             const conflicted = conflicts.has(t.id);
             const exemption = exemptionList.find(x=>x.judgeId===session?.userId && x.teamId===t.id);
             const declare = h('button', { class: 'linkish', type: 'button' },
@@ -80,20 +93,46 @@ export async function scoringScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
                 if (alive) render();
               }
             });
+            const content = panel === 'scrutineering' ? h('div', { class: 'stack' },
+              h('div', { class: 'stack', style: 'gap: 4px; margin-bottom: 6px' },
+                h('strong', { class: 'small muted', style: 'text-transform: uppercase; letter-spacing: 0.05em' }, 'Specification Judging (Dimensions)'),
+                ...(['A', 'B'] as const).map((car) => {
+                  const s = stateOfInspection(t.id, car);
+                  return h('a', {
+                    class: 'btn btn--ghost btn--small',
+                    href: routeHref({ name: 'inspection', eventId, teamId: t.id, car }),
+                    'aria-label': `Car ${car} Technical Inspection, Team ${t.number}, ${s.label}`,
+                  }, `Car ${car} Inspection`, ' ', s.node);
+                }),
+              ),
+              h('div', { class: 'stack', style: 'gap: 4px' },
+                h('strong', { class: 'small muted', style: 'text-transform: uppercase; letter-spacing: 0.05em' }, 'Scrutineering Scorecards'),
+                ...areas.map((a) => {
+                  const s = stateOf(t.id, a.id, a.criteria.length);
+                  return h('a', {
+                    class: 'btn btn--ghost btn--small',
+                    href: routeHref({ name: 'scorecard', eventId, teamId: t.id, areaId: a.id }),
+                    'aria-label': `${a.name}, Team ${t.number}, ${s.label}`,
+                  }, a.name, ' ', s.node);
+                }),
+              ),
+              declare,
+            ) : h('div', { class: 'stack' },
+              ...areas.map((a) => {
+                const s = stateOf(t.id, a.id, a.criteria.length);
+                return h('a', {
+                  class: 'btn btn--ghost btn--small',
+                  href: routeHref({ name: 'scorecard', eventId, teamId: t.id, areaId: a.id }),
+                  'aria-label': `${a.name}, Team ${t.number}, ${s.label}`,
+                }, a.name, ' ', s.node);
+              }),
+              declare,
+            );
             return h('article', { class: 'card' },
               h('h3', null, `Team ${t.number} · ${t.name}`),
               exemption ? h('p',{class:'notice'},'Exempt from judging this team.',exemption.reason?` ${exemption.reason}`:'') : conflicted
                 ? h('p', { class: 'small' }, 'You declared a conflict of interest with this team. Ask the Chair if this was a mistake.')
-                : h('div', { class: 'stack' },
-                    ...areas.map((a) => {
-                      const s = stateOf(t.id, a.id, a.criteria.length);
-                      return h('a', {
-                        class: 'btn btn--ghost btn--small',
-                        href: routeHref({ name: 'scorecard', eventId, teamId: t.id, areaId: a.id }),
-                        'aria-label': `${a.name}, Team ${t.number}, ${s.label}`,
-                      }, a.name, ' ', s.node);
-                    }),
-                    declare),
+                : content,
             );
           })),
         );

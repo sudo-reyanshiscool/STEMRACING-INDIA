@@ -455,3 +455,26 @@ describe('rankingsScreen when the server refuses a release', () => {
     expect((await api.getEvent(ev.id))!.resultsReleased).toBe(false);
   });
 });
+
+describe('rankingsScreen with technical inspections', () => {
+  it('incorporates Car A and Car B submitted inspection penalties into Specification category derived score', async () => {
+    const { api, ev, t1 } = await world();
+    await api.signIn(EMAILS.org);
+    await api.invite(ev.id, { email: 'scrut@x.test', role: 'scrutineer' });
+    await api.signIn('scrut@x.test');
+    await api.claimInvitations();
+    // Car A has T3.6 at 49.0 g (1 g under 50.0 g min = -10 pts)
+    const ia = await api.saveInspection(ev.id, t1.id, 'A', { 'T3.6': 49.0 });
+    // Car B has no penalties
+    const ib = await api.saveInspection(ev.id, t1.id, 'B', { 'T3.6': 50.0 });
+    await api.submitInspection(ia.id);
+    await api.submitInspection(ib.id);
+
+    await api.signIn(EMAILS.chair);
+    const { ctx } = makeCtx(api);
+    const el = await rankingsScreen(ctx, ev.id);
+    const rows = [...el.querySelectorAll('tbody tr')].map((r) => [...r.children].map(text));
+    const t1Row = rows.find((r) => r[1].includes('Team 1 · One'))!;
+    expect(t1Row[2]).toBe('90');
+  });
+});

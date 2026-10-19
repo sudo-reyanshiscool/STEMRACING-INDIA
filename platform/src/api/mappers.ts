@@ -92,3 +92,35 @@ export const toSnapshotRow = (r: Row): SnapshotRow => ({
   id: r.id, eventId: r.event_id, createdAt: r.created_at, rulesetId: r.ruleset_id, inputHash: r.input_hash, rows: r.rows, released: !!r.released,
 });
 export const toConflictRow = (r: Row): ConflictRow => ({ eventId: r.event_id, judgeId: r.judge_id, teamId: r.team_id });
+export const toInspectionRow = (r: Row): import('../technical').Inspection => ({
+  id: r.id,
+  eventId: r.event_id,
+  teamId: r.team_id,
+  car: r.car,
+  inspectorId: r.inspector_id,
+  status: r.status,
+  rulesetId: r.ruleset_id,
+  measurements: r.measurements ?? {},
+  notes: r.notes ?? {},
+  startedAt: r.started_at,
+  submittedAt: r.submitted_at ?? null,
+  updatedAt: r.updated_at,
+  revision: r.revision ?? 1,
+});
+
+export const toBroadcastRow = (r: any): import('./types').BroadcastEmail => ({
+  id: r.id,
+  eventId: r.event_id,
+  senderId: r.sender_id ?? null,
+  senderEmail: r.sender_email ?? null,
+  audienceType: r.audience_type,
+  panel: r.panel ?? null,
+  recipientCount: r.recipient_count ?? 0,
+  subject: r.subject,
+  category: r.category ?? null,
+  body: r.body,
+  buttonText: r.button_text ?? null,
+  buttonUrl: r.button_url ?? null,
+  createdAt: r.created_at,
+});
+

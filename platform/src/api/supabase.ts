@@ -2,7 +2,7 @@ import type { RaceHeat, RaceLane, TimingPair, TimingState } from '../racing';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { INDIA_2026 } from '../rulesets';
 import {
-  firstRow, mapAuthError, mapPgError, toCardRow, toConflictRow, toEventRow, toInviteRow, toOverrideRow, toPenaltyRow, toRoleRow, toSnapshotRow,
+  firstRow, mapAuthError, mapPgError, toBroadcastRow, toCardRow, toConflictRow, toEventRow, toInspectionRow, toInviteRow, toOverrideRow, toPenaltyRow, toRoleRow, toSnapshotRow,
   toTeamRow,
 } from './mappers';
 import type { Api, Session } from './types';
@@ -423,6 +423,60 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
     },
     async getSnapshotInputs(snapshotId) {
       return ok(await guard(() => sb.rpc('snapshot_inputs', { p_snapshot: snapshotId })));
+    },
+    async listInspections(eventId) {
+      if (!(await session())) return [];
+      const rows = ok(await guard(() => sb.from('technical_inspections').select('*').eq('event_id', eventId))) as never[];
+      return rows.map(toInspectionRow);
+    },
+    async getInspection(eventId, teamId, car) {
+      if (!(await session())) return null;
+      const rows = ok(await guard(() => sb.from('technical_inspections').select('*').eq('event_id', eventId).eq('team_id', teamId).eq('car', car).limit(1))) as never[];
+      return rows.length > 0 ? toInspectionRow(rows[0]) : null;
+    },
+    async saveInspection(eventId, teamId, car, measurements, notes) {
+      const payload: Record<string, unknown> = {
+        event_id: eventId,
+        team_id: teamId,
+        car,
+        ruleset_id: 'india-nationals-2026-technical',
+        measurements,
+        notes: notes ?? {},
+        updated_at: new Date().toISOString(),
+      };
+      const { data, error } = await guard(() => sb.from('technical_inspections').insert(payload).select().single());
+      if (!error && data) return toInspectionRow(data);
+      if (error && error.code !== '23505') throw mapPgError(error);
+      const updated = one(await guard(() => sb.from('technical_inspections')
+        .update({ measurements, notes: notes ?? {}, updated_at: new Date().toISOString() })
+        .eq('event_id', eventId).eq('team_id', teamId).eq('car', car).select().single()));
+      return toInspectionRow(updated);
+    },
+    async submitInspection(inspectionId) {
+      ok(await guard(() => sb.rpc('submit_inspection', { p_inspection: inspectionId })));
+    },
+    async reopenInspection(inspectionId, reason) {
+      ok(await guard(() => sb.rpc('reopen_inspection', { p_inspection: inspectionId, p_reason: reason })));
+    },
+    async listBroadcasts(eventId) {
+      if (!(await session())) return [];
+      const rows = ok(await guard(() => sb.from('broadcast_emails').select('*').eq('event_id', eventId).order('created_at', { ascending: false }))) as never[];
+      return rows.map(toBroadcastRow);
+    },
+    async sendBroadcast(eventId, input) {
+      const sess = await session();
+      if (!sess) throw new ApiError('unauthenticated', 'Sign in first');
+      const { data, error } = await sb.functions.invoke('send-broadcast', {
+        body: { eventId, ...input },
+      });
+      if (error) {
+        const status = (error as { context?: { status?: number } }).context?.status;
+        if (status === 401) throw new ApiError('unauthenticated', 'Sign in again');
+        if (status === 403) throw new ApiError('forbidden', 'Only Chair or Organiser can send broadcasts');
+        if (status === 429) throw new ApiError('rate-limited', 'Email rate limit exceeded');
+        throw new ApiError('email-delivery', error.message || 'Failed to send broadcast');
+      }
+      return toBroadcastRow(data);
     },
   };
 }

@@ -7,12 +7,14 @@ export type Route =
   | { name: 'scores'; eventId: string }
   | { name: 'racing'; eventId: string }
   | { name: 'scorecard'; eventId: string; teamId: string; areaId: string }
+  | { name: 'inspection'; eventId: string; teamId: string; car: 'A' | 'B' }
   | { name: 'moderate'; eventId: string }
   | { name: 'rankings'; eventId: string }
-  | { name: 'results'; eventId: string };
+  | { name: 'results'; eventId: string }
+  | { name: 'communications'; eventId: string };
 
 const HOME: Route = { name: 'home' };
-const SECTIONS = ['teams', 'people', 'score', 'scores', 'moderate', 'rankings', 'results', 'racing'] as const;
+const SECTIONS = ['teams', 'people', 'communications', 'score', 'scores', 'moderate', 'rankings', 'results', 'racing'] as const;
 
 export function parseHash(hash: string): Route {
   const parts = hash.replace(/^#\/?/, '').split('/');
@@ -31,6 +33,9 @@ export function parseHash(hash: string): Route {
   if (decoded.length === 5 && decoded[2] === 'score' && decoded[3] && decoded[4]) {
     return { name: 'scorecard', eventId, teamId: decoded[3], areaId: decoded[4] };
   }
+  if (decoded.length === 5 && decoded[2] === 'inspection' && decoded[3] && (decoded[4] === 'A' || decoded[4] === 'B')) {
+    return { name: 'inspection', eventId, teamId: decoded[3], car: decoded[4] as 'A' | 'B' };
+  }
   return HOME;
 }
 
@@ -41,6 +46,7 @@ export function routeHref(r: Route): string {
     case 'home': return '#/';
     case 'event': return `#/event/${e(r.eventId)}`;
     case 'scorecard': return `#/event/${e(r.eventId)}/score/${e(r.teamId)}/${e(r.areaId)}`;
+    case 'inspection': return `#/event/${e(r.eventId)}/inspection/${e(r.teamId)}/${e(r.car)}`;
     default: return `#/event/${e(r.eventId)}/${r.name}`;
   }
 }

@@ -5,9 +5,10 @@ import { cleanTeam, MAX_IMPORT_TEAMS } from './team-input';
 import type { NewTeam } from './types';
 import { blankReview, validateReview, type CardReview, type FeedbackRow, type NominationRow } from './review';
 import {
-  ApiError, type Api, type CardRow, type ConflictRow, type EventRow, type InviteRow, type NewSnapshot, type OverrideRow, type Panel,
+  ApiError, type Api, type BroadcastEmail, type CardRow, type ConflictRow, type EventRow, type InviteRow, type NewBroadcastInput, type NewSnapshot, type OverrideRow, type Panel,
   type PenaltyRow, type Role, type RoleRow, type Session, type SnapshotRow, type TeamRow,
 } from './types';
+import type { Car, Inspection, InspectionStatus, Measurements } from '../technical';
 
 let seq = 0;
 const nid = (prefix: string) => `${prefix}-${++seq}`;
@@ -37,11 +38,17 @@ export class MemoryApi implements Api {
   private conflicts: { eventId: string; judgeId: string; teamId: string }[] = [];
   private cards: CardRow[] = [];
   private races: RaceHeat[] = [];
+  private broadcasts: BroadcastEmail[] = [];
   private timing = new Map<string, TimingState>();
   private reviews = new Map<string, CardReview>();
   private overrides: OverrideRow[] = [];
   private penalties: PenaltyRow[] = [];
   private snapshots: SnapshotRow[] = [];
+  private inspections: Inspection[] = [];
+  private inspectionHistory: Array<{
+    id: string; inspectionId: string; changedBy: string; changedAt: string;
+    previousMeasurements: Measurements; previousStatus: InspectionStatus; reason: string; revision: number;
+  }> = [];
   /**
    * Counts every change to what a ranking counts (card submitted or reopened, override set or removed, penalty added or
    * removed, team added). A snapshot remembers the value it was published at: the database compares timestamps and counts
@@ -557,5 +564,174 @@ export class MemoryApi implements Api {
     // An unknown id is indistinguishable from a forbidden one, as in snapshot_inputs().
     if (!s || !this.has(s.eventId, 'chair', 'organiser')) throw new ApiError('forbidden', 'Snapshot inputs are restricted to the Chair and Organiser');
     return copy(this.snapshotInputs.get(snapshotId));
+  }
+  async listInspections(eventId: string) {
+    if (this.rolesOf(eventId).length === 0) throw new ApiError('forbidden', 'You do not have permission to do that');
+    const isStaff = this.has(eventId, 'chair', 'organiser');
+    const isReleased = this.events.find((e) => e.id === eventId)?.resultsReleased ?? false;
+    const isJudgeOrStaff = this.rolesOf(eventId).some((r) => r.role === 'judge' || r.role === 'scrutineer' || r.role === 'lead_judge' || r.role === 'chair' || r.role === 'organiser');
+    const myTeams = new Set(this.rolesOf(eventId).filter((r) => r.role === 'team_manager' && r.teamId).map((r) => r.teamId!));
+
+    return copy(this.inspections.filter((i) => {
+      if (i.eventId !== eventId) return false;
+      if (isStaff || i.inspectorId === this.me?.userId) return true;
+      if (i.status === 'submitted') {
+        if (isJudgeOrStaff) return true;
+        if (isReleased && myTeams.has(i.teamId)) return true;
+      }
+      return false;
+    }));
+  }
+  async getInspection(eventId: string, teamId: string, car: Car) {
+    if (this.rolesOf(eventId).length === 0) throw new ApiError('forbidden', 'You do not have permission to do that');
+    const found = this.inspections.find((i) => i.eventId === eventId && i.teamId === teamId && i.car === car);
+    if (!found) return null;
+    const isStaff = this.has(eventId, 'chair', 'organiser');
+    const isReleased = this.events.find((e) => e.id === eventId)?.resultsReleased ?? false;
+    const isJudgeOrStaff = this.rolesOf(eventId).some((r) => r.role === 'judge' || r.role === 'scrutineer' || r.role === 'lead_judge' || r.role === 'chair' || r.role === 'organiser');
+    const myTeams = new Set(this.rolesOf(eventId).filter((r) => r.role === 'team_manager' && r.teamId).map((r) => r.teamId!));
+    if (isStaff || found.inspectorId === this.me?.userId) return copy(found);
+    if (found.status === 'submitted') {
+      if (isJudgeOrStaff) return copy(found);
+      if (isReleased && myTeams.has(found.teamId)) return copy(found);
+    }
+    return null;
+  }
+  async saveInspection(eventId: string, teamId: string, car: Car, measurements: Measurements, notes?: Record<string, string>) {
+    this.teamOrThrow(eventId, teamId);
+    this.frozen(eventId, 'inspections');
+    const isInspector = this.has(eventId, 'chair', 'organiser', 'scrutineer') ||
+      this.rolesOf(eventId).some((r) => r.role === 'judge' && r.panel === 'scrutineering' && (r.teamId === null || r.teamId === teamId));
+    if (!isInspector) throw new ApiError('forbidden', 'You cannot inspect this team');
+    let insp = this.inspections.find((i) => i.eventId === eventId && i.teamId === teamId && i.car === car);
+    const now = new Date().toISOString();
+    if (!insp) {
+      insp = {
+        id: nid('insp'),
+        eventId,
+        teamId,
+        car,
+        inspectorId: this.me!.userId,
+        status: 'in_progress',
+        rulesetId: 'india-nationals-2026-technical',
+        measurements: copy(measurements),
+        notes: notes ? copy(notes) : {},
+        startedAt: now,
+        submittedAt: null,
+        updatedAt: now,
+        revision: 1,
+      };
+      this.inspections.push(insp);
+    } else {
+      if (insp.status === 'submitted') throw new ApiError('locked', 'Inspection is already submitted');
+      insp.measurements = copy(measurements);
+      if (notes) insp.notes = copy(notes);
+      insp.updatedAt = now;
+      insp.revision += 1;
+    }
+    return copy(insp);
+  }
+  async submitInspection(inspectionId: string) {
+    const insp = this.inspections.find((i) => i.id === inspectionId);
+    if (!insp) throw new ApiError('not-found', 'Inspection not found');
+    this.frozen(insp.eventId, 'inspections');
+    const canSubmit = insp.inspectorId === this.me?.userId || this.has(insp.eventId, 'chair', 'organiser');
+    if (!canSubmit) throw new ApiError('forbidden', 'You cannot submit this inspection');
+    if (insp.status === 'submitted') throw new ApiError('duplicate', 'Already submitted');
+    this.inspectionHistory.push({
+      id: nid('insphist'),
+      inspectionId,
+      changedBy: this.me!.userId,
+      changedAt: new Date().toISOString(),
+      previousMeasurements: copy(insp.measurements),
+      previousStatus: insp.status,
+      reason: '',
+      revision: insp.revision,
+    });
+    insp.status = 'submitted';
+    insp.submittedAt = new Date().toISOString();
+    insp.updatedAt = insp.submittedAt;
+    insp.revision += 1;
+    this.version += 1;
+  }
+  async reopenInspection(inspectionId: string, reason: string) {
+    const insp = this.inspections.find((i) => i.id === inspectionId);
+    if (!insp) throw new ApiError('not-found', 'Inspection not found');
+    this.frozen(insp.eventId, 'inspections');
+    if (!this.has(insp.eventId, 'chair', 'organiser')) throw new ApiError('forbidden', 'Only Chair or Organiser can reopen an inspection');
+    if (insp.status !== 'submitted') throw new ApiError('invalid', 'Only submitted inspections can be reopened');
+    const why = (typeof reason === 'string' ? reason : '').trim();
+    if (!why) throw new ApiError('invalid', 'A reason is required to reopen an inspection');
+    this.inspectionHistory.push({
+      id: nid('insphist'),
+      inspectionId,
+      changedBy: this.me!.userId,
+      changedAt: new Date().toISOString(),
+      previousMeasurements: copy(insp.measurements),
+      previousStatus: insp.status,
+      reason: why,
+      revision: insp.revision,
+    });
+    insp.status = 'reopened';
+    insp.updatedAt = new Date().toISOString();
+    insp.revision += 1;
+    this.version += 1;
+  }
+  async listBroadcasts(eventId: string): Promise<BroadcastEmail[]> {
+    if (!this.has(eventId, 'chair', 'organiser')) {
+      throw new ApiError('forbidden', 'Broadcasts are restricted to the Chair and Organiser');
+    }
+    return copy(this.broadcasts.filter((b) => b.eventId === eventId));
+  }
+  async sendBroadcast(eventId: string, input: NewBroadcastInput): Promise<BroadcastEmail> {
+    if (!this.has(eventId, 'chair', 'organiser')) {
+      throw new ApiError('forbidden', 'Only Chair or Organiser can send broadcasts');
+    }
+    const subject = (input.subject ?? '').trim();
+    if (!subject) throw new ApiError('invalid', 'Subject is required');
+    const body = (input.body ?? '').trim();
+    if (!body) throw new ApiError('invalid', 'Body is required');
+
+    let recipientCount = 0;
+    if (input.audienceType === 'all_judges') {
+      const judges = this.rolesOf(eventId).filter((r) => r.role === 'judge' || r.role === 'lead_judge');
+      const uniqueEmails = new Set(judges.map((j) => j.email).filter(Boolean));
+      for (const inv of this.invites.filter((i) => i.eventId === eventId && (i.role === 'judge' || i.role === 'lead_judge'))) {
+        uniqueEmails.add(inv.email);
+      }
+      recipientCount = uniqueEmails.size;
+    } else if (input.audienceType === 'panel') {
+      const judges = this.rolesOf(eventId).filter((r) => (r.role === 'judge' || r.role === 'lead_judge') && r.panel === input.panel);
+      const uniqueEmails = new Set(judges.map((j) => j.email).filter(Boolean));
+      for (const inv of this.invites.filter((i) => i.eventId === eventId && (i.role === 'judge' || i.role === 'lead_judge') && i.panel === input.panel)) {
+        uniqueEmails.add(inv.email);
+      }
+      recipientCount = uniqueEmails.size;
+    } else if (input.audienceType === 'specific_judges') {
+      const ids = new Set(input.judgeIds ?? []);
+      const judges = this.rolesOf(eventId).filter((r) => ids.has(r.userId));
+      recipientCount = new Set(judges.map((j) => j.email).filter(Boolean)).size;
+    } else if (input.audienceType === 'emails') {
+      const emails = new Set((input.customEmails ?? []).map((e) => e.trim().toLowerCase()).filter((e) => EMAIL.test(e)));
+      recipientCount = emails.size;
+    }
+
+    const broadcast: BroadcastEmail = {
+      id: nid('bcast'),
+      eventId,
+      senderId: this.me?.userId ?? null,
+      senderEmail: this.me?.email ?? null,
+      audienceType: input.audienceType,
+      panel: input.panel ?? null,
+      recipientCount,
+      subject,
+      category: input.category?.trim() || null,
+      body,
+      buttonText: input.buttonText?.trim() || null,
+      buttonUrl: input.buttonUrl?.trim() || null,
+      createdAt: new Date().toISOString(),
+    };
+    this.broadcasts.push(broadcast);
+    return copy(broadcast);
   }
 }

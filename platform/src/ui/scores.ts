@@ -7,6 +7,7 @@ import { h } from './dom';
 import { PANEL_LABEL } from './labels';
 import { liveRefresh } from './live-refresh';
 import { routeHref } from './router';
+import { INDIA_TECHNICAL, summarise, type Inspection } from '../technical';
 
 export async function scoresScreen(ctx: Ctx, eventId: string): Promise<HTMLElement> {
   const [event, roles, session] = await Promise.all([ctx.api.getEvent(eventId), ctx.api.myRoles(eventId), ctx.api.getSession()]);
@@ -25,10 +26,11 @@ export async function scoresScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
   const holder = h('div', { class: 'stack' });
   const refresh = h('button', { class: 'btn btn--ghost btn--small', type: 'button' }, 'Refresh scores');
   const load = async () => {
-    const [teams, cards, people, feedback] = await Promise.all([
+    const [teams, cards, people, feedback, inspections] = await Promise.all([
       ctx.api.listTeams(eventId), ctx.api.listCards(eventId), ctx.api.listRoles(eventId), ctx.api.listFeedback(eventId),
+      ctx.api.listInspections(eventId).catch(() => [] as Inspection[]),
     ]);
-    return { teams, cards, people, feedback };
+    return { teams, cards, people, feedback, inspections };
   };
   let data = await load();
   const options = () => {
@@ -42,31 +44,93 @@ export async function scoresScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
   };
   const draw = () => {
     const expanded = new Set([...holder.querySelectorAll<HTMLDetailsElement>('details[open]')].map((d) => d.dataset.card));
-    const visible = data.cards.filter((c) => (!team.value || c.teamId === team.value) && (!panel.value || c.panel === panel.value));
-    const submitted = visible.filter((c) => c.status === 'submitted').length;
-    summary.textContent = `${submitted} submitted · ${visible.length - submitted} draft. Only submitted scorecards count in Rankings.`;
-    const teamName = (c: CardRow) => { const t = data.teams.find((t) => t.id === c.teamId); return t ? `Team ${t.number} · ${t.name}` : 'Removed team'; };
-    const sorted = [...visible].sort((a, b) => teamName(a).localeCompare(teamName(b), 'en', { numeric: true }) || a.areaId.localeCompare(b.areaId) || a.judgeId.localeCompare(b.judgeId));
+    const visibleCards = data.cards.filter((c) => (!team.value || c.teamId === team.value) && (!panel.value || c.panel === panel.value));
+    const showInspections = !panel.value || panel.value === 'scrutineering';
+    const visibleInspections = showInspections
+      ? data.inspections.filter((i) => !team.value || i.teamId === team.value)
+      : [];
+    const submitted = visibleCards.filter((c) => c.status === 'submitted').length + visibleInspections.filter((i) => i.status === 'submitted').length;
+    const drafts = (visibleCards.length - visibleCards.filter((c) => c.status === 'submitted').length)
+      + (visibleInspections.length - visibleInspections.filter((i) => i.status === 'submitted').length);
+    summary.textContent = `${submitted} submitted · ${drafts} draft. Only submitted scorecards count in Rankings.`;
+    const teamNameById = (teamId: string) => {
+      const t = data.teams.find((x) => x.id === teamId);
+      return t ? `Team ${t.number} · ${t.name}` : 'Removed team';
+    };
+
+    type RowItem =
+      | { kind: 'card'; card: CardRow; teamName: string; sortKey: string }
+      | { kind: 'inspection'; inspection: Inspection; teamName: string; sortKey: string };
+
+    const cardRows: RowItem[] = visibleCards.map((c) => ({
+      kind: 'card',
+      card: c,
+      teamName: teamNameById(c.teamId),
+      sortKey: `${teamNameById(c.teamId)}|${c.areaId}|${c.judgeId}`,
+    }));
+
+    const inspectionRows: RowItem[] = visibleInspections.map((i) => ({
+      kind: 'inspection',
+      inspection: i,
+      teamName: teamNameById(i.teamId),
+      sortKey: `${teamNameById(i.teamId)}|spec-${i.car}|${i.inspectorId}`,
+    }));
+
+    const sorted = [...cardRows, ...inspectionRows].sort((a, b) => a.sortKey.localeCompare(b.sortKey, 'en', { numeric: true }));
+
     holder.replaceChildren(sorted.length ? h('div', { class: 'table-wrap' }, h('table', { class: 'table' },
       h('caption', { class: 'small muted' }, 'Saved scorecards visible to your role'),
       h('thead', null, h('tr', null, ['Team', 'Area', 'Judge', 'Score', 'Status and details'].map((label) => h('th', { scope: 'col' }, label)))),
-      h('tbody', null, sorted.map((c) => {
-        const area = event.ruleset.areas.find((a) => a.id === c.areaId);
-        if (!area) return null;
-        const complete = validateScores(area, c.scores, { complete: true }).length === 0;
-        const total = areaTotal(area, c.scores);
-        const review = data.feedback.find((f) => f.cardId === c.id);
-        const details = h('details', { 'data-card': c.id, open: expanded.has(c.id) }, h('summary', null, 'View scores and feedback'),
-          h('dl', { class: 'score-breakdown' }, area.criteria.flatMap((criterion) => [h('dt', null, criterion.name), h('dd', null, `${c.scores[criterion.id] ?? '—'} / ${criterion.max}`)])),
-          ...Object.entries(c.comments).filter(([, text]) => text).map(([id, value]) => h('p', { class: 'small results-comment' }, h('strong', null, `${area.criteria.find((x) => x.id === id)?.name ?? id}: `), value)),
-          ...([['Overall Comment', review?.overall], ['Key Strengths', review?.strengths], ['Areas for Improvement', review?.improvements]] as const)
-            .filter(([, value]) => value).map(([label, value]) => h('p', { class: 'small results-comment' }, h('strong', null, `${label}: `), value)),
-          c.judgeId === session.userId && roles.some((r) => r.role === 'judge' && r.panel === c.panel && (r.teamId === null || r.teamId === c.teamId))
-            ? h('a', { class: 'btn btn--ghost btn--small', href: routeHref({ name: 'scorecard', eventId, teamId: c.teamId, areaId: c.areaId }) }, c.status === 'draft' ? 'Continue scoring' : 'View submitted scorecard') : null);
-        const judge = data.people.find((r) => r.userId === c.judgeId && r.email)?.email ?? (c.judgeId === session.userId ? session.email : 'Judge');
-        return h('tr', null, h('th', { scope: 'row' }, teamName(c)), h('td', { 'data-label': 'Area' }, area.name), h('td', { 'data-label': 'Judge' }, judge),
-          h('td', { 'data-label': 'Score', class: 'num' }, `${total} / ${area.max}`, !complete ? h('span', { class: 'small muted' }, ' · incomplete') : null),
-          h('td', { 'data-label': 'Status and details' }, tag(c.status === 'submitted' ? 'Submitted' : 'Draft · not counted', c.status === 'submitted' ? 'pass' : 'risk'), details));
+      h('tbody', null, sorted.map((item) => {
+        if (item.kind === 'card') {
+          const c = item.card;
+          const area = event.ruleset.areas.find((a) => a.id === c.areaId);
+          if (!area) return null;
+          const complete = validateScores(area, c.scores, { complete: true }).length === 0;
+          const total = areaTotal(area, c.scores);
+          const review = data.feedback.find((f) => f.cardId === c.id);
+          const details = h('details', { 'data-card': c.id, open: expanded.has(c.id) }, h('summary', null, 'View scores and feedback'),
+            h('dl', { class: 'score-breakdown' }, area.criteria.flatMap((criterion) => [h('dt', null, criterion.name), h('dd', null, `${c.scores[criterion.id] ?? '—'} / ${criterion.max}`)])),
+            ...Object.entries(c.comments).filter(([, text]) => text).map(([id, value]) => h('p', { class: 'small results-comment' }, h('strong', null, `${area.criteria.find((x) => x.id === id)?.name ?? id}: `), value)),
+            ...([['Overall Comment', review?.overall], ['Key Strengths', review?.strengths], ['Areas for Improvement', review?.improvements]] as const)
+              .filter(([, value]) => value).map(([label, value]) => h('p', { class: 'small results-comment' }, h('strong', null, `${label}: `), value)),
+            c.judgeId === session.userId && roles.some((r) => r.role === 'judge' && r.panel === c.panel && (r.teamId === null || r.teamId === c.teamId))
+              ? h('a', { class: 'btn btn--ghost btn--small', href: routeHref({ name: 'scorecard', eventId, teamId: c.teamId, areaId: c.areaId }) }, c.status === 'draft' ? 'Continue scoring' : 'View submitted scorecard') : null);
+          const judge = data.people.find((r) => r.userId === c.judgeId && r.email)?.email ?? (c.judgeId === session.userId ? session.email : 'Judge');
+          return h('tr', null, h('th', { scope: 'row' }, item.teamName), h('td', { 'data-label': 'Area' }, area.name), h('td', { 'data-label': 'Judge' }, judge),
+            h('td', { 'data-label': 'Score', class: 'num' }, `${total} / ${area.max}`, !complete ? h('span', { class: 'small muted' }, ' · incomplete') : null),
+            h('td', { 'data-label': 'Status and details' }, tag(c.status === 'submitted' ? 'Submitted' : 'Draft · not counted', c.status === 'submitted' ? 'pass' : 'risk'), details));
+        }
+        const insp = item.inspection;
+        const judge = data.people.find((r) => r.userId === insp.inspectorId && r.email)?.email ?? (insp.inspectorId === session.userId ? session.email : 'Scrutineer');
+        const sum = summarise(INDIA_TECHNICAL.rules, insp.measurements);
+        const failing = sum.results.filter((r) => r.status === 'fail');
+        const detailsKey = `insp-${insp.id}`;
+        const canInspect = staff || roles.some((r) => (r.role === 'scrutineer' || (r.role === 'judge' && r.panel === 'scrutineering')) && (r.teamId === null || r.teamId === insp.teamId));
+        const details = h('details', { 'data-card': detailsKey, open: expanded.has(detailsKey) },
+          h('summary', null, 'View inspection details'),
+          h('dl', { class: 'score-breakdown' },
+            h('dt', null, 'Total penalty deduction'), h('dd', null, `−${sum.total} pts`),
+            h('dt', null, 'Safety breaches'), h('dd', null, String(sum.safetyFailures.length)),
+            h('dt', null, 'Performance breaches'), h('dd', null, String(sum.perfFailures.length)),
+          ),
+          ...failing.map((r) => h('p', { class: 'small results-comment' }, h('strong', null, `${r.article} ${r.name}: `), `−${r.penalty} pts (${r.detail.join(', ')})`)),
+          canInspect ? h('a', { class: 'btn btn--ghost btn--small', href: routeHref({ name: 'inspection', eventId, teamId: insp.teamId, car: insp.car }) }, insp.status === 'submitted' ? 'View technical inspection' : 'Continue inspection') : null,
+        );
+        const scoreText = sum.total === 0 ? '0 penalties' : `−${sum.total} pts`;
+        const scoreExtra = sum.safetyFailures.length > 0 || sum.perfFailures.length > 0
+          ? h('span', { class: 'small muted' }, ` · ${sum.safetyFailures.length} safety, ${sum.perfFailures.length} perf`)
+          : null;
+        return h('tr', null,
+          h('th', { scope: 'row' }, item.teamName),
+          h('td', { 'data-label': 'Area' }, `Specification · Car ${insp.car}`),
+          h('td', { 'data-label': 'Judge' }, judge),
+          h('td', { 'data-label': 'Score', class: 'num' }, scoreText, scoreExtra),
+          h('td', { 'data-label': 'Status and details' },
+            tag(insp.status === 'submitted' ? 'Submitted' : insp.status === 'reopened' ? 'Reopened' : 'In progress', insp.status === 'submitted' ? 'pass' : 'risk'),
+            details,
+          ),
+        );
       })))) : h('p', { class: 'muted' }, 'No saved scorecards match this view. Judges can start from My scorecards.'));
   };
   const update = async () => {

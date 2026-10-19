@@ -552,3 +552,79 @@ describe('removePenalty', () => {
     expect(await api.listPenalties(ev.id)).toEqual([]);
   });
 });
+
+describe('technical inspections', () => {
+  it('saves, submits, and reopens technical inspections with audit history and permissions', async () => {
+    const { api, ev, t1 } = await world();
+    const SCRUT = 'scrut@x.test';
+    await api.signIn(ORG);
+    await api.invite(ev.id, { email: SCRUT, role: 'judge', panel: 'scrutineering' });
+    await api.signIn(SCRUT);
+    await api.claimInvitations();
+
+    // Verbal judge cannot save inspection
+    await api.signIn(JUDGE);
+    expect(await code(api.saveInspection(ev.id, t1.id, 'A', { 'T3.6': 52.0 }))).toBe('forbidden');
+
+    // Scrutineering judge can save inspection
+    await api.signIn(SCRUT);
+    const saved = await api.saveInspection(ev.id, t1.id, 'A', { 'T3.6': 52.0 }, { note: 'checked' });
+    expect(saved.measurements).toEqual({ 'T3.6': 52.0 });
+    expect(saved.status).toBe('in_progress');
+    expect(saved.revision).toBe(1);
+
+    // Update inspection
+    const updated = await api.saveInspection(ev.id, t1.id, 'A', { 'T3.6': 53.0 });
+    expect(updated.measurements).toEqual({ 'T3.6': 53.0 });
+    expect(updated.revision).toBe(2);
+
+    // Get inspection
+    const fetched = await api.getInspection(ev.id, t1.id, 'A');
+    expect(fetched?.measurements).toEqual({ 'T3.6': 53.0 });
+
+    // Submit inspection
+    await api.submitInspection(saved.id);
+    expect(await code(api.submitInspection(saved.id))).toBe('duplicate');
+    expect(await code(api.saveInspection(ev.id, t1.id, 'A', { 'T3.6': 54.0 }))).toBe('locked');
+
+    // Only Chair can reopen
+    await api.signIn(SCRUT);
+    expect(await code(api.reopenInspection(saved.id, 'Correction required'))).toBe('forbidden');
+
+    await api.signIn(CHAIR);
+    expect(await code(api.reopenInspection(saved.id, '   '))).toBe('invalid');
+    await api.reopenInspection(saved.id, 'Correction required by scrutineer');
+    const reopened = await api.getInspection(ev.id, t1.id, 'A');
+    expect(reopened?.status).toBe('reopened');
+
+    // After reopen, scrutineer can edit again
+    await api.signIn(SCRUT);
+    await api.saveInspection(ev.id, t1.id, 'A', { 'T3.6': 52.5 });
+    const finalInsp = await api.getInspection(ev.id, t1.id, 'A');
+    expect(finalInsp?.measurements).toEqual({ 'T3.6': 52.5 });
+
+    // While reopened (in progress), verbal judge and manager cannot see it
+    await api.signIn(JUDGE);
+    expect((await api.listInspections(ev.id)).length).toBe(0);
+    await api.signIn(MGR);
+    expect((await api.listInspections(ev.id)).length).toBe(0);
+
+    // Re-submit inspection
+    await api.signIn(SCRUT);
+    await api.submitInspection(saved.id);
+
+    // Submitted inspection is visible to verbal judge, but not yet to manager
+    await api.signIn(JUDGE);
+    expect((await api.listInspections(ev.id)).length).toBe(1);
+    await api.signIn(MGR);
+    expect((await api.listInspections(ev.id)).length).toBe(0);
+
+    // After release, manager can see own team's submitted inspection
+    await api.signIn(CHAIR);
+    await api.publishSnapshot(ev.id, { rulesetId: RULESET, inputHash: HASH, inputs: { cards: [] }, rows: [] });
+    await api.setReleased(ev.id, true);
+    await api.signIn(MGR);
+    expect((await api.listInspections(ev.id)).length).toBe(1);
+  });
+});
+
