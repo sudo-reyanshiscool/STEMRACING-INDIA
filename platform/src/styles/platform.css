@@ -176,3 +176,6 @@ main:has(.race-screen)>* { animation:none; }
 .race-screen .inline-form .field { min-width:min(100%,240px); }
 
 .invite-email-failed { color:var(--podium-gold); }
+
+.assignment-teams { border: 1px solid var(--rule); border-radius: 8px; padding: 1rem; display: grid; gap: .5rem; }
+.assignment-teams[hidden] { display: none; }

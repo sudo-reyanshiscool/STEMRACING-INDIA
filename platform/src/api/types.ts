@@ -13,10 +13,12 @@ export type EmailStatus = 'not_sent' | 'sending' | 'sent' | 'failed';
 export interface InviteRow { id: string; eventId: string; email: string; role: Role; panel: Panel | null; teamId: string | null; emailStatus?: EmailStatus; emailSentAt?: string | null; emailFailure?: 'provider' | 'rate_limit' | null }
 export interface CardRow { id: string; eventId: string; teamId: string; areaId: string; panel: Panel; judgeId: string; status: 'draft' | 'submitted'; reopenedCount: number; scores: Record<string, number>; comments: Record<string, string> }
 /** A judge's declared conflict of interest with a team. */
+export interface JudgeExemption { eventId: string; judgeId: string; teamId: string; reason: string }
 export interface ConflictRow { eventId: string; judgeId: string; teamId: string }
 export interface OverrideRow { eventId: string; teamId: string; areaId: string; value: number; reason: string }
 export interface PenaltyRow { id: string; eventId: string; teamId: string; points: number; reason: string }
 /** What anyone allowed to see a snapshot gets. The inputs are deliberately absent: see Api.getSnapshotInputs. */
+export interface PublicStandings { createdAt: string; rows: Array<Pick<RankRow, 'rank' | 'teamId' | 'number' | 'name' | 'total' | 'tied'>> }
 export interface SnapshotRow { id: string; eventId: string; createdAt: string; rulesetId: string; inputHash: string; rows: RankRow[]; released: boolean }
 export interface NewSnapshot { rulesetId: string; inputHash: string; inputs: unknown; rows: RankRow[] }
 /** 'unauthenticated': no valid session (signed out, token expired). The caller should sign in again; nothing was refused on merit. */
@@ -49,6 +51,10 @@ export interface Api {
   listRoles(eventId: string): Promise<RoleRow[]>;
   listInvitations(eventId: string): Promise<InviteRow[]>;
   invite(eventId: string, i: { email: string; role: Role; panel?: Panel; teamId?: string }): Promise<void>;
+  /** null teams means the entire panel; selected team ids replace only that panel's scope. */
+  listJudgeExemptions(eventId: string): Promise<JudgeExemption[]>;
+  setJudgeExemption(eventId: string, userId: string, teamId: string, exempt: boolean, reason?: string): Promise<void>;
+  setJudgeAssignment(eventId: string, userId: string, panel: Panel, teamIds: string[] | null): Promise<void>;
   removeRole(roleId: string): Promise<void>;
   removeInvitation(inviteId: string): Promise<void>;
   sendInvitation(inviteId: string): Promise<void>;
@@ -91,6 +97,8 @@ export interface Api {
   removePenalty(penaltyId: string): Promise<void>;
   publishSnapshot(eventId: string, s: NewSnapshot): Promise<SnapshotRow>;
   latestSnapshot(eventId: string): Promise<SnapshotRow | null>;
+  publicStandings(eventId: string): Promise<PublicStandings | null>;
+  releasedResults(eventId: string): Promise<SnapshotRow | null>;
   /** The inputs a snapshot was computed from (every judge's cards, overrides, penalties). Chair and Organiser only. */
   getSnapshotInputs(snapshotId: string): Promise<unknown>;
 }

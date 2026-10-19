@@ -25,23 +25,25 @@ const RELEASED_TEXT = 'Results are released, so this scorecard cannot be changed
 const changes = (n: number) => `${n} change${n === 1 ? '' : 's'}`;
 
 export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string, areaId: string): Promise<HTMLElement> {
-  const [event, teams, roles, conflictList] = await Promise.all([
-    ctx.api.getEvent(eventId), ctx.api.listTeams(eventId), ctx.api.myRoles(eventId), ctx.api.myConflicts(eventId),
+  const [event, teams, roles, conflictList, exemptions] = await Promise.all([
+    ctx.api.getEvent(eventId), ctx.api.listTeams(eventId), ctx.api.myRoles(eventId), ctx.api.myConflicts(eventId), ctx.api.listJudgeExemptions(eventId),
   ]);
   const area = event?.ruleset.areas.find((a) => a.id === areaId && a.kind === 'scorecard');
   const team = teams.find((t) => t.id === teamId);
   const back = routeHref({ name: 'score', eventId });
   if (!event || !area || !team) return notFound('That scorecard was not found.', back, 'Back to my scorecards');
-  if (!roles.some((r) => r.role === 'judge' && r.panel === area.panel)) {
-    return notFound('You do not judge this panel, so you cannot score this scorecard.', back, 'Back to my scorecards');
+  if (!roles.some((r) => r.role === 'judge' && r.panel === area.panel && (r.teamId === null || r.teamId === teamId))) {
+    return notFound('This team and panel are not assigned to you, so you cannot score this scorecard.', back, 'Back to my scorecards');
   }
   const conflicted = conflictList.includes(teamId);
+  const exempt = exemptions.some(x=>x.teamId===teamId && roles.some(r=>r.userId===x.judgeId));
+  const exemptionText = 'You are exempt from judging this team. Ask the Chair or Organiser to remove the exemption if this is a mistake.';
 
   let card: CardRow;
   try {
     card = await ctx.api.openCard(eventId, teamId, areaId);
   } catch (e) {
-    const message = e instanceof ApiError && e.code === 'forbidden' && conflicted ? CONFLICT_TEXT
+    const message = exempt ? exemptionText : e instanceof ApiError && e.code === 'forbidden' && conflicted ? CONFLICT_TEXT
       : e instanceof ApiError && e.code === 'locked' ? RELEASED_TEXT
       : errorText(e);
     return notFound(message, back, 'Back to my scorecards');
@@ -50,9 +52,10 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
   const [savedReview, session] = await Promise.all([ctx.api.getReview(card.id), ctx.api.getSession()]);
   if (!session) return notFound('Sign in to open your scorecard.', back, 'Back to my scorecards');
   let alive = true;
-  let locked = card.status === 'submitted' || conflicted || event.resultsReleased;
+  let locked = card.status === 'submitted' || conflicted || exempt || event.resultsReleased;
   let lockNote = card.status === 'submitted' ? 'Submitted. Only the Chair can reopen this scorecard.' : '';
-  if (conflicted) lockNote = CONFLICT_TEXT;
+  if (exempt) lockNote = exemptionText;
+  else if (conflicted) lockNote = CONFLICT_TEXT;
   else if (event.resultsReleased) lockNote = card.status === 'submitted' ? `${lockNote} ${RELEASED_TEXT}` : RELEASED_TEXT;
 
   const values: Record<string, number> = { ...card.scores };

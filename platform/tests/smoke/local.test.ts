@@ -183,13 +183,13 @@ describe.skipIf(!run)('local Supabase smoke test', () => {
     await chair.setReleased(ev.id, true);
     expect((await chair.getEvent(ev.id))!.resultsReleased).toBe(true);
 
-    // Released: public reads the snapshot, not its inputs.
-    expect((await anon.latestSnapshot(ev.id))?.id).toBe(first.snap.id);
+    // Released: scores stay private; the manager receives only their own team rows.
+    expect(await anon.latestSnapshot(ev.id)).toBeNull();
     expect((await anon.getEvent(ev.id))?.resultsReleased).toBe(true);
     expect((await anon.listTeams(ev.id)).map((t) => t.number)).toEqual(['1', '2']);
     const colRead = await anonClient.from('ranking_snapshots').select('inputs').eq('id', first.snap.id);
     expect(colRead.error?.code).toBe('42501');
-    expect((await mgr.latestSnapshot(ev.id))?.id).toBe(first.snap.id);
+    expect((await mgr.releasedResults(ev.id))?.id).toBe(first.snap.id);
     const mgrRead = await clients[emails.mgr].from('ranking_snapshots').select('inputs').eq('id', first.snap.id);
     expect(mgrRead.error?.code).toBe('42501');
     expect(await code(anon.getSnapshotInputs(first.snap.id))).toBe('forbidden');
@@ -229,7 +229,7 @@ describe.skipIf(!run)('local Supabase smoke test', () => {
     expect(second.snap.id).not.toBe(first.snap.id);
     expect(second.hash).not.toBe(first.hash);
     await chair.setReleased(ev.id, true);
-    expect((await anon.latestSnapshot(ev.id))?.id).toBe(second.snap.id);
+    expect(await anon.latestSnapshot(ev.id)).toBeNull();
     expect(await chair.getSnapshotInputs(first.snap.id)).toEqual(JSON.parse(JSON.stringify(first.inputs)));
 
     // Paging: a page size of 1 forces several requests per list; nothing may be lost or repeated.

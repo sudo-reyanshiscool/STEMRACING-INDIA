@@ -44,6 +44,16 @@ const fail = async (p: Promise<unknown>) => {
 };
 
 describe('ranking snapshots', () => {
+  it('uses the server-filtered manager RPC and returns no result without a session', async () => {
+    const row = { id: 's', event_id: 'e', created_at: 't', ruleset_id: 'r', input_hash: 'h', rows: [], released: true };
+    const { api, calls } = fake(() => ({ data: row }));
+    expect((await api.releasedResults('e'))?.id).toBe('s');
+    expect(calls).toEqual([{kind:'rpc',name:'released_results',args:{p_event:'e'},steps:[]}]);
+    const anonymous = fake(() => { throw new Error('Must not query'); }, null);
+    expect(await anonymous.api.releasedResults('e')).toBeNull();
+    expect(anonymous.calls).toHaveLength(0);
+  });
+
   it('never selects * and never asks for inputs back', async () => {
     const { api, calls } = fake(() => ({ data: [] }));
     await api.latestSnapshot('e');
@@ -420,5 +430,13 @@ describe('email verification',()=>{
  it('rejects expired verification and success responses that do not establish a session',async()=>{
   const expired=fake(()=>({error:{message:'expired',code:'otp_expired'}}));expect(await fail(expired.api.verifyEmailCode('person@x.test','12345678'))).toBe('invalid-auth');
   const empty=fake(()=>({data:{session:null}}));expect(await fail(empty.api.verifyEmailLink('a'.repeat(64)))).toBe('invalid-auth');
+ });
+});
+
+describe('judge assignments',()=>{
+ it('saves one panel scope atomically through the protected RPC',async()=>{
+  const {api,calls}=fake(()=>({data:null}));await api.setJudgeAssignment('event','judge','verbal',['t1','t2']);
+  expect(calls[0]).toMatchObject({kind:'rpc',name:'set_judge_assignment',args:{p_event:'event',p_user:'judge',p_panel:'verbal',p_teams:['t1','t2']}});
+  await api.setJudgeAssignment('event','judge','enterprise',null);expect(calls[1].args).toMatchObject({p_teams:null});
  });
 });

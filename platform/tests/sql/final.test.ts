@@ -219,12 +219,12 @@ describe('M3: anon cannot read who created an event or a snapshot', () => {
   const col = async (role: string, table: string, c: string) =>
     (await w.db.query<{ ok: boolean }>(`select has_column_privilege($1, $2, $3, 'select') as ok`, [role, table, c])).rows[0].ok;
 
-  it('hides created_by from anon on events and ranking_snapshots, and keeps every other public column', async () => {
+  it('hides all snapshot columns from anon while keeping public event metadata', async () => {
     expect(await col('anon', 'events', 'created_by')).toBe(false);
     expect(await col('anon', 'ranking_snapshots', 'created_by')).toBe(false);
     expect(await col('anon', 'ranking_snapshots', 'inputs')).toBe(false);
     for (const c of ['id', 'name', 'starts_on', 'ruleset', 'results_released', 'created_at']) expect(await col('anon', 'events', c), `events.${c}`).toBe(true);
-    for (const c of ['id', 'event_id', 'created_at', 'ruleset_id', 'input_hash', 'rows', 'released']) expect(await col('anon', 'ranking_snapshots', c), `snapshots.${c}`).toBe(true);
+    for (const c of ['id', 'event_id', 'created_at', 'ruleset_id', 'input_hash', 'rows', 'released']) expect(await col('anon', 'ranking_snapshots', c), `snapshots.${c}`).toBe(false);
     // The signed-in roles are unchanged.
     expect(await col('authenticated', 'events', 'created_by')).toBe(true);
     expect(await col('authenticated', 'ranking_snapshots', 'created_by')).toBe(true);
@@ -258,9 +258,9 @@ describe('hardening across the whole schema after 0004', () => {
       expect(f.pub, `${f.proname} public`).toBe(false);
     }
     const anon = fns.rows.filter((f) => f.anon).map((f) => f.proname);
-    expect(anon).toEqual(['event_active', 'event_released', 'has_role', 'ingest_denford', 'is_chair_or_organiser', 'is_member', 'judges_panel', 'leads_panel', 'manages_team', 'sees_all_teams']);
+    expect(anon).toEqual(['event_active', 'event_released', 'has_role', 'ingest_denford', 'is_chair_or_organiser', 'is_member', 'judges_panel', 'leads_panel', 'manages_team', 'public_standings', 'sees_all_teams']);
     const auth = fns.rows.filter((f) => f.auth && !f.anon).map((f) => f.proname);
-    expect(auth).toEqual(['claim_invitations', 'create_event', 'delete_event', 'delete_team', 'import_teams', 'is_conflicted', 'judges_panel_any', 'leads_panel_any', 'list_deleted_events', 'pair_race_timing', 'race_timing_state', 'release_results', 'reopen_scorecard', 'reserve_invitation_email', 'restore_event', 'save_card_review', 'save_race', 'snapshot_inputs', 'withdraw_results']);
+    expect(auth).toEqual(['claim_invitations', 'create_event', 'delete_event', 'delete_team', 'import_teams', 'is_conflicted', 'judge_can_score', 'judges_panel_any', 'leads_panel_any', 'list_deleted_events', 'pair_race_timing', 'race_timing_state', 'release_results', 'released_results', 'reopen_scorecard', 'reserve_invitation_email', 'restore_event', 'save_card_review', 'save_race', 'set_judge_assignment', 'set_judge_exemption', 'snapshot_inputs', 'specification_visible', 'withdraw_results']);
     for (const hidden of ['conflicts_guard', 'event_released_locked', 'snapshots_guard']) {
       const f = fns.rows.find((x) => x.proname === hidden)!;
       expect([f.anon, f.auth, f.pub], hidden).toEqual([false, false, false]);

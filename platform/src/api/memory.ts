@@ -33,6 +33,7 @@ export class MemoryApi implements Api {
   private roles: RoleRow[] = [];
   private invites: InviteRow[] = [];
   private teams: TeamRow[] = [];
+  private exemptions: {eventId:string;judgeId:string;teamId:string;reason:string}[]=[];
   private conflicts: { eventId: string; judgeId: string; teamId: string }[] = [];
   private cards: CardRow[] = [];
   private races: RaceHeat[] = [];
@@ -186,7 +187,7 @@ export class MemoryApi implements Api {
     const isJudge = JUDGE_ROLES.includes(i.role);
     if (isJudge !== (i.panel !== undefined)) throw new ApiError('invalid', isJudge ? 'Choose a judging panel' : 'Only judges have a panel');
     if (i.panel !== undefined && !PANELS.includes(i.panel)) throw new ApiError('invalid', 'Choose a judging panel');
-    if ((i.role === 'team_manager') !== (i.teamId !== undefined)) throw new ApiError('invalid', i.role === 'team_manager' ? 'Choose a team' : 'Only team managers have a team');
+    if ((i.role === 'team_manager' && i.teamId === undefined) || (i.role !== 'judge' && i.role !== 'team_manager' && i.teamId !== undefined)) throw new ApiError('invalid', i.role === 'team_manager' ? 'Choose a team' : 'Only team managers have a team');
     if (i.teamId !== undefined && !this.teams.some((t) => t.id === i.teamId && t.eventId === eventId)) {
       throw new ApiError('invalid', 'That team is not part of this event');
     }
@@ -196,6 +197,31 @@ export class MemoryApi implements Api {
       throw new ApiError('duplicate', 'That person is already invited for this role');
     }
     this.invites.push({ id: nid('invite'), eventId, email, role: i.role, panel, teamId, emailStatus: 'sent', emailSentAt: new Date().toISOString(), emailFailure: null });
+  }
+  async listJudgeExemptions(eventId: string) {
+    return copy(this.exemptions.filter(x=>x.eventId===eventId && !this.deletedEvents.has(eventId) && (this.has(eventId,'chair','organiser') || x.judgeId===this.me?.userId)));
+  }
+  async setJudgeExemption(eventId: string,userId: string,teamId: string,exempt: boolean,reason='') {
+    this.require(eventId,'chair','organiser');this.teamOrThrow(eventId,teamId);
+    if(!this.roles.some(r=>r.eventId===eventId && r.userId===userId) || reason.length>1000)throw new ApiError('invalid','Choose an event member and team');
+    if(exempt && this.cards.some(c=>c.eventId===eventId && c.judgeId===userId && c.teamId===teamId && c.status==='submitted'))throw new ApiError('locked','Reopen submitted scorecards before exemption');
+    this.exemptions=this.exemptions.filter(x=>x.eventId!==eventId || x.judgeId!==userId || x.teamId!==teamId);
+    if(exempt)this.exemptions.push({eventId,judgeId:userId,teamId,reason:reason.trim()});
+  }
+  async setJudgeAssignment(eventId: string, userId: string, panel: Panel, teamIds: string[] | null) {
+    this.require(eventId,'chair','organiser');
+    const person=this.roles.find(r=>r.eventId===eventId && r.userId===userId);
+    if(!person || !this.eventOrThrow(eventId).ruleset.areas.some(a=>a.kind==='scorecard' && a.panel===panel)) throw new ApiError('invalid','Choose an event member and panel');
+    if(teamIds!==null && (!teamIds.length || teamIds.length>1000 || teamIds.some(t=>!this.teams.some(x=>x.id===t && x.eventId===eventId)))) throw new ApiError('invalid','Choose teams in this event');
+    if(teamIds?.some(t=>this.conflicts.some(c=>c.eventId===eventId && c.judgeId===userId && c.teamId===t))) throw new ApiError('invalid','Judge has a declared conflict');
+    const wanted:Array<string|null>=teamIds===null?[null]:[...new Set(teamIds)];
+    this.roles=this.roles.filter(r=>r.eventId!==eventId || r.userId!==userId || r.role!=='judge' || r.panel!==panel || wanted.includes(r.teamId));
+    for(const teamId of wanted) if(!this.roles.some(r=>r.eventId===eventId && r.userId===userId && r.role==='judge' && r.panel===panel && r.teamId===teamId)) {
+      this.roles.push({id:nid('role'),eventId,userId,role:'judge',panel,teamId,email:person.email});
+    }
+  }
+  private canScore(eventId: string, panel: Panel, teamId: string) {
+    return this.rolesOf(eventId).some(r=>r.role==='judge' && r.panel===panel && (r.teamId===null || r.teamId===teamId)) && !this.exemptions.some(x=>x.eventId===eventId && x.judgeId===this.me?.userId && x.teamId===teamId);
   }
   async removeRole(roleId: string) {
     const r = this.roles.find((x) => x.id === roleId);
@@ -283,6 +309,7 @@ export class MemoryApi implements Api {
     this.roles = this.roles.filter((r) => r.teamId !== teamId);
     this.invites = this.invites.filter((i) => i.teamId !== teamId);
     this.conflicts = this.conflicts.filter((c) => c.teamId !== teamId);
+    this.exemptions = this.exemptions.filter((x) => x.teamId !== teamId);
     this.overrides = this.overrides.filter((o) => o.teamId !== teamId);
     this.penalties = this.penalties.filter((p) => p.teamId !== teamId);
     this.teams = this.teams.filter((t) => t.id !== teamId);
@@ -344,7 +371,7 @@ export class MemoryApi implements Api {
     // Reading a card you already own is not judging: it stays readable after release or a later conflict.
     const existing = this.cards.find((c) => c.eventId === eventId && c.teamId === teamId && c.areaId === areaId && c.judgeId === me);
     if (existing) return copy(existing);
-    const isPanelJudge = this.rolesOf(eventId).some((r) => r.role === 'judge' && r.panel === area.panel);
+    const isPanelJudge = this.canScore(eventId,area.panel as Panel,teamId);
     if (!isPanelJudge) throw new ApiError('forbidden', 'You do not judge this panel');
     if (this.conflicted(eventId, teamId)) throw new ApiError('forbidden', 'You declared a conflict of interest with this team');
     this.frozen(eventId, 'scorecards');
@@ -355,6 +382,7 @@ export class MemoryApi implements Api {
   async saveScore(cardId: string, criterionId: string, score: number, comment?: string) {
     const card = this.myCard(cardId);
     this.frozen(card.eventId, 'scorecards');
+    if (!this.canScore(card.eventId,card.panel,card.teamId)) throw new ApiError('forbidden','This team is not assigned to you');
     if (card.status === 'submitted') throw new ApiError('locked', 'This scorecard has been submitted');
     if (this.conflicted(card.eventId, card.teamId)) throw new ApiError('forbidden', 'You declared a conflict of interest with this team');
     const area = this.area(card.eventId, card.areaId)!;
@@ -371,7 +399,7 @@ export class MemoryApi implements Api {
     this.frozen(card.eventId, 'scorecards');
     if (card.status === 'submitted') throw new ApiError('locked', 'This scorecard has already been submitted');
     const area = this.area(card.eventId, card.areaId)!;
-    if (!this.rolesOf(card.eventId).some((r) => r.role === 'judge' && r.panel === card.panel) || this.conflicted(card.eventId, card.teamId)) {
+    if (!this.canScore(card.eventId,card.panel,card.teamId) || this.conflicted(card.eventId, card.teamId)) {
       throw new ApiError('forbidden', 'You cannot submit this scorecard');
     }
     const problems = validateScores(area, card.scores, { complete: true });
@@ -394,7 +422,7 @@ export class MemoryApi implements Api {
   }
   async saveReview(cardId: string, review: CardReview) {
     const card = this.myCard(cardId);
-    if (!this.rolesOf(card.eventId).some((r) => r.role === 'judge' && r.panel === card.panel) || this.conflicted(card.eventId, card.teamId)) {
+    if (!this.canScore(card.eventId,card.panel,card.teamId) || this.conflicted(card.eventId, card.teamId)) {
       throw new ApiError('forbidden', 'You cannot edit this scorecard');
     }
     this.frozen(card.eventId, 'feedback');
@@ -430,10 +458,11 @@ export class MemoryApi implements Api {
     const released = this.released(eventId);
     const mine = this.rolesOf(eventId);
     const leadPanels = mine.filter((r) => r.role === 'lead_judge').map((r) => r.panel);
+    const canSeeSpecification=mine.some(r=>r.role!=='team_manager');
     const managed = mine.filter((r) => r.role === 'team_manager').map((r) => r.teamId);
     return copy(this.cards.filter((c) => c.eventId === eventId && (
       staff || c.judgeId === me || leadPanels.includes(c.panel)
-      || (c.status === 'submitted' && released && managed.includes(c.teamId))
+      || (c.status === 'submitted' && ((c.panel==='scrutineering' && canSeeSpecification) || (released && managed.includes(c.teamId))))
     )));
   }
 
@@ -508,8 +537,20 @@ export class MemoryApi implements Api {
   }
   async latestSnapshot(eventId: string) {
     const staff = this.has(eventId, 'chair', 'organiser');
-    const visible = this.snapshots.filter((s) => s.eventId === eventId && (staff || (s.released && this.released(eventId))));
+    const visible = this.snapshots.filter((s) => s.eventId === eventId && staff);
     return visible.length === 0 ? null : copy(visible[visible.length - 1]);
+  }
+  async publicStandings(eventId: string) {
+    if(!this.released(eventId))return null;
+    const latest=this.snapshots.filter(s=>s.eventId===eventId && s.released).at(-1);
+    return latest?{createdAt:latest.createdAt,rows:latest.rows.map(({rank,teamId,number,name,total,tied})=>({rank,teamId,number,name,total,tied}))}:null;
+  }
+  async releasedResults(eventId: string) {
+    if(!this.released(eventId))return null;
+    const managed=this.rolesOf(eventId).filter(r=>r.role==='team_manager').map(r=>r.teamId);
+    if(!managed.length)return null;
+    const snapshots=this.snapshots.filter(s=>s.eventId===eventId && s.released);const latest=snapshots.at(-1);
+    return latest?{...copy(latest),rows:copy(latest.rows.filter(r=>managed.includes(r.teamId)))}:null;
   }
   async getSnapshotInputs(snapshotId: string) {
     const s = this.snapshots.find((x) => x.id === snapshotId);

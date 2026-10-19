@@ -28,7 +28,8 @@ describe('restorable event deletion',()=>{
     for(const who of ['organiser','chair','judgeV','leadV','mgr1',null] as const) {
       expect((await as(db,who,q=>q('select id from events where id=$1',[w.eventId]))).rows).toEqual([]);
       expect((await as(db,who,q=>q('select id from teams where event_id=$1',[w.eventId]))).rows).toEqual([]);
-      expect((await as(db,who,q=>q('select id from ranking_snapshots where event_id=$1',[w.eventId]))).rows).toEqual([]);
+      if (who === null) await expect(as(db,who,q=>q('select id from ranking_snapshots where event_id=$1',[w.eventId]))).rejects.toThrow(/permission denied/);
+      else expect((await as(db,who,q=>q('select id from ranking_snapshots where event_id=$1',[w.eventId]))).rows).toEqual([]);
     }
     for(const who of ['organiser','chair','judgeV','leadV','mgr1'] as const) {
       for(const table of ['event_roles','scorecards','judge_conflicts','invitations']) expect((await as(db,who,q=>q(`select * from ${table} where event_id=$1`,[w.eventId]))).rows).toEqual([]);

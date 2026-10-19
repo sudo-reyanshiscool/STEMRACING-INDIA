@@ -165,7 +165,7 @@ describe('results', () => {
     expect((await api.listPenalties(ev.id)).map((p) => p.points)).toEqual([15]);
   });
 
-  it('keeps snapshots hidden from the public until the event is released', async () => {
+  it('keeps full snapshots private even after release', async () => {
     const { api, ev } = await world();
     await api.signIn(CHAIR);
     expect(await code(api.publishSnapshot(ev.id, { rulesetId: RULESET, inputHash: 'bad', inputs: {}, rows: [] }))).toBe('invalid');
@@ -179,7 +179,7 @@ describe('results', () => {
     await api.signIn(CHAIR);
     await api.setReleased(ev.id, true);
     await api.signOut();
-    expect((await api.latestSnapshot(ev.id))?.id).toBe(snap.id);
+    expect(await api.latestSnapshot(ev.id)).toBeNull();
     expect((await api.getEvent(ev.id))?.name).toBe('Nationals');
     await api.signIn(CHAIR);
     await api.setReleased(ev.id, false);
@@ -489,12 +489,14 @@ describe('snapshots', () => {
     await releaseResults(api, ev.id);
     for (const who of [JUDGE, MGR]) {
       await api.signIn(who);
-      expect(Object.keys((await api.latestSnapshot(ev.id))!)).not.toContain('inputs');
+      if (who === MGR) expect(Object.keys((await api.releasedResults(ev.id))!)).not.toContain('inputs');
+      else expect(await api.releasedResults(ev.id)).toBeNull();
+      expect(await api.latestSnapshot(ev.id)).toBeNull();
       expect(await code(api.getSnapshotInputs(snap.id))).toBe('forbidden');
     }
     await api.signOut();
     expect(await code(api.getSnapshotInputs(snap.id))).toBe('forbidden');
-    expect(Object.keys((await api.latestSnapshot(ev.id))!)).not.toContain('inputs');
+    expect(await api.latestSnapshot(ev.id)).toBeNull();
   });
 
   it('does not let a later mutation of a returned snapshot change the stored one', async () => {

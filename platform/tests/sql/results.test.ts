@@ -105,18 +105,17 @@ describe('ranking snapshots', () => {
     expect((await w.db.query<{ rows: unknown[] }>('select rows from ranking_snapshots where id = $1', [id])).rows[0].rows).toHaveLength(1);
   });
 
-  it('is public only while the event is released', async () => {
+  it('keeps full snapshots private to event management before and after release', async () => {
     const shown = (await snapshot('chair', true)).rows[0].id;
     const publicIds = () => as(w.db, null, async (q) => (await q('select id from ranking_snapshots where event_id = $1', [w.eventId])).rows.map((r: { id: string }) => r.id));
-    expect(await publicIds()).toEqual([]);
+    await expect(publicIds()).rejects.toThrow(/permission denied/);
     await release(true);
     try {
-      const open = await publicIds();
-      expect(open).toContain(shown);
+      await expect(publicIds()).rejects.toThrow(/permission denied/);
     } finally {
       await release(false);
     }
-    expect(await publicIds()).toEqual([]);
+    await expect(publicIds()).rejects.toThrow(/permission denied/);
     const staff = await as(w.db, 'organiser', async (q) => (await q('select id from ranking_snapshots where event_id = $1', [w.eventId])).rows.map((r: { id: string }) => r.id));
     expect(staff).toContain(shown);
     const judge = await as(w.db, 'judgeV', async (q) => (await q('select id from ranking_snapshots')).rows);
@@ -125,8 +124,8 @@ describe('ranking snapshots', () => {
 });
 
 describe('anonymous access', () => {
-  it('cannot read anything except released events, teams and snapshots', async () => {
-    for (const table of ['scorecards', 'scorecard_scores', 'score_overrides', 'penalties', 'event_roles', 'invitations', 'audit_log', 'judge_conflicts']) {
+  it('cannot read scoring data, including released snapshots', async () => {
+    for (const table of ['scorecards', 'scorecard_scores', 'score_overrides', 'penalties', 'event_roles', 'invitations', 'audit_log', 'judge_conflicts', 'ranking_snapshots']) {
       await expect(as(w.db, null, (q) => q(`select * from ${table}`)), table).rejects.toThrow(/permission denied/);
     }
   });
@@ -188,17 +187,15 @@ describe('freeze on release', () => {
 });
 
 describe('visibility before and after release', () => {
-  it('never shows overrides to team members, and shows snapshots only once released', async () => {
-    const shown = (await snapshot('chair', true)).rows[0].id;
+  it('never shows overrides or full snapshots to team members', async () => {
+    await snapshot('chair', true);
     const ids_ = (who: Who | null) => as(w.db, who, async (q) => (await q('select id from ranking_snapshots')).rows.map((r: { id: string }) => r.id));
     const overrides = (who: Who) => as(w.db, who, async (q) => (await q('select 1 from score_overrides')).rows);
     for (const who of ['mgr1', 'mgr2', 'outsider', 'judgeV', 'leadV'] as const) expect(await ids_(who), who).toEqual([]);
     await release(true);
     try {
-      for (const who of ['mgr1', 'outsider', null] as const) {
-        const seen = await ids_(who);
-        expect(seen, String(who)).toContain(shown);
-      }
+      for (const who of ['mgr1', 'outsider'] as const) expect(await ids_(who)).toEqual([]);
+      await expect(ids_(null)).rejects.toThrow(/permission denied/);
       for (const who of ['mgr1', 'mgr2', 'judgeV', 'leadV'] as const) expect(await overrides(who), who).toEqual([]);
       const penalties = await as(w.db, 'mgr2', async (q) => (await q('select team_id from penalties')).rows);
       expect(penalties.every((p: { team_id: string }) => p.team_id === w.team2)).toBe(true);
@@ -231,7 +228,7 @@ describe('snapshots are append-only for everybody', () => {
 });
 
 describe('privileges of the new objects', () => {
-  it('grants anon read on events (by column), teams and ranking_snapshots (by column) only, and no table-level extras to anyone', async () => {
+  it('grants anon read on event metadata and teams only, and no table-level extras to anyone', async () => {
     const tables = (await w.db.query<{ t: string }>(`select tablename as t from pg_tables where schemaname = 'public'`)).rows.map((r) => r.t);
     expect(tables).toEqual(expect.arrayContaining(NEW_TABLES));
     for (const t of tables) {
@@ -244,7 +241,7 @@ describe('privileges of the new objects', () => {
     const col = async (role: string, c: string) =>
       (await w.db.query<{ ok: boolean }>(`select has_column_privilege($1, 'ranking_snapshots', $2, 'select') as ok`, [role, c])).rows[0].ok;
     for (const role of ['anon', 'authenticated']) {
-      expect(await col(role, 'rows'), `${role} rows`).toBe(true);
+      expect(await col(role, 'rows'), `${role} rows`).toBe(role === 'authenticated');
       expect(await col(role, 'inputs'), `${role} inputs`).toBe(false);
     }
     expect(await priv('authenticated', 'penalties', 'update')).toBe(false);
@@ -275,13 +272,13 @@ describe('privileges of the new objects', () => {
               or exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a where a.grantee = 0 and a.privilege_type = 'EXECUTE'))
        order by 1`);
     expect(exposed.rows.map((x) => x.proname)).toEqual(
-      ['event_active', 'event_released', 'has_role', 'ingest_denford', 'is_chair_or_organiser', 'is_member', 'judges_panel', 'leads_panel', 'manages_team', 'sees_all_teams']);
+      ['event_active', 'event_released', 'has_role', 'ingest_denford', 'is_chair_or_organiser', 'is_member', 'judges_panel', 'leads_panel', 'manages_team', 'public_standings', 'sees_all_teams']);
   });
 });
 
 describe('snapshot inputs are not public', () => {
   const COLS = 'id, event_id, created_by, created_at, ruleset_id, input_hash, rows, released';
-  it('denies the inputs column to every API role and allows the rest', async () => {
+  it('denies snapshot inputs to every API role and limits full rows to event management', async () => {
     const id = (await snapshot('chair', true)).rows[0].id;
     await release(true);
     try {
@@ -289,11 +286,11 @@ describe('snapshot inputs are not public', () => {
         await expect(as(w.db, who, (q) => q('select inputs from ranking_snapshots where id = $1', [id])), String(who)).rejects.toThrow(/permission denied/);
         await expect(as(w.db, who, (q) => q('select * from ranking_snapshots')), `* ${who}`).rejects.toThrow(/permission denied/);
       }
-      const open = await as(w.db, null, async (q) => (await q(`select rows, input_hash from ranking_snapshots where id = $1`, [id])).rows);
-      expect(open).toHaveLength(1);
-      expect(open[0].input_hash).toBe(HASH);
+      await expect(as(w.db, null, (q) => q(`select rows, input_hash from ranking_snapshots where id = $1`, [id]))).rejects.toThrow(/permission denied/);
       const cols = await as(w.db, 'mgr1', async (q) => (await q(`select ${COLS} from ranking_snapshots where id = $1`, [id])).rows);
-      expect(cols).toHaveLength(1);
+      expect(cols).toHaveLength(0);
+      const staff = await as(w.db, 'chair', q => q(`select ${COLS} from ranking_snapshots where id = $1`, [id]));
+      expect(staff.rows).toHaveLength(1);
     } finally {
       await release(false);
     }

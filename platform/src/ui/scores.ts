@@ -13,7 +13,7 @@ export async function scoresScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
   if (!event || !session || !roles.length) return notFound('These scores are not available to your account.', '#/', 'All events');
   const staff = roles.some((r) => r.role === 'organiser' || r.role === 'chair');
   const lead = roles.some((r) => r.role === 'lead_judge');
-  if (!staff && !lead && !roles.some((r) => r.role === 'judge') && !(event.resultsReleased && roles.some((r) => r.role === 'team_manager'))) {
+  if (!staff && !lead && !roles.some((r) => r.role !== 'team_manager') && !(event.resultsReleased && roles.some((r) => r.role === 'team_manager'))) {
     return notFound('These scores are not available to your account.', routeHref({ name: 'event', eventId }), event.name);
   }
   let alive = true, revision = 0, fingerprint = '';
@@ -61,7 +61,7 @@ export async function scoresScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
           ...Object.entries(c.comments).filter(([, text]) => text).map(([id, value]) => h('p', { class: 'small results-comment' }, h('strong', null, `${area.criteria.find((x) => x.id === id)?.name ?? id}: `), value)),
           ...([['Overall Comment', review?.overall], ['Key Strengths', review?.strengths], ['Areas for Improvement', review?.improvements]] as const)
             .filter(([, value]) => value).map(([label, value]) => h('p', { class: 'small results-comment' }, h('strong', null, `${label}: `), value)),
-          c.judgeId === session.userId && roles.some((r) => r.role === 'judge' && r.panel === c.panel)
+          c.judgeId === session.userId && roles.some((r) => r.role === 'judge' && r.panel === c.panel && (r.teamId === null || r.teamId === c.teamId))
             ? h('a', { class: 'btn btn--ghost btn--small', href: routeHref({ name: 'scorecard', eventId, teamId: c.teamId, areaId: c.areaId }) }, c.status === 'draft' ? 'Continue scoring' : 'View submitted scorecard') : null);
         const judge = data.people.find((r) => r.userId === c.judgeId && r.email)?.email ?? (c.judgeId === session.userId ? session.email : 'Judge');
         return h('tr', null, h('th', { scope: 'row' }, teamName(c)), h('td', { 'data-label': 'Area' }, area.name), h('td', { 'data-label': 'Judge' }, judge),
@@ -87,8 +87,8 @@ export async function scoresScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
   liveRefresh(ctx, update, (e) => reportActionError(ctx, error, e));
   return h('div', { class: 'stack stack--lg' }, h('div', { class: 'stack' },
     h('a', { class: 'back', href: routeHref({ name: 'event', eventId }) }, event.name), h('h1', null, 'Scores'),
-    h('p', { class: 'lead' }, staff ? 'All judges’ saved scores for this event, from draft through submission.' : lead ? 'Saved scores for the panels you lead, alongside your own cards.' : 'Your permitted scorecards and feedback for this event.'),
-    h('p', { class: 'small muted' }, 'Updates every 10 seconds while this page is visible. Private judging notes stay in the judge’s scorecard and permitted moderation views.')),
+    h('p', { class: 'lead' }, staff ? 'All judges’ saved scores for this event, from draft through submission.' : lead ? 'Saved scores for the panels you lead, alongside your own cards.' : 'Only your own scorecards, plus submitted Specification scores for every team.'),
+    h('p', { class: 'small muted' }, 'Updates every 10 seconds while this page is visible. Specification scores are shared with event staff. Other judges’ drafts and private judging notes stay in the judge’s scorecard and permitted moderation views.')),
     h('div', { class: 'actions score-filters' }, h('label', { class: 'field' }, h('span', { class: 'field__label' }, 'Team'), team), h('label', { class: 'field' }, h('span', { class: 'field__label' }, 'Panel'), panel), refresh),
     summary, error, holder);
 }

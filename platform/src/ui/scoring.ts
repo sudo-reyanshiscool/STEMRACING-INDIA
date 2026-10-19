@@ -7,9 +7,9 @@ import { PANEL_LABEL } from './labels';
 import { routeHref } from './router';
 
 export async function scoringScreen(ctx: Ctx, eventId: string): Promise<HTMLElement> {
-  const [event, roles, teams, allCards, conflictList, session] = await Promise.all([
+  const [event, roles, teams, allCards, conflictList, session, exemptionList] = await Promise.all([
     ctx.api.getEvent(eventId), ctx.api.myRoles(eventId), ctx.api.listTeams(eventId), ctx.api.listCards(eventId), ctx.api.myConflicts(eventId),
-    ctx.api.getSession(),
+    ctx.api.getSession(), ctx.api.listJudgeExemptions(eventId),
   ]);
   if (!event) return notFound('That event was not found.', '#/', 'All events');
   const eventHref = routeHref({ name: 'event', eventId });
@@ -42,8 +42,9 @@ export async function scoringScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
         const areas = event.ruleset.areas.filter((a) => a.kind === 'scorecard' && a.panel === panel);
         return h('section', { class: 'section' },
           h('h2', null, PANEL_LABEL[panel]),
-          h('div', { class: 'grid' }, teams.map((t) => {
+          h('div', { class: 'grid' }, teams.filter(t=>roles.some(r=>r.role==='judge' && r.panel===panel && (r.teamId===null || r.teamId===t.id))).map((t) => {
             const conflicted = conflicts.has(t.id);
+            const exemption = exemptionList.find(x=>x.judgeId===session?.userId && x.teamId===t.id);
             const declare = h('button', { class: 'linkish', type: 'button' },
               armed === t.id ? 'Confirm: I cannot judge this team' : 'I have a conflict with this team');
             declare.addEventListener('click', async () => {
@@ -70,7 +71,7 @@ export async function scoringScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
             });
             return h('article', { class: 'card' },
               h('h3', null, `Team ${t.number} · ${t.name}`),
-              conflicted
+              exemption ? h('p',{class:'notice'},'Exempt from judging this team.',exemption.reason?` ${exemption.reason}`:'') : conflicted
                 ? h('p', { class: 'small' }, 'You declared a conflict of interest with this team. Ask the Chair if this was a mistake.')
                 : h('div', { class: 'stack' },
                     ...areas.map((a) => {
@@ -92,7 +93,7 @@ export async function scoringScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
 
   return h('div', { class: 'stack stack--lg' },
     h('div', { class: 'stack' }, h('a', { class: 'back', href: eventHref }, event.name), h('h1', null, 'My scorecards'),
-      h('p', { class: 'lead' }, 'Choose a team and an area. Scores save as you type and can be edited until you submit.'),
+      h('p', { class: 'lead' }, 'Choose one of your assigned teams and an area. Scores save as you type and can be edited until you submit.'),
       h('p', { class: 'small muted' }, 'If you have a conflict of interest with a team, declare it. A declaration cannot be removed on this screen: ask the Chair.')),
     error, body,
   );

@@ -20,7 +20,7 @@ describe('eventHomeScreen', () => {
     expect(await tiles(EMAILS.mgr)).toEqual(['Results']);
   });
 
-  it('shows the public only the results tile for a released event, and nothing for an unreleased one', async () => {
+  it('shows anonymous visitors only the results tile for released events', async () => {
     const { api, ev } = await world();
     const { ctx } = makeCtx(api);
     await api.signOut();

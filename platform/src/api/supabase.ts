@@ -227,6 +227,17 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
       }).select('id').single())));
       await sendInvitation(row.id);
     },
+    async listJudgeExemptions(eventId) {
+      if (!(await session())) return [];
+      const rows=await pages<any>((a,b)=>sb.from('judge_exemptions').select('event_id,judge_id,team_id,reason').eq('event_id',eventId).order('judge_id').order('team_id').range(a,b));
+      return rows.map(r=>({eventId:r.event_id,judgeId:r.judge_id,teamId:r.team_id,reason:r.reason}));
+    },
+    async setJudgeExemption(eventId,userId,teamId,exempt,reason='') {
+      ok(await guard(()=>sb.rpc('set_judge_exemption',{p_event:eventId,p_user:userId,p_team:teamId,p_exempt:exempt,p_reason:reason})));
+    },
+    async setJudgeAssignment(eventId, userId, panel, teamIds) {
+      ok(await guard(() => sb.rpc('set_judge_assignment', {p_event:eventId,p_user:userId,p_panel:panel,p_teams:teamIds})));
+    },
     async removeRole(roleId) {
       await removeById('event_roles', roleId);
     },
@@ -395,7 +406,17 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
       }).select(SNAPSHOT_COLS).single()));
       return toSnapshotRow(row);
     },
+    async publicStandings(eventId) {
+      const data=ok(await guard(()=>sb.rpc('public_standings',{p_event:eventId})));
+      return data ?? null;
+    },
+    async releasedResults(eventId) {
+      if (!(await session())) return null;
+      const data=ok(await guard(()=>sb.rpc('released_results',{p_event:eventId})));
+      return data ? toSnapshotRow(firstRow(data)) : null;
+    },
     async latestSnapshot(eventId) {
+      if (!(await session())) return null;
       const rows = ok(await guard(() => sb.from('ranking_snapshots').select(SNAPSHOT_COLS).eq('event_id', eventId)
         .order('created_at', { ascending: false }).limit(1))) as never[];
       return rows.length > 0 ? toSnapshotRow(rows[0]) : null;

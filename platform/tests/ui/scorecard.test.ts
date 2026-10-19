@@ -265,7 +265,7 @@ describe('scorecardScreen', () => {
     const { ctx } = makeCtx(api);
     await api.declareConflict(ev.id, t2.id);
     expect(text(await scorecardScreen(ctx, ev.id, t2.id, 'verbal-technique'))).toContain('conflict of interest');
-    expect(text(await scorecardScreen(ctx, ev.id, t1.id, 'de-portfolio'))).toContain('do not judge this panel');
+    expect(text(await scorecardScreen(ctx, ev.id, t1.id, 'de-portfolio'))).toContain('not assigned to you');
     expect(text(await scorecardScreen(ctx, ev.id, t1.id, 'knockout'))).toContain('not found');
     expect(text(await scorecardScreen(ctx, ev.id, 'nope', 'verbal-technique'))).toContain('not found');
   });

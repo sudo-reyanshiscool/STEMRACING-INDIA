@@ -68,7 +68,7 @@ describe.skipIf(!run)('shared workspace across independent authenticated clients
       expect((await manager.listCards(event.id))[0].scores['team-contribution']).toBe(19);
       expect((await manager.getReview(card.id)).internalNotes).toBe('');
       expect((await manager.listFeedback(event.id))[0].overall).toBe('Shared feedback');
-      expect((await manager.latestSnapshot(event.id))?.rows[0].total).toBe(36);
+      expect((await manager.releasedResults(event.id))?.rows[0].total).toBe(36);
       await expect(judge.saveScore(card.id, 'team-contribution', 20)).rejects.toMatchObject({ code: 'locked' });
       await organiser.deleteEvent(event.id, name);
       expect(await judge.getEvent(event.id)).toBeNull();

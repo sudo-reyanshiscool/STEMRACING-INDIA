@@ -38,6 +38,26 @@ Only submitted cards count in Rankings; an organiser can inspect drafts without 
 Private notes remain restricted to the author, panel lead and Chair. Managers can read only their own team's
 submitted cards and feedback after release. Database row-level security enforces these rules on every device.
 
+### Assignments, exemptions and score visibility
+
+Under **People → Judge assignments**, choose an existing event member, a panel, and either **All teams** or
+**Selected teams**. Save each panel separately; one judge can have several panels and several selected teams.
+All teams includes teams added later. Specific team assignments with a declared conflict are refused.
+The People list shows each assignment and lets staff remove it individually.
+
+Under **People → Judge exemptions**, the Chair or Organiser can exempt someone from a team across every panel.
+Exemptions override assignments, including All teams, without removing them. Remove an exemption to restore access.
+If that judge has already submitted a scorecard for the team, the Chair must reopen it before adding an exemption.
+Submitted evidence is never silently removed from rankings by reassigning or exempting a judge.
+
+Ordinary judges see only their own scorecards. Submitted **Specification Judging** cards are also visible to all
+judges and event staff; other judges’ Specification drafts stay private. Panel leads retain moderation access to
+the panels they lead; the Chair and Organiser retain event oversight. Private notes keep their existing restrictions.
+Final standings (rank, team and total points only) are public after release, including to signed-out visitors.
+Detailed score breakdowns and feedback are private to signed-in managers for their own teams; judges and staff keep
+the judging access described above. Full internal rankings remain available to the Chair and Organiser. Apply migrations `0010_judge_assignments.sql` and `0011_private_team_results.sql` before
+deploying these interfaces; use the isolated renderer for an existing shared Supabase project.
+
 Set `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and optionally `VITE_SUPABASE_DB_SCHEMA` to enable the shared
 workspace. The public client key belongs in the build; never include a service-role key. Each person signs in with
 their own email; the organiser creates an event and invites the Chair and panel judges under People. An event may
@@ -81,7 +101,7 @@ scrutineering deployment still uses its own offline worker.
 ## Events and team imports
 
 An **Organiser** can open an event, choose **Delete event** under Manage event and type its exact name to confirm.
-Deleted events and all their data disappear from ordinary views, including public results. The organiser can use
+Deleted events and all their data disappear from ordinary views, including released results. The organiser can use
 **Deleted events** on the Events page to restore them. Deletion retains scorecards, feedback, invitations, published
 snapshots and the audit log. Invitations wait until restoration, and event permissions are inactive while deleted.
 
@@ -166,8 +186,9 @@ Before the first real event on a hosted project:
   published ranking matches everything that is counted now.
 - **No rule stops removing the last Organiser** of an event (or the last Chair). Do not remove the people running the
   event; add a replacement first.
-- **Penalty points are public by design.** After release the public ranking shows each team's penalties column, and
-  the team manager sees their own penalty reasons.
+- **Public standings contain totals only.** Everyone can read the rank, team and final total after release.
+  Section scores, individual cards, feedback and penalty reasons are returned only for the signed-in manager’s teams.
+  Full snapshot JSON stays inaccessible to anonymous visitors; the public endpoint projects only the allowed fields.
 - **Phase 1a counts every submitted card of a judge who later loses their role.** Removing a judge does not remove
   their submitted scorecards from the ranking; reopen them in Moderation if they should not count.
 - **Teams stay editable after release.** The freeze covers scorecards, scores, overrides and penalties; a Chair or
@@ -208,7 +229,7 @@ track operation.
 
 ## What is not here yet
 
-Judging schedule generator, protest and appeal lodging, judge-to-team assignment, server-side snapshot verification,
+Judging schedule generator, protest and appeal lodging, server-side snapshot verification,
 specification scores from scrutineering, automatic race-point calculations and knock-out brackets (later phases). See the design spec in
 `docs/superpowers/specs/2026-10-10-event-platform-design.md`.
 

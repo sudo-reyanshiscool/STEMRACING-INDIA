@@ -17,14 +17,14 @@ export async function eventHomeScreen(ctx: Ctx, eventId: string): Promise<HTMLEl
   const tiles: HTMLElement[] = [];
   if (has('organiser', 'chair')) tiles.push(tile('Teams', 'Add and review the teams entered.', { name: 'teams', eventId }));
   if (has('organiser', 'chair')) tiles.push(tile('People', 'Invite judges, officials and team managers.', { name: 'people', eventId }));
-  if (has('judge')) tiles.push(tile('My scorecards', 'Score the teams in your panel.', { name: 'score', eventId }));
-  if (has('organiser', 'chair', 'judge', 'lead_judge') || (has('team_manager') && event.resultsReleased)) tiles.push(tile('Scores', 'Follow saved scores, drafts and submissions across the event.', { name: 'scores', eventId }));
+  if (has('judge')) tiles.push(tile('My scorecards', 'Score the teams assigned to each of your panels.', { name: 'score', eventId }));
+  if (roles.some(r=>r.role !== 'team_manager') || (has('team_manager') && event.resultsReleased)) tiles.push(tile('Scores', 'Follow saved scores, drafts and submissions across the event.', { name: 'scores', eventId }));
   if (roles.some(r => r.role !== 'team_manager') || (has('team_manager') && event.resultsReleased)) tiles.push(tile('Race control', 'Pair teams, record lane times and follow Denford track readings.', { name: 'racing', eventId }));
   if (has('chair', 'lead_judge')) tiles.push(tile('Moderation', "Review judges' scores, override and reopen.", { name: 'moderate', eventId }));
   if (has('organiser', 'chair')) tiles.push(tile('Rankings', 'Combine scores, add penalties, publish and release.', { name: 'rankings', eventId }));
   tiles.push(tile('Results', event.resultsReleased ? 'Results released.' : 'Not released yet.', { name: 'results', eventId }));
 
-  const mine = roles.map((r) => (r.panel ? `${ROLE_LABEL[r.role]}: ${PANEL_LABEL[r.panel]}` : ROLE_LABEL[r.role]));
+  const mine = [...new Set(roles.map((r) => (r.panel ? `${ROLE_LABEL[r.role]}: ${PANEL_LABEL[r.panel]}` : ROLE_LABEL[r.role])))];
   return h('div', { class: 'stack stack--lg' },
     h('div', { class: 'stack' },
       h('a', { class: 'back', href: '#/' }, 'All events'),
