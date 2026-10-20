@@ -14,12 +14,12 @@ function setup(){
  return {deps,handler:resultsHandler(deps)};
 }
 describe('results email endpoint',()=>{
- it('uses the server-selected recipient and sends two real PDF attachments',async()=>{
+ it('uses the server-selected recipient and sends standings, results and feedback as three real PDF attachments',async()=>{
   const {deps,handler}=setup();const response=await handler(request());expect(response.status).toBe(200);
   expect(deps.reserve).toHaveBeenCalledWith('user',eventId,teamId,{snapshotId,awardsVersion:version,email:'manager@school.org'});
   expect(deps.send).toHaveBeenCalledOnce();const call=vi.mocked(deps.send).mock.calls[0];
   expect(call[0]).toBe('manager@school.org');expect(call[2]).toContain('&lt;test&gt;');
-  expect(call[3]).toHaveLength(2);for(const f of call[3])expect(new TextDecoder().decode(f.bytes.slice(0,5))).toBe('%PDF-');
+  expect(call[3]).toHaveLength(3);for(const f of call[3])expect(new TextDecoder().decode(f.bytes.slice(0,5))).toBe('%PDF-');
   expect(call[3][1].filename).toContain('Team-001-SUPERCHARGED');expect(deps.complete).toHaveBeenCalledWith('job','attempt','sent',null);
  });
  it('rejects client-supplied attachments, recipients and unknown origins before sending',async()=>{

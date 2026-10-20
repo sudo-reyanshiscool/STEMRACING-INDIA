@@ -56,7 +56,7 @@ export async function resultDelivery(ctx:Ctx,event:EventRow):Promise<HTMLElement
   const cancel=h('button',{class:'btn btn--ghost',type:'button'},'Cancel');cancel.onclick=()=>{review.hidden=true;};
   const stopButton=h('button',{class:'btn btn--ghost',type:'button','data-stop':'true',hidden:true},'Stop after current email');stopButton.onclick=()=>{stop=true;stopButton.disabled=true;};
   send.onclick=()=>{review.hidden=false;};
-  review.append(h('p',null,'Each manager receives the full final standings and confirmed awards, plus detailed scorecards and feedback for their own team.'),h('ul',null,eligible.map(t=>h('li',null,`${who(t.id)} → ${contacts.find(c=>c.teamId===t.id)!.managerEmail}`))),h('div',{class:'actions'},confirm,cancel));
+  review.append(h('p',null,'Each manager receives the full final standings and confirmed awards, plus separate results and feedback PDFs for their own team.'),h('ul',null,eligible.map(t=>h('li',null,`${who(t.id)} → ${contacts.find(c=>c.teamId===t.id)!.managerEmail}`))),h('div',{class:'actions'},confirm,cancel));
   confirm.onclick=()=>void run(async()=>{
    stop=false;stopButton.hidden=false;review.hidden=true;let completed=0;
    for(const team of eligible){
@@ -69,7 +69,7 @@ export async function resultDelivery(ctx:Ctx,event:EventRow):Promise<HTMLElement
   content.replaceChildren(
    h('h3',null,'Overall awards'),h('p',{class:'muted'},'The Organiser or Chair of Judges selects and confirms award winners. Saving or removing a winner requires confirmation again.'),
    state.awards.length?h('ul',{class:'list'},state.awards.map(a=>h('li',null,h('strong',null,a.title),h('span',null,who(a.teamId)),h('button',{class:'btn btn--ghost btn--small',type:'button',onclick:()=>void run(()=>ctx.api.removeAward(a.id))},'Remove award')))):h('p',{class:'muted'},'No overall awards selected. Confirming this list will include “No overall awards selected” in the PDF.'),awardForm,confirmAwards,
-   h('h3',null,'Preview the PDFs'),h('p',{class:'muted'},'Download the standings and awards PDF, plus the selected team’s scorecard PDF. The sender uses the same reports.'),h('div',{class:'form'},previewTeam,previewButton),
+   h('h3',null,'Preview the PDFs'),h('p',{class:'muted'},'Download the standings and awards PDF, plus the selected team’s results and feedback PDFs. The sender uses the same reports.'),h('div',{class:'form'},previewTeam,previewButton),
    h('h3',null,'Manager email delivery'),h('p',{class:'notice',hidden:missing===0},`${missing} team${missing===1?' needs':'s need'} a manager email. Add it in Teams to include them in delivery.`),h('p',{class:'muted'},`${sent} of ${contacts.length} manager contacts have received this ranking and award version.`),
    h('p',{class:'notice',hidden:event.resultsReleased},'Release final results before sending manager emails.'),
    h('p',{class:'notice',hidden:state.confirmed},'Confirm the award winners before sending.'),

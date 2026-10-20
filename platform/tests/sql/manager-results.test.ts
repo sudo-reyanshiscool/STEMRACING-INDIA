@@ -30,8 +30,16 @@ describe('manager contacts and private result delivery',()=>{
  it('keeps packets scoped to one team and excludes private notes and other teams’ feedback',async()=>{
   const packet=(await as(db,'organiser',q=>q('select team_results_packet($1,$2) as packet',[w.eventId,w.team1]))).rows[0].packet;
   expect(packet.cards).toHaveLength(1);expect(packet.standings).toHaveLength(2);expect(packet.standings[1].areas).toBeUndefined();
+  expect(packet.benchmarks.__total).toEqual({low:25,median:25.5,high:26});
+  expect(packet.benchmarks['verbal-technique']).toEqual({low:25,median:25.5,high:26});
   expect(JSON.stringify(packet)).toContain('OWN TEAM FEEDBACK');expect(JSON.stringify(packet)).not.toContain('OTHER TEAM FEEDBACK');expect(JSON.stringify(packet)).not.toContain('SECRET');
   await expect(as(db,'mgr1',q=>q('select team_results_packet($1,$2)',[w.eventId,w.team2]))).rejects.toThrow(/only event staff/);
+ });
+ it('includes only the selected team lane and excludes pending runs and opponent timing',async()=>{
+  await db.query("insert into race_heats(id,event_id,heat_number,label,phase,lane1_team,lane2_team,lane1_car,lane2_car,lane1_status,lane2_status,lane1_total_ms,lane1_reaction_ms,lane2_total_ms,lane2_reaction_ms,source) values(gen_random_uuid(),$1,1,'Final run','reaction',$2,$3,'A','B','finished','finished',1400,180,1999,555,'manual'),(gen_random_uuid(),$1,2,'Pending run','reaction',$2,$3,'B','A','pending','pending',null,null,null,null,'manual')",[w.eventId,w.team1,w.team2]);
+  const packet=(await as(db,'organiser',q=>q('select team_results_packet($1,$2) as packet',[w.eventId,w.team1]))).rows[0].packet;
+  expect(packet.races).toEqual([{number:1,label:'Final run',phase:'reaction',lane:1,car:'A',status:'finished',totalMs:1400,reactionMs:180}]);
+  expect(JSON.stringify(packet.races)).not.toContain('1999');
  });
  it('requires both released results and organiser/Chair-confirmed awards',async()=>{
   await as(db,'organiser',q=>q('select set_team_contact($1,$2,$3)',[w.eventId,w.team1,'manager@example.com']));
