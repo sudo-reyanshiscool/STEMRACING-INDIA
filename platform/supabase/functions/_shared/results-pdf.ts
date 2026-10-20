@@ -250,8 +250,11 @@ export function buildTeamFeedbackPdf(p:ResultsPacket,_logo?:string):jsPDF{
  for(const [index,g] of all.entries())drawFeedbackGroup(doc,p,g,index===0);
  footers(doc,p,'Feedback sheet',true);return doc;
 }
-export function resultPdfFiles(p:ResultsPacket,logo?:string){return [
- {filename:`${safe(p.eventName)}-Final-Standings-and-Awards.pdf`,bytes:new Uint8Array(buildStandingsPdf(p,logo).output('arraybuffer'))},
+export function teamResultPdfFiles(p:ResultsPacket,logo?:string){return [
  {filename:`Team-${safe(p.team.number)}-${safe(p.team.name)}-Results.pdf`,bytes:new Uint8Array(buildTeamScorecardsPdf(p,logo).output('arraybuffer'))},
  {filename:`Team-${safe(p.team.number)}-${safe(p.team.name)}-Feedback.pdf`,bytes:new Uint8Array(buildTeamFeedbackPdf(p,logo).output('arraybuffer'))},
+];}
+export function resultPdfFiles(p:ResultsPacket,logo?:string){return [
+ {filename:`${safe(p.eventName)}-Final-Standings-and-Awards.pdf`,bytes:new Uint8Array(buildStandingsPdf(p,logo).output('arraybuffer'))},
+ ...teamResultPdfFiles(p,logo),
 ];}

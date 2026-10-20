@@ -4,8 +4,8 @@ import {h} from './dom';
 import {reportActionError} from './actions';
 
 export async function resultDelivery(ctx:Ctx,event:EventRow):Promise<HTMLElement> {
- let alive=true,busy=false,stop=false;
- ctx.onLeave(()=>{alive=false;stop=true;});
+ let alive=true,busy=false,stop=false,cancelDownload=false;
+ ctx.onLeave(()=>{alive=false;stop=true;cancelDownload=true;});
  let [teams,contacts,state]=await Promise.all([ctx.api.listTeams(event.id),ctx.api.listTeamContacts(event.id),ctx.api.resultMailState(event.id)]);
  teams.sort((a,b)=>a.number.localeCompare(b.number,'en',{numeric:true}));
  const root=h('section',{class:'section stack','aria-label':'Results PDFs and manager emails'});
@@ -15,7 +15,7 @@ export async function resultDelivery(ctx:Ctx,event:EventRow):Promise<HTMLElement
  const run=async(task:()=>Promise<void>)=>{
   if(busy)return;busy=true;error.hidden=true;message.hidden=true;
   content.querySelectorAll('button').forEach(b=>{if(!b.dataset.stop)b.disabled=true;});
-  try{await task();}catch(e){if(alive)reportActionError(ctx,error,e,{locked:'The results or delivery status changed. Refresh this page and review the awards and manager contacts before trying again.'});}
+  try{await task();}catch(e){if(alive){message.hidden=true;reportActionError(ctx,error,e,{locked:'The results or delivery status changed. Refresh this page and review the awards and manager contacts before trying again.'});}}
   finally{busy=false;if(alive)await refresh().catch(e=>reportActionError(ctx,error,e));}
  };
  const who=(id:string)=>{const t=teams.find(t=>t.id===id);return t?`${t.number} - ${t.name}`:'Removed team';};
@@ -37,6 +37,31 @@ export async function resultDelivery(ctx:Ctx,event:EventRow):Promise<HTMLElement
    for(const file of resultPdfFiles(packet,RESULTS_LOGO)){
     const blob=new Blob([file.bytes as BlobPart],{type:'application/pdf'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=file.filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
    }
+  });
+  const allPdfs=h('button',{class:'btn btn--ghost',type:'button',disabled:!state.snapshotId||!teams.length},'Download all PDFs (ZIP)');
+  const cancelPdfs=h('button',{class:'btn btn--ghost',type:'button','data-stop':'true',hidden:true},'Cancel PDF download');
+  cancelPdfs.onclick=()=>{cancelDownload=true;cancelPdfs.disabled=true;};
+  allPdfs.onclick=()=>void run(async()=>{
+   cancelDownload=false;cancelPdfs.hidden=false;
+   const selection={snapshotId:state.snapshotId!,version:state.version};
+   const {buildResultsArchive,ArchiveCancelled,ResultsArchiveError}=await import('../pdf/resultsArchive');
+   try{
+    const archive=await buildResultsArchive({id:event.id,name:event.name,snapshotId:selection.snapshotId},teams,
+     teamId=>ctx.api.previewResultsPacket(event.id,teamId),{
+      cancelled:()=>cancelDownload||!alive,
+      progress:(done,total)=>{if(alive){message.textContent=`Preparing team PDFs: ${done} of ${total}…`;message.hidden=false;}},
+     });
+    const latest=await ctx.api.resultMailState(event.id);
+    if(latest.snapshotId!==selection.snapshotId||latest.version!==selection.version)throw new ResultsArchiveError('The ranking snapshot or awards changed. Please download again.');
+    if(cancelDownload||!alive)throw new ArchiveCancelled();
+    const url=URL.createObjectURL(new Blob([archive.bytes as BlobPart],{type:'application/zip'}));
+    const a=document.createElement('a');a.href=url;a.download=archive.filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    message.textContent=`Downloaded ${archive.count} PDFs in one ZIP file. Keep it private: it includes every team’s detailed scorecards and feedback.`;message.hidden=false;
+   }catch(e){
+    if(e instanceof ResultsArchiveError){if(alive){message.hidden=true;error.textContent=e.message;error.hidden=false;}return;}
+    if(!(e instanceof ArchiveCancelled))throw e;
+    if(alive){message.textContent='PDF download cancelled.';message.hidden=false;}
+   }finally{cancelPdfs.hidden=true;}
   });
   const eligible=teams.filter(t=>contacts.some(c=>c.teamId===t.id) && !['sent','sending','uncertain'].includes(currentDelivery(t)?.status??''));
   const uncertain=teams.filter(t=>currentDelivery(t)?.status==='uncertain');
@@ -70,6 +95,7 @@ export async function resultDelivery(ctx:Ctx,event:EventRow):Promise<HTMLElement
    h('h3',null,'Overall awards'),h('p',{class:'muted'},'The Organiser or Chair of Judges selects and confirms award winners. Saving or removing a winner requires confirmation again.'),
    state.awards.length?h('ul',{class:'list'},state.awards.map(a=>h('li',null,h('strong',null,a.title),h('span',null,who(a.teamId)),h('button',{class:'btn btn--ghost btn--small',type:'button',onclick:()=>void run(()=>ctx.api.removeAward(a.id))},'Remove award')))):h('p',{class:'muted'},'No overall awards selected. Confirming this list will include “No overall awards selected” in the PDF.'),awardForm,confirmAwards,
    h('h3',null,'Preview the PDFs'),h('p',{class:'muted'},'Download the standings and awards PDF, plus the selected team’s results and feedback PDFs. The sender uses the same reports.'),h('div',{class:'form'},previewTeam,previewButton),
+   h('p',{class:'muted'},'Or download one ZIP containing the standings and awards, plus every team’s results and feedback PDFs. This staff download includes private team details.'),h('div',{class:'actions'},allPdfs,cancelPdfs),
    h('h3',null,'Manager email delivery'),h('p',{class:'notice',hidden:missing===0},`${missing} team${missing===1?' needs':'s need'} a manager email. Add it in Teams to include them in delivery.`),h('p',{class:'muted'},`${sent} of ${contacts.length} manager contacts have received this ranking and award version.`),
    h('p',{class:'notice',hidden:event.resultsReleased},'Release final results before sending manager emails.'),
    h('p',{class:'notice',hidden:state.confirmed},'Confirm the award winners before sending.'),
