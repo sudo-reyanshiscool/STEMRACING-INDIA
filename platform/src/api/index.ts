@@ -8,3 +8,4 @@ export {
 } from './queue';
 
 export * from './result-mail';
+export * from './draw-lots';

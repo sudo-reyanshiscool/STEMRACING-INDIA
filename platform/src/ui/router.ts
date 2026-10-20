@@ -3,6 +3,7 @@ export type Route =
   | { name: 'event'; eventId: string }
   | { name: 'teams'; eventId: string }
   | { name: 'people'; eventId: string }
+  | { name: 'draw'; eventId: string }
   | { name: 'score'; eventId: string }
   | { name: 'scores'; eventId: string }
   | { name: 'racing'; eventId: string }
@@ -14,7 +15,7 @@ export type Route =
   | { name: 'communications'; eventId: string };
 
 const HOME: Route = { name: 'home' };
-const SECTIONS = ['teams', 'people', 'communications', 'score', 'scores', 'moderate', 'rankings', 'results', 'racing'] as const;
+const SECTIONS = ['teams', 'people', 'draw', 'communications', 'score', 'scores', 'moderate', 'rankings', 'results', 'racing'] as const;
 
 export function parseHash(hash: string): Route {
   const parts = hash.replace(/^#\/?/, '').split('/');

@@ -278,6 +278,12 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
       return (await pages<never>((a, b) => sb.from('teams').select(TEAM_COLS).eq('event_id', eventId).order('id').range(a, b))).map(toTeamRow)
         .sort((a, b) => a.number.localeCompare(b.number, 'en', { numeric: true }));
     },
+    async drawLotsState(eventId){
+      const s=ok(await guard(()=>sb.rpc('draw_lots_state',{p_event:eventId}))) as any;
+      return {...s,teams:s.teams.map(toTeamRow),roles:s.roles.map(toRoleRow),conflicts:s.conflicts.map(toConflictRow),exemptions:s.exemptions.map((x:any)=>({eventId:x.event_id,judgeId:x.judge_id,teamId:x.team_id,reason:x.reason}))};
+    },
+    async applyTeamNumberDraw(eventId,version,assignments){ok(await guard(()=>sb.rpc('apply_team_number_draw',{p_event:eventId,p_version:version,p_assignments:assignments})));},
+    async applyJudgeDraw(eventId,version,panel,assignments){ok(await guard(()=>sb.rpc('apply_judge_draw',{p_event:eventId,p_version:version,p_panel:panel,p_assignments:assignments})));},
     async createTeam(eventId, i) {
       const rows = ok(await guard(() => sb.rpc('import_teams', {p_event:eventId,p_teams:[i]}))) as Record<string,any>[];
       return toTeamRow(firstRow(rows));

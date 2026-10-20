@@ -4,6 +4,7 @@ import { INDIA_2026 } from '../rulesets';
 import type {ResultsPacket, ResultMailState, EventAward, TeamContact, ResultMailSelection} from './result-mail';
 import { validManagerEmail, cleanTeam, MAX_IMPORT_TEAMS } from './team-input';
 import type { OrganiserScope, PlatformAccess, NewTeam } from './types';
+import type {DrawLotsState,TeamNumberAssignment,JudgeLotAssignment} from './draw-lots';
 import { blankReview, validateReview, type CardReview, type FeedbackRow, type NominationRow } from './review';
 import {
   ApiError, type Api, type BroadcastEmail, type CardRow, type ConflictRow, type EventRow, type InviteRow, type NewBroadcastInput, type NewSnapshot, type OverrideRow, type Panel,
@@ -340,6 +341,32 @@ export class MemoryApi implements Api {
   }
   private canScore(eventId: string, panel: Panel, teamId: string) {
     return (this.has(eventId,'organiser','chair') || this.rolesOf(eventId).some(r=>r.role==='judge' && r.panel===panel && (r.teamId===null || r.teamId===teamId))) && !this.exemptions.some(x=>x.eventId===eventId && x.judgeId===this.me?.userId && x.teamId===teamId);
+  }
+  async drawLotsState(eventId:string):Promise<DrawLotsState>{
+    this.require(eventId,'organiser','chair');
+    const cards=this.cards.filter(c=>c.eventId===eventId);
+    const state={teams:this.teams.filter(t=>t.eventId===eventId),roles:this.roles.filter(r=>r.eventId===eventId),conflicts:this.conflicts.filter(c=>c.eventId===eventId),exemptions:this.exemptions.filter(x=>x.eventId===eventId),released:this.released(eventId),
+      numberingLocked:this.released(eventId)||!!cards.length||this.inspections.some(i=>i.eventId===eventId)||this.races.some(r=>r.eventId===eventId)||this.snapshots.some(s=>s.eventId===eventId),lockedPanels:[...new Set([...cards.map(c=>c.panel),...(this.inspections.some(i=>i.eventId===eventId)?['scrutineering' as Panel]:[])])]};
+    return copy({...state,version:JSON.stringify(state)});
+  }
+  async applyTeamNumberDraw(eventId:string,version:string,assignments:TeamNumberAssignment[]){
+    const state=await this.drawLotsState(eventId),n=state.teams.length;
+    if(state.numberingLocked)throw new ApiError('locked','Numbering is locked after scoring or racing starts');
+    if(version!==state.version)throw new ApiError('conflict','Draw data changed');
+    const valid=Array.from({length:n},(_,i)=>String(i+1).padStart(3,'0'));
+    if(!n||n>1000||assignments.length!==n||new Set(assignments.map(a=>a.teamId)).size!==n||new Set(assignments.map(a=>a.number)).size!==n||assignments.some(a=>!state.teams.some(t=>t.id===a.teamId)||!valid.includes(a.number)||state.teams.some(t=>t.id===a.teamId&&t.name.trim().toUpperCase()==='SUPERCHARGED'&&a.number!=='001')))throw new ApiError('invalid','Invalid team number draw');
+    for(const a of assignments)this.teams.find(t=>t.id===a.teamId)!.number=a.number;
+    this.version++;
+  }
+  async applyJudgeDraw(eventId:string,version:string,panel:Panel,assignments:JudgeLotAssignment[]){
+    const state=await this.drawLotsState(eventId),all=assignments.flatMap(a=>a.teamIds),n=state.teams.length;
+    if(state.released||state.lockedPanels.includes(panel))throw new ApiError('locked','This panel has started judging');
+    if(version!==state.version)throw new ApiError('conflict','Draw data changed');
+    const sizes=assignments.map(a=>a.teamIds.length);
+    if(!n||n>1000||!assignments.length||assignments.length>n||new Set(assignments.map(a=>a.judgeId)).size!==assignments.length||all.length!==n||new Set(all).size!==n||Math.max(...sizes)-Math.min(...sizes)>1||assignments.some(a=>!state.roles.some(r=>r.role==='judge'&&r.panel===panel&&r.userId===a.judgeId)||a.teamIds.some(id=>!state.teams.some(t=>t.id===id)||state.conflicts.some(c=>c.judgeId===a.judgeId&&c.teamId===id)||state.exemptions.some(x=>x.judgeId===a.judgeId&&x.teamId===id))))throw new ApiError('invalid','Invalid or conflicted judge draw');
+    const next=this.roles.filter(r=>r.eventId!==eventId||r.role!=='judge'||r.panel!==panel||!assignments.some(a=>a.judgeId===r.userId));
+    for(const a of assignments){const old=state.roles.find(r=>r.role==='judge'&&r.panel===panel&&r.userId===a.judgeId)!;for(const teamId of a.teamIds)next.push({...old,id:nid('role'),teamId});}
+    this.roles=next;
   }
   async setJudgeName(eventId:string,userId:string,name:string) {
     this.require(eventId,'chair','organiser');name=this.text(name,'Judge name',100);

@@ -21,6 +21,7 @@ import { resultsScreen } from './ui/results';
 import { scorecardScreen } from './ui/scorecard';
 import { inspectionScreen } from './ui/inspection';
 import { scoringScreen } from './ui/scoring';
+import {drawLotsScreen} from './ui/draw-lots';
 import { parseHash, startRouter, type Route } from './ui/router';
 import { QueueHost } from './ui/queuehost';
 import { mountShell } from './ui/shell';
@@ -134,6 +135,7 @@ async function screenFor(route: Route, ctx: Ctx): Promise<HTMLElement> {
     case 'people': return peopleScreen(ctx, route.eventId);
     case 'communications': return communicationsScreen(ctx, route.eventId);
     case 'score': return scoringScreen(ctx, route.eventId);
+    case 'draw': return drawLotsScreen(ctx,route.eventId);
     case 'scorecard': return scorecardScreen(ctx, route.eventId, route.teamId, route.areaId);
     case 'inspection': return inspectionScreen(ctx, route.eventId, route.teamId, route.car);
     case 'racing': return racingScreen(ctx, route.eventId);

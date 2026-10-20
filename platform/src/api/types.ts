@@ -1,4 +1,5 @@
 import type { TeamContact, ResultMailState, ResultsPacket, ResultMailSelection } from './result-mail';
+import type {DrawLotsState,TeamNumberAssignment,JudgeLotAssignment} from './draw-lots';
 import type { RaceHeat, RaceInput, TimingState, TimingPair } from '../racing';
 import type { PanelId, RankRow, Ruleset } from '../engine';
 import type { CardReview, FeedbackRow, NominationRow } from './review';
@@ -106,6 +107,9 @@ export interface Api {
   getTiming(eventId: string): Promise<TimingState | null>;
   pairTiming(eventId: string): Promise<TimingPair>;
   listTeams(eventId: string): Promise<TeamRow[]>;
+  drawLotsState(eventId:string):Promise<DrawLotsState>;
+  applyTeamNumberDraw(eventId:string,version:string,assignments:TeamNumberAssignment[]):Promise<void>;
+  applyJudgeDraw(eventId:string,version:string,panel:Panel,assignments:JudgeLotAssignment[]):Promise<void>;
   createTeam(eventId: string, i: NewTeam): Promise<TeamRow>;
   listTeamContacts(eventId: string): Promise<TeamContact[]>;
   setTeamContact(eventId: string, teamId: string, email: string): Promise<void>;
