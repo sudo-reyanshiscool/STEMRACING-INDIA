@@ -14,6 +14,36 @@ const card=async(who:Who,team:string,area:string,submitted=false)=>{
 };
 const visible=(who:Who)=>as(db,who,async q=>(await q('select id from scorecards where event_id=$1 order by id',[w.eventId])).rows.map(r=>r.id as string));
 
+describe('staff judging',()=>{
+ it('lets organiser, chair and permanent admin submit their own cards on any panel without judge assignments',async()=>{
+  for(const who of ['organiser','chair','admin'] as const){
+   for(const area of ['de-portfolio','verbal-technique','renders']){
+    const id=await card(who,w.team1,area,true);
+    expect((await db.query('select judge_id,status from scorecards where id=$1',[id])).rows).toEqual([{judge_id:ids[who],status:'submitted'}]);
+   }
+  }
+ });
+ it('keeps another judge’s scorecard protected and preserves ordinary judge panel restrictions',async()=>{
+  const peer=await card('judgeV',w.team1,'verbal-technique');
+  for(const who of ['organiser','chair'] as const){
+   await denied(as(db,who,q=>q('update scorecard_scores set score=1 where scorecard_id=$1 returning criterion_id',[peer])));
+   await expect(as(db,who,q=>q('select save_card_review($1,$2)',[peer,{...blankReview(),overall:'Not mine'}]))).rejects.toThrow(/cannot edit/);
+  }
+  await expect(card('judgeV',w.team2,'de-portfolio')).rejects.toThrow(/row-level security/);
+  await expect(card('mgr1',w.team2,'de-portfolio')).rejects.toThrow(/row-level security/);
+ });
+ it('honours staff conflicts, exemptions and released-result locks',async()=>{
+  await as(db,'chair',q=>q('insert into judge_conflicts(event_id,team_id) values($1,$2)',[w.eventId,w.team1]));
+  await expect(card('chair',w.team1,'de-portfolio')).rejects.toThrow(/row-level security/);
+  await as(db,'organiser',q=>q('select set_judge_exemption($1,$2,$3,true,$4)',[w.eventId,ids.organiser,w.team2,'Conflict']));
+  await expect(card('organiser',w.team2,'verbal-technique')).rejects.toThrow(/row-level security/);
+  const own=await card('chair',w.team2,'verbal-technique');
+  await db.query('update events set results_released=true where id=$1',[w.eventId]);
+  await expect(card('organiser',w.team1,'verbal-technique')).rejects.toMatchObject({code:'55000'});
+  await expect(as(db,'chair',q=>q('update scorecard_scores set score=1 where scorecard_id=$1',[own]))).rejects.toMatchObject({code:'55000'});
+ });
+});
+
 describe('multiple team and panel assignments',()=>{
  it('replaces only one panel scope, keeps other panels, and enforces the scope on direct inserts',async()=>{
   await assign('verbal',[w.team1]);await assign('design_engineering',[w.team1,w.team2]);

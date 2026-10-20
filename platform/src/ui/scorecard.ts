@@ -31,9 +31,11 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
   const area = event?.ruleset.areas.find((a) => a.id === areaId && a.kind === 'scorecard');
   const team = teams.find((t) => t.id === teamId);
   const back = routeHref({ name: 'score', eventId });
-  if (!event || !area || !team) return notFound('That scorecard was not found.', back, 'Back to my scorecards');
-  if (!roles.some((r) => r.role === 'judge' && r.panel === area.panel && (r.teamId === null || r.teamId === teamId))) {
-    return notFound('This team and panel are not assigned to you, so you cannot score this scorecard.', back, 'Back to my scorecards');
+  const ownJudgingLabel=roles.some(r=>r.role==='organiser'||r.role==='chair')?'Judge':'My scorecards';
+  const backLabel=`Back to ${ownJudgingLabel.toLowerCase()}`;
+  if (!event || !area || !team) return notFound('That scorecard was not found.', back, backLabel);
+  if (!roles.some((r) => r.role==='organiser' || r.role==='chair' || (r.role === 'judge' && r.panel === area.panel && (r.teamId === null || r.teamId === teamId)))) {
+    return notFound('This team and panel are not assigned to you, so you cannot score this scorecard.', back, backLabel);
   }
   const conflicted = conflictList.includes(teamId);
   const exempt = exemptions.some(x=>x.teamId===teamId && roles.some(r=>r.userId===x.judgeId));
@@ -46,11 +48,11 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
     const message = exempt ? exemptionText : e instanceof ApiError && e.code === 'forbidden' && conflicted ? CONFLICT_TEXT
       : e instanceof ApiError && e.code === 'locked' ? RELEASED_TEXT
       : errorText(e);
-    return notFound(message, back, 'Back to my scorecards');
+    return notFound(message, back, backLabel);
   }
 
   const [savedReview, session] = await Promise.all([ctx.api.getReview(card.id), ctx.api.getSession()]);
-  if (!session) return notFound('Sign in to open your scorecard.', back, 'Back to my scorecards');
+  if (!session) return notFound('Sign in to open your scorecard.', back, backLabel);
   let alive = true;
   let locked = card.status === 'submitted' || conflicted || exempt || event.resultsReleased;
   let lockNote = card.status === 'submitted' ? 'Submitted. Only the Chair can reopen this scorecard.' : '';
@@ -423,7 +425,7 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
   const siblings = event.ruleset.areas.filter((a) => a.kind === 'scorecard' && a.panel === area.panel);
   const screen = h('div', { class: 'stack stack--lg scorecard-screen' },
     h('div', { class: 'stack' },
-      h('a', { class: 'back', href: back }, 'My scorecards'),
+      h('a', { class: 'back', href: back }, ownJudgingLabel),
       h('p', { class: 'eyebrow' }, event.name),
       h('h1', null, area.name),
       h('p', { class: 'lead' }, `Team ${team.number} · ${team.name}`),

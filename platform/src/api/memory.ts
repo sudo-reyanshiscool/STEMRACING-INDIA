@@ -339,7 +339,7 @@ export class MemoryApi implements Api {
     }
   }
   private canScore(eventId: string, panel: Panel, teamId: string) {
-    return this.rolesOf(eventId).some(r=>r.role==='judge' && r.panel===panel && (r.teamId===null || r.teamId===teamId)) && !this.exemptions.some(x=>x.eventId===eventId && x.judgeId===this.me?.userId && x.teamId===teamId);
+    return (this.has(eventId,'organiser','chair') || this.rolesOf(eventId).some(r=>r.role==='judge' && r.panel===panel && (r.teamId===null || r.teamId===teamId))) && !this.exemptions.some(x=>x.eventId===eventId && x.judgeId===this.me?.userId && x.teamId===teamId);
   }
   async setJudgeName(eventId:string,userId:string,name:string) {
     this.require(eventId,'chair','organiser');name=this.text(name,'Judge name',100);
@@ -471,7 +471,7 @@ export class MemoryApi implements Api {
 
   // ---- conflicts and scorecards
   async declareConflict(eventId: string, teamId: string) {
-    this.require(eventId, ...JUDGE_ROLES);
+    this.require(eventId, ...JUDGE_ROLES, 'organiser', 'chair');
     this.teamOrThrow(eventId, teamId);
     const judgeId = this.me!.userId;
     if (this.released(eventId)) throw new ApiError('locked', 'Results are released, so a conflict can no longer be declared');

@@ -14,7 +14,8 @@ export async function scoringScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
   ]);
   if (!event) return notFound('That event was not found.', '#/', 'All events');
   const eventHref = routeHref({ name: 'event', eventId });
-  const panels = [...new Set([
+  const staff=roles.some(r=>r.role==='organiser'||r.role==='chair');
+  const panels = [...new Set(staff?event.ruleset.areas.filter(a=>a.kind==='scorecard'&&a.panel).map(a=>a.panel as Panel):[
     ...roles.filter((r) => r.role === 'judge' && r.panel).map((r) => r.panel as Panel),
     ...(roles.some((r) => r.role === 'scrutineer') ? ['scrutineering' as Panel] : []),
   ])];
@@ -37,8 +38,14 @@ export async function scoringScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
     'aria-controls': `judge-panel-${panel}`,
   }, PANEL_LABEL[panel]));
   const chooser = panels.length > 1 ? h('div', { class: 'stack' },
-    h('p', { class: 'small muted' }, `You are assigned to ${panels.length} judging panels. Choose a panel:`),
+    h('p', { class: 'small muted' }, staff?'Choose a panel to complete your own scorecards:':`You are assigned to ${panels.length} judging panels. Choose a panel:`),
     h('div', { class: 'panel-switcher', role: 'group', 'aria-label': 'Your judging panels' }, panelButtons)) : null;
+  let selectedTeam='';
+  const teamSelectionKey=`${selectionKey}:team`;
+  try{const saved=sessionStorage.getItem(teamSelectionKey);if(saved&&teams.some(t=>t.id===saved))selectedTeam=saved;}catch{/* Selection still works without storage. */}
+  const teamSelect=staff?h('select',{'aria-label':'Team to judge'},h('option',{value:''},'Choose a team'),[...teams].sort((a,b)=>a.number.localeCompare(b.number,'en',{numeric:true})).map(t=>h('option',{value:t.id},`Team ${t.number} · ${t.name}`))):null;
+  if(teamSelect)teamSelect.value=selectedTeam;
+  const teamChooser=teamSelect?h('label',{class:'field'},h('span',{class:'field__label'},'Team'),teamSelect):null;
   let armed: string | null = null;
   let declaring = false;
 
@@ -66,7 +73,8 @@ export async function scoringScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
         const areas = event.ruleset.areas.filter((a) => a.kind === 'scorecard' && a.panel === panel);
         return h('section', { class: 'section', id: `judge-panel-${panel}`, hidden: panel !== selectedPanel, 'aria-labelledby': `judge-panel-heading-${panel}` },
           h('h2', { id: `judge-panel-heading-${panel}` }, PANEL_LABEL[panel]),
-          h('div', { class: 'grid' }, teams.filter(t=>roles.some(r=>(r.role==='judge' && r.panel===panel && (r.teamId===null || r.teamId===t.id)) || (panel==='scrutineering' && r.role==='scrutineer' && (r.teamId===null || r.teamId===t.id)))).map((t) => {
+          staff&&!selectedTeam?h('p',{class:'muted'},'Choose a team above to open its scorecards.'):null,
+          h('div', { class: 'grid' }, teams.filter(t=>staff?t.id===selectedTeam:roles.some(r=>(r.role==='judge' && r.panel===panel && (r.teamId===null || r.teamId===t.id)) || (panel==='scrutineering' && r.role==='scrutineer' && (r.teamId===null || r.teamId===t.id)))).map((t) => {
             const conflicted = conflicts.has(t.id);
             const exemption = exemptionList.find(x=>x.judgeId===session?.userId && x.teamId===t.id);
             const declare = h('button', { class: 'linkish', type: 'button' },
@@ -139,6 +147,7 @@ export async function scoringScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
       }),
     );
   };
+  if(teamSelect)teamSelect.onchange=()=>{selectedTeam=teamSelect.value;try{sessionStorage.setItem(teamSelectionKey,selectedTeam);}catch{/* Selection still works without storage. */}armed=null;render();};
   panelButtons.forEach((button, index) => button.addEventListener('click', () => {
     selectedPanel = panels[index]; armed = null;
     try { sessionStorage.setItem(selectionKey,selectedPanel); } catch { /* Selection still works without storage. */ }
@@ -162,8 +171,9 @@ export async function scoringScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
   liveRefresh(ctx,refreshAssignments,e=>reportActionError(ctx,error,e));
 
   return h('div', { class: 'stack stack--lg' },
-    h('div', { class: 'stack' }, h('a', { class: 'back', href: eventHref }, event.name), h('h1', null, 'My scorecards'), chooser,
-      h('p', { class: 'lead' }, 'Choose one of your assigned teams and an area. Scores save as you type and can be edited until you submit.'),
+    h('div', { class: 'stack' }, h('a', { class: 'back', href: eventHref }, event.name), h('h1', null, staff?'Judge':'My scorecards'), teamChooser,chooser,
+      h('p', { class: 'lead' }, staff?'Choose a team and panel. Your scores are recorded under your own account and count when submitted.':'Choose one of your assigned teams and an area. Scores save as you type and can be edited until you submit.'),
+      event.resultsReleased?h('p',{class:'notice'},'Results are released. Existing scorecards are read-only; withdraw the release before adding or changing scores.'):null,
       h('p', { class: 'small muted' }, 'If you have a conflict of interest with a team, declare it. A declaration cannot be removed on this screen: ask the Chair.')),
     h('div', { class: 'actions' }, refresh, h('p', { class: 'small muted' }, 'Assignments update every 10 seconds and when you return to this page.')), error, body,
   );

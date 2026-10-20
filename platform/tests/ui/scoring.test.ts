@@ -3,10 +3,29 @@ import { describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../../src/api';
 import { scoringScreen } from '../../src/ui/scoring';
 import { EMAILS, makeCtx, text, world } from './helpers';
+import {scorecardScreen} from '../../src/ui/scorecard';
+import {eventNav} from '../../src/ui/event-nav';
 
 const wait = () => new Promise((r) => setTimeout(r, 0));
 
 describe('scoringScreen', () => {
+  it.each([EMAILS.org,EMAILS.chair])('lets staff %s choose any team and panel and open an own scorecard',async email=>{
+    const {api,ev,t1,t2}=await world();await api.signIn(email);
+    const roles=await api.myRoles(ev.id),{ctx,leaves}=makeCtx(api);
+    expect([...eventNav(ev,roles,'score').querySelectorAll('a')].map(text)).toContain('Judge');
+    const el=await scoringScreen(ctx,ev.id);
+    expect(el.querySelector('h1')!.textContent).toBe('Judge');
+    const select=el.querySelector<HTMLSelectElement>('[aria-label="Team to judge"]')!;
+    select.value=t2.id;select.dispatchEvent(new Event('change'));
+    const panels=[...el.querySelectorAll<HTMLButtonElement>('[aria-label="Your judging panels"] button')];
+    panels.find(b=>text(b)==='Verbal Presentation')!.click();
+    const visible=el.querySelector<HTMLElement>('#judge-panel-verbal')!;
+    expect(visible.hidden).toBe(false);expect(text(visible)).toContain(t2.name);expect(text(visible)).not.toContain(t1.name);
+    const card=await scorecardScreen(ctx,ev.id,t2.id,'verbal-technique');
+    expect(text(card)).toContain('Team Contribution');expect(text(card)).not.toContain('not assigned to you');
+    expect((await api.listCards(ev.id)).find(c=>c.teamId===t2.id)!.judgeId).toBe((await api.getSession())!.userId);
+    leaves.forEach(f=>f());
+  });
   it('lists every team with the areas of the judge panel, linking to each scorecard', async () => {
     const { api, ev, t1 } = await world();
     await api.signIn(EMAILS.judge);
