@@ -53,7 +53,7 @@ describe('manager contacts and private result delivery',()=>{
  it('uses the saved recipient, deduplicates sends and protects delivery completion',async()=>{
   const job=(await as(db,'organiser',q=>q('select reserve_team_results_email($1,$2,(select id from ranking_snapshots where event_id=$1 order by created_at desc,id desc limit 1),(select awards_version from result_mail_settings where event_id=$1),(select manager_email from team_contacts where event_id=$1 and team_id=$2)) as j',[w.eventId,w.team1]))).rows[0].j;
   expect(job).toMatchObject({status:'reserved',email:'manager@example.com'});expect(job.packet.snapshotId).toBe(snapshot);
-  expect(job.packet.awards).toEqual([{title:'Overall Champion',teamNumber:'1',teamName:'Team One'}]);
+  expect(job.packet.awards).toEqual([{title:'Overall Champion',teamNumber:'1',teamName:'Team One',teamSchool:''}]);
   expect((await as(db,'chair',q=>q('select reserve_team_results_email($1,$2,(select id from ranking_snapshots where event_id=$1 order by created_at desc,id desc limit 1),(select awards_version from result_mail_settings where event_id=$1),(select manager_email from team_contacts where event_id=$1 and team_id=$2)) as j',[w.eventId,w.team1]))).rows[0].j.status).toBe('busy');
   await expect(as(db,'organiser',q=>q("select complete_team_results_email($1,$2,'sent',null)",[job.jobId,job.attempt]))).rejects.toThrow(/permission denied/);
   await db.exec('set role service_role');

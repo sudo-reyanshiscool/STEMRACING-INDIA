@@ -24,9 +24,7 @@ function document(title:string,p:ResultsPacket,logo?:string,cover=false) {
   for(let i=0;i<100;i++){doc.setFillColor(211,Math.round(i*.7),116-Math.round(i*.7));doc.rect(i*2.1,39,2.2,2,'F');}
   if(logo)doc.addImage(logo,'PNG',78,5,55,25,undefined,'FAST');
   doc.setFont('helvetica','bold');doc.setFontSize(19);doc.setTextColor(...ink);doc.text(title,13,52);
-  let y=59;
-  if(title==='Final standings & awards'){y=paragraphs(doc,y,'Event',p.eventName);if(preview(p)){doc.setTextColor(...pink);doc.text('PREVIEW - results or awards have not been finalised.',13,y);y+=5;}}
-  else y=identity(doc,p,13,59,184);
+  const y=identity(doc,p,13,59,184);
   (doc as jsPDF & {reportStartY:number}).reportStartY=y+6;
  }else{
   if(logo){doc.setFillColor(...ink);doc.rect(158,7,39,20,'F');doc.addImage(logo,'PNG',160,9,35,16,undefined,'FAST');}
@@ -76,12 +74,70 @@ function footers(doc:jsPDF,p:ResultsPacket,kind:string,privateTeam=false){
  }
 }
 export function buildStandingsPdf(p:ResultsPacket,logo?:string):jsPDF {
- const doc=document('Final standings & awards',p,logo,true);
- let y=table(doc,start(doc),['Rank','Team','Total points'],p.standings.map(r=>[String(r.rank),text(`${r.number} - ${r.name}`),points(r.total)]),{columnStyles:{0:{cellWidth:18},2:{cellWidth:30,halign:'right'}}});
- y=heading(doc,y,'Confirmed overall awards');
- if(p.awards.length)table(doc,y,['Award','Winning team'],p.awards.map(a=>[text(a.title),text(`${a.teamNumber} - ${a.teamName}`)]));
- else paragraphs(doc,y+3,'Awards','No overall awards were selected for this event.');
- footers(doc,p,'Final standings & awards');return doc;
+ const purple:[number,number,number]=[54,34,112],muted:[number,number,number]=[112,105,128];
+ const doc=new jsPDF({unit:'mm',format:'a4',compress:true});
+ doc.setProperties({title:`${p.eventName} - Final points and award winners`,author:'STEM Racing India',subject:'Published final standings and confirmed overall awards'});
+ const rows=[...p.standings].sort((a,b)=>a.rank-b.rank||a.number.localeCompare(b.number,'en',{numeric:true}));
+ function chrome(){
+  const pages=doc.getNumberOfPages();
+  for(let page=1;page<=pages;page++){
+   doc.setPage(page);
+   for(let i=0;i<110;i++){
+    const t=i/109;doc.setFillColor(Math.round(15+108*t),Math.round(4+2*t),Math.round(26+62*t));doc.rect(0,i*.29,210,.3,'F');
+   }
+   if(logo)doc.addImage(logo,'PNG',81,2.5,48,22,undefined,'FAST');
+   else{doc.setTextColor(255,255,255);doc.setFontSize(15);doc.setFont('helvetica','bolditalic');doc.text('STEM RACING INDIA',105,17,{align:'center'});}
+   for(let i=0;i<100;i++){const t=i/99;doc.setFillColor(Math.round(211+28*t),Math.round(3+139*t),Math.round(120-110*t));doc.rect(i*2.1,32,2.2,1.2,'F');}
+   for(let i=0;i<100;i++){const t=i/99;doc.setDrawColor(Math.round(54+175*t),Math.round(34+100*t),Math.round(112-102*t));doc.setLineWidth(.4);doc.line(13+i*1.84,280,13+(i+1)*1.84,280);}
+   doc.setFont('helvetica','normal');doc.setFontSize(6.4);doc.setTextColor(...muted);
+   const footer=doc.splitTextToSize(text(`${p.eventName} - Final points and award winners - ${p.createdAt.slice(0,10)}${preview(p)?' - PREVIEW':''}`),160) as string[];
+   doc.text(footer.slice(0,2),13,285);doc.text(`Page ${page} of ${pages}`,197,285,{align:'right'});
+  }
+ }
+ doc.setTextColor(...pink);doc.setFont('helvetica','bold');doc.setFontSize(7);doc.text('RESULTS',13,41);
+ doc.setTextColor(...purple);doc.setFont('helvetica','bolditalic');doc.setFontSize(18);doc.text('Final Points and Award Winners',13,50);
+ doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...muted);
+ const meta=doc.splitTextToSize(text(`${p.eventName} - ${p.createdAt.slice(0,10)} - Snapshot ${p.snapshotId.slice(0,8)}`),184) as string[];
+ doc.text(meta,13,56);let y=58+meta.length*3.5;
+ if(preview(p)){doc.setTextColor(...pink);doc.setFontSize(7);doc.text('PREVIEW - final results or awards have not been confirmed.',13,y);y+=6;}
+ // Podium entries use published positions. No winner or tie is inferred from team identity.
+ const podium=rows.filter(r=>r.rank>=1&&r.rank<=3).slice(0,3);
+ const colors:Array<[number,number,number]>=[[217,179,68],[35,157,201],[213,125,59]];
+ if(podium.length){
+  const gap=3,width=(184-gap*(podium.length-1))/podium.length;
+  const cards=podium.map((r,i)=>{
+   const x=13+i*(width+gap);doc.setFont('helvetica','bold');doc.setFontSize(11);
+   const name=doc.splitTextToSize(text(r.name),width-8) as string[];
+   doc.setFont('helvetica','normal');doc.setFontSize(7.3);
+   const school=doc.splitTextToSize(text(r.school?.trim()||`Team ${r.number}`),width-8) as string[];
+   return {r,x,name,school,height:22+name.length*4.7+school.length*3.6};
+  });
+  const height=Math.max(40,...cards.map(c=>c.height));
+  for(const {r,x,name,school} of cards){
+   doc.setFillColor(247,245,251);doc.roundedRect(x,y,width,height,1,1,'F');doc.setFillColor(...colors[r.rank-1]);doc.rect(x,y,width,1,'F');
+   doc.setTextColor(...purple);doc.setFont('helvetica','bold');doc.setFontSize(6.7);doc.text(r.rank===1?'EVENT CHAMPIONS':r.rank===2?'2ND PLACE':'3RD PLACE',x+4,y+6);
+   doc.setTextColor(...ink);doc.setFontSize(11);doc.text(name,x+4,y+13);
+   doc.setFont('helvetica','normal');doc.setFontSize(7.3);doc.setTextColor(...muted);doc.text(school,x+4,y+15+name.length*4.7);
+   doc.setTextColor(...purple);doc.setFont('helvetica','bold');doc.setFontSize(10);doc.text(`${r.total.toFixed(1)} points`,x+4,y+height-5);
+  }
+  y+=height+9;
+ }
+ doc.setTextColor(...purple);doc.setFont('helvetica','bolditalic');doc.setFontSize(12);doc.text('Final points and positions',13,y);y+=4;
+ autoTable(doc,{startY:y,margin:{left:13,right:13,top:40,bottom:23},head:[['Pos','No.','Team','School / club','Points']],
+  body:rows.map(r=>[String(r.rank),text(r.number),text(r.name),text(r.school??''),r.total.toFixed(1)]),theme:'grid',rowPageBreak:'avoid',
+  styles:{font:'helvetica',fontSize:8,cellPadding:{top:2,right:2,bottom:2,left:2},lineColor:[219,214,230],lineWidth:.13,textColor:ink},
+  headStyles:{fillColor:purple,textColor:[255,255,255],fontStyle:'bold'},alternateRowStyles:{fillColor:[246,244,250]},
+  columnStyles:{0:{cellWidth:13,halign:'right'},1:{cellWidth:17,textColor:pink,fontStyle:'bold'},2:{cellWidth:65,fontStyle:'bold'},3:{cellWidth:64,fontSize:7.4},4:{cellWidth:25,halign:'right',fontStyle:'bold'}},
+  didParseCell(data){if(data.section==='body'&&rows[data.row.index]?.rank<=3)data.cell.styles.fillColor=[255,248,221];}
+ });
+ doc.addPage();y=44;doc.setTextColor(...purple);doc.setFont('helvetica','bolditalic');doc.setFontSize(15);doc.text('Award winners',13,y);y+=5;
+ if(p.awards.length){
+  autoTable(doc,{startY:y,margin:{left:13,right:13,top:40,bottom:23},head:[['Award','Winner']],body:p.awards.map(a=>[text(a.title.toUpperCase()),text(`${a.teamName}\nTeam ${a.teamNumber}${a.teamSchool?.trim()?` - ${a.teamSchool}`:''}`)]),
+   theme:'grid',rowPageBreak:'avoid',styles:{font:'helvetica',fontSize:9,cellPadding:{top:4,right:3,bottom:4,left:3},lineColor:[220,215,231],lineWidth:.15,textColor:ink},headStyles:{fillColor:purple,textColor:[255,255,255],fontStyle:'bold'},
+   alternateRowStyles:{fillColor:[247,245,251]},columnStyles:{0:{cellWidth:89,textColor:purple,fontStyle:'bold'},1:{cellWidth:95}},
+  });
+ }else paragraphs(doc,y+3,'Awards','No overall awards were selected for this event.');
+ chrome();return doc;
 }
 function comparison(b?:Benchmark):string[]{return b?[points(b.low),points(b.median),points(b.high)]:['-','-','-'];}
 function summary(doc:jsPDF,p:ResultsPacket){

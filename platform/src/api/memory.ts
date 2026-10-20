@@ -99,13 +99,13 @@ export class MemoryApi implements Api {
     this.require(eventId,'chair','organiser');const event=this.eventOrThrow(eventId),team=this.teamOrThrow(eventId,teamId);const snapshot=this.snapshots.filter(s=>s.eventId===eventId).at(-1);const row=snapshot?.rows.find(r=>r.teamId===teamId);
     if(!snapshot||!row)throw new ApiError('locked','Publish a ranking containing this team first');
     return copy({released:event.resultsReleased,awardsConfirmed:this.mailSettings.get(eventId)?.confirmed??false,eventName:event.name,eventId,snapshotId:snapshot.id,createdAt:snapshot.createdAt,ruleset:event.ruleset,team,teamResult:row,
-      standings:snapshot.rows.map(({rank,teamId,number,name,total})=>({rank,teamId,number,name,total})),
+      standings:snapshot.rows.map(({rank,teamId,number,name,total})=>({rank,teamId,number,name,total,school:this.teams.find(t=>t.id===teamId)?.school??''})),
       benchmarks:Object.fromEntries([...event.ruleset.areas.map(a=>a.id),'__total'].flatMap(key=>{
         const values=snapshot.rows.map(r=>key==='__total'?r.total:r.areas[key]).filter((v):v is number=>typeof v==='number').sort((a,b)=>a-b);
         return values.length?[[key,{low:values[0],median:(values[Math.floor((values.length-1)/2)]+values[Math.ceil((values.length-1)/2)])/2,high:values.at(-1)!}]]:[];
       })),
       races:this.races.filter(r=>r.eventId===eventId).flatMap(r=>[r.lane1,r.lane2].flatMap((lane,i)=>lane.teamId===teamId&&lane.status!=='pending'?[{number:r.number,label:r.label,phase:r.phase,lane:i+1,car:lane.car,status:lane.status,totalMs:lane.totalMs,reactionMs:lane.reactionMs}]:[])),
-      awards:this.awards.filter(a=>a.eventId===eventId).map(a=>{const t=this.teamOrThrow(eventId,a.teamId);return {title:a.title,teamNumber:t.number,teamName:t.name};}),
+      awards:this.awards.filter(a=>a.eventId===eventId).map(a=>{const t=this.teamOrThrow(eventId,a.teamId);return {title:a.title,teamNumber:t.number,teamName:t.name,teamSchool:t.school};}),
       cards:this.cards.filter(c=>c.eventId===eventId && c.teamId===teamId && c.status==='submitted').map(c=>{const r=this.reviews.get(c.id);return {areaId:c.areaId,scores:c.scores,feedback:{overall:r?.overall??'',strengths:r?.strengths??'',improvements:r?.improvements??''}};}),
       penalties:this.penalties.filter(p=>p.eventId===eventId && p.teamId===teamId).map(({points,reason})=>({points,reason})),
       inspections:this.inspections.filter(i=>i.eventId===eventId && i.teamId===teamId && i.status==='submitted').map(i=>({car:i.car,rulesetId:i.rulesetId,measurements:i.measurements as ResultsPacket['inspections'][number]['measurements']}))});
