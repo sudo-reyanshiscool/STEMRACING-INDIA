@@ -9,10 +9,36 @@ vi.mock('../../src/pdf/resultsArchive',()=>({
  ResultsArchiveError:class extends Error {},
 }));
 import {buildResultsArchive} from '../../src/pdf/resultsArchive';
+import * as pdfTools from '../../src/ui/pdf-tools';
 const wait=()=>new Promise(r=>setTimeout(r,0));
 async function setup(){const {api,ev,t1,t2}=await world();await api.signIn(EMAILS.org);await api.setTeamContact(ev.id,t1.id,'manager@x.test');const rows=rank({ruleset:ev.ruleset,teams:[t1,t2],cards:[],overrides:[],penalties:[]}).rows;await api.publishSnapshot(ev.id,{rulesetId:ev.ruleset.id,inputHash:'a'.repeat(64),inputs:{},rows});return {api,ev,t1,t2};}
 const button=(el:HTMLElement,label:string)=>[...el.querySelectorAll('button')].find(b=>b.textContent===label)!;
 describe('results delivery controls',()=>{
+ it('offers a reload when an updated deployment removes a preview module and retains the selected team',async()=>{
+  const {api,ev,t1}=await setup();const send=vi.spyOn(api,'sendTeamResults');
+  const failed=vi.spyOn(pdfTools,'loadPdfReports').mockRejectedValueOnce(new pdfTools.PdfToolsLoadError(new TypeError('Failed to fetch dynamically imported module')));
+  const log=vi.spyOn(console,'error').mockImplementation(()=>{});
+  try{
+   const el=await resultDelivery(makeCtx(api).ctx,ev),select=el.querySelector<HTMLSelectElement>('[aria-label="Team PDF preview"]')!;
+   select.value=t1.id;select.dispatchEvent(new Event('change'));
+   button(el,'Download PDF previews').click();
+   await vi.waitFor(()=>expect(button(el,'Reload website').hidden).toBe(false));
+   expect(el.querySelector('[role=alert]')!.textContent).toContain('Reload the website and try again');
+   await vi.waitFor(()=>expect(button(el,'Download PDF previews').disabled).toBe(false));
+   expect(el.querySelector<HTMLSelectElement>('[aria-label="Team PDF preview"]')!.value).toBe(t1.id);
+   expect(send).not.toHaveBeenCalled();
+  }finally{failed.mockRestore();log.mockRestore();}
+ });
+ it('offers the same recovery when the all-team archive module cannot load',async()=>{
+  const {api,ev}=await setup();
+  const failed=vi.spyOn(pdfTools,'loadResultsArchive').mockRejectedValueOnce(new pdfTools.PdfToolsLoadError(new TypeError('Importing a module script failed')));
+  const log=vi.spyOn(console,'error').mockImplementation(()=>{});
+  try{
+   const el=await resultDelivery(makeCtx(api).ctx,ev);button(el,'Download all PDFs (ZIP)').click();
+   await vi.waitFor(()=>expect(button(el,'Reload website').hidden).toBe(false));
+   expect(el.querySelector('[role=alert]')!.textContent).toContain('PDF tools could not load');
+  }finally{failed.mockRestore();log.mockRestore();}
+ });
  it('downloads every team in one ZIP without sending emails or requiring a selected preview team',async()=>{
   const {api,ev,t1,t2}=await setup();const send=vi.spyOn(api,'sendTeamResults');
   const el=await resultDelivery(makeCtx(api).ctx,ev);

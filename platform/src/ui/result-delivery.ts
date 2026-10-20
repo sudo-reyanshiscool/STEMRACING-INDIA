@@ -2,20 +2,23 @@ import type {EventRow,ResultMailState,TeamRow} from '../api';
 import type {Ctx} from './ctx';
 import {h} from './dom';
 import {reportActionError} from './actions';
+import {loadPdfReports,loadResultsArchive,PdfToolsLoadError} from './pdf-tools';
 
 export async function resultDelivery(ctx:Ctx,event:EventRow):Promise<HTMLElement> {
- let alive=true,busy=false,stop=false,cancelDownload=false;
+ let alive=true,busy=false,stop=false,cancelDownload=false,selectedPreviewTeam='';
  ctx.onLeave(()=>{alive=false;stop=true;cancelDownload=true;});
  let [teams,contacts,state]=await Promise.all([ctx.api.listTeams(event.id),ctx.api.listTeamContacts(event.id),ctx.api.resultMailState(event.id)]);
  teams.sort((a,b)=>a.number.localeCompare(b.number,'en',{numeric:true}));
  const root=h('section',{class:'section stack','aria-label':'Results PDFs and manager emails'});
  const message=h('p',{class:'notice',role:'status',hidden:true}),error=h('p',{class:'alert',role:'alert',hidden:true});
- const content=h('div',{class:'stack'});root.append(h('h2',null,'Results PDFs and manager emails'),message,error,content);
+ const reload=h('button',{class:'btn btn--ghost',type:'button',hidden:true},'Reload website');
+ reload.onclick=()=>{if(busy)return;busy=true;reload.disabled=true;void ctx.flush().then(()=>window.location.reload()).catch(e=>{busy=false;reload.disabled=false;reportActionError(ctx,error,e);});};
+ const content=h('div',{class:'stack'});root.append(h('h2',null,'Results PDFs and manager emails'),message,error,reload,content);
  const refresh=async()=>{[contacts,state]=await Promise.all([ctx.api.listTeamContacts(event.id),ctx.api.resultMailState(event.id)]);if(alive)draw();};
  const run=async(task:()=>Promise<void>)=>{
-  if(busy)return;busy=true;error.hidden=true;message.hidden=true;
+  if(busy)return;busy=true;error.hidden=true;message.hidden=true;reload.hidden=true;
   content.querySelectorAll('button').forEach(b=>{if(!b.dataset.stop)b.disabled=true;});
-  try{await task();}catch(e){if(alive){message.hidden=true;reportActionError(ctx,error,e,{locked:'The results or delivery status changed. Refresh this page and review the awards and manager contacts before trying again.'});}}
+  try{await task();}catch(e){if(alive){message.hidden=true;if(e instanceof PdfToolsLoadError){console.error(e);error.textContent=e.message;error.hidden=false;reload.hidden=false;}else reportActionError(ctx,error,e,{locked:'The results or delivery status changed. Refresh this page and review the awards and manager contacts before trying again.'});}}
   finally{busy=false;if(alive)await refresh().catch(e=>reportActionError(ctx,error,e));}
  };
  const who=(id:string)=>{const t=teams.find(t=>t.id===id);return t?`${t.number} - ${t.name}`:'Removed team';};
@@ -29,12 +32,13 @@ export async function resultDelivery(ctx:Ctx,event:EventRow):Promise<HTMLElement
   const confirmAwards=h('button',{class:'btn btn--primary',type:'button',disabled:state.confirmed},state.confirmed?'Awards confirmed':'Confirm award winners');
   confirmAwards.onclick=()=>void run(()=>ctx.api.confirmAwards(event.id));
   const previewTeam=h('select',{'aria-label':'Team PDF preview'},h('option',{value:''},'Choose a team'),teams.map(t=>h('option',{value:t.id},`${t.number} - ${t.name}`)));
+  previewTeam.value=selectedPreviewTeam;previewTeam.onchange=()=>{selectedPreviewTeam=previewTeam.value;};
   const previewButton=h('button',{class:'btn btn--ghost',type:'button',disabled:!state.snapshotId},'Download PDF previews');
   previewButton.onclick=()=>void run(async()=>{
    if(!previewTeam.value){error.textContent='Choose a team for the scorecard preview.';error.hidden=false;return;}
    const packet=await ctx.api.previewResultsPacket(event.id,previewTeam.value);
-   const [{resultPdfFiles},{RESULTS_LOGO}]=await Promise.all([import('../pdf/resultReports'),import('../../supabase/functions/_shared/results-logo')]);
-   for(const file of resultPdfFiles(packet,RESULTS_LOGO)){
+   const {resultPdfFiles}=await loadPdfReports();
+   for(const file of resultPdfFiles(packet)){
     const blob=new Blob([file.bytes as BlobPart],{type:'application/pdf'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=file.filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
    }
   });
@@ -44,7 +48,7 @@ export async function resultDelivery(ctx:Ctx,event:EventRow):Promise<HTMLElement
   allPdfs.onclick=()=>void run(async()=>{
    cancelDownload=false;cancelPdfs.hidden=false;
    const selection={snapshotId:state.snapshotId!,version:state.version};
-   const {buildResultsArchive,ArchiveCancelled,ResultsArchiveError}=await import('../pdf/resultsArchive');
+   const {buildResultsArchive,ArchiveCancelled,ResultsArchiveError}=await loadResultsArchive();
    try{
     const archive=await buildResultsArchive({id:event.id,name:event.name,snapshotId:selection.snapshotId},teams,
      teamId=>ctx.api.previewResultsPacket(event.id,teamId),{
