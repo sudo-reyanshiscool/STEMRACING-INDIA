@@ -80,6 +80,8 @@ describe('technical inspections SQL rules', () => {
     )).rejects.toMatchObject({ code: '42501' });
 
     // When event is released, updates match 0 rows and submissions are blocked
+    const version=(await db.query<{v:string}>("select racing_version($1) as v",[w.eventId])).rows[0].v;
+    await as(db,'chair',q=>q("insert into ranking_snapshots(event_id,ruleset_id,input_hash,inputs,rows) values($1,'india-national-finals-2026',repeat('a',64),$2,'[]')",[w.eventId,{racingVersion:version}]));
     await db.query('update events set results_released = true where id = $1', [w.eventId]);
     const blockedUpdate = await as(db, 'judgeD', (q) =>
       q(`update technical_inspections set measurements = '{}' where id = $1`, [inspId]),
@@ -127,6 +129,8 @@ describe('technical inspections SQL rules', () => {
     expect(seeMgrPreRelease.rows).toHaveLength(0);
 
     // Release results
+    const version=(await db.query<{v:string}>("select racing_version($1) as v",[w.eventId])).rows[0].v;
+    await as(db,'chair',q=>q("insert into ranking_snapshots(event_id,ruleset_id,input_hash,inputs,rows) values($1,'india-national-finals-2026',repeat('a',64),$2,'[]')",[w.eventId,{racingVersion:version}]));
     await db.query('update events set results_released = true where id = $1', [w.eventId]);
 
     // Team manager CAN see their own team's submitted inspection after release

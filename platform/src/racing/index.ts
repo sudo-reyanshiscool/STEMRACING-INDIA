@@ -1,6 +1,6 @@
 export type RaceStatus = 'pending' | 'finished' | 'dnf' | 'dns' | 'false_start';
 export interface RaceLane { teamId: string; car: 'A' | 'B'; status: RaceStatus; totalMs: number | null; reactionMs: number | null }
-export interface RaceInput { label: string; phase: 'reaction' | 'knockout'; lane1: RaceLane; lane2: RaceLane; note: string; source: 'manual' | 'denford'; sourceRunId: string | null }
+export interface RaceInput { bracket?: { round: number; slot: number } | null; label: string; phase: 'reaction' | 'knockout'; lane1: RaceLane; lane2: RaceLane; note: string; source: 'manual' | 'denford'; sourceRunId: string | null }
 export interface RaceHeat extends RaceInput { id: string; eventId: string; number: number; revision: number; updatedAt: string }
 export interface TimingState { connectionId: string; expiresAt: string; lastSeenAt: string | null; payload: Record<string, unknown> | null }
 export interface TimingPair { token: string; connectionId: string; expiresAt: string }
@@ -19,6 +19,7 @@ export function validateRace(r: RaceInput): string | null {
   if (typeof r.note !== 'string' || r.note.length > 1000 || !['manual', 'denford'].includes(r.source)) return 'Check the race notes and entry source.';
   if (r.source === 'manual' ? r.sourceRunId !== null : !r.sourceRunId || r.sourceRunId.length > 160) return 'The track run reference is missing or invalid.';
   if (!r.lane1?.teamId || !r.lane2?.teamId || r.lane1.teamId === r.lane2.teamId) return 'Choose two different teams.';
+  if (r.bracket && (r.phase !== 'knockout' || !Number.isInteger(r.bracket.round) || r.bracket.round < 1 || r.bracket.round > 6 || !Number.isInteger(r.bracket.slot) || r.bracket.slot < 1 || r.bracket.slot > 64 / 2 ** r.bracket.round)) return 'Choose a valid knockout round and match.';
   for (const [index, lane] of [r.lane1, r.lane2].entries()) {
     if (!['A', 'B'].includes(lane.car) || !Object.hasOwn(STATUS_LABEL, lane.status)) return `Check the car and status for lane ${index + 1}.`;
     if (lane.status === 'finished') {

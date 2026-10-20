@@ -182,3 +182,10 @@ main:has(.race-screen)>* { animation:none; }
 .panel-switcher { display: flex; flex-wrap: wrap; gap: 8px; }
 .panel-switcher .btn { min-height: 48px; white-space: normal; text-align: center; }
 .panel-switcher [aria-pressed="true"] { border-color: var(--pitlane-pink); background: var(--bg-raised); color: var(--fg-strong); }
+
+.race-competition details { border:1px solid var(--rule);border-radius:var(--radius-card);padding:16px; }
+.race-competition summary { font-weight:700;cursor:pointer; }
+.race-competition details[open]>summary { margin-bottom:20px; }
+.race-competition .grid { display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px; }
+.race-competition .row { padding:16px;border:1px solid var(--rule);border-radius:var(--radius-card); }
+.race-competition .alert { margin:0; }

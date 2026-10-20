@@ -1,3 +1,5 @@
+import { competitionPanel } from './racing-competition';
+import { defaultRacingSetup, adjustedTime, carCheck } from '../racing/competition';
 import { blankLane, outcome, parseDenford, parseSeconds, raceRecorded, raceStandings, seconds, STATUS_LABEL, validateRace, type RaceHeat, type RaceInput, type RaceLane, type RaceStatus, type TimingState } from '../racing';
 import { reportActionError } from './actions';
 import { notFound, tag } from './common';
@@ -10,6 +12,8 @@ export async function racingScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
   if (!event || !roles.length || (roles.every(r => r.role === 'team_manager') && !event.resultsReleased)) return notFound('Race control is not available to this account.');
   const canEdit = !event.resultsReleased && roles.some(r => ['organiser','chair','race_official'].includes(r.role));
   let races = await ctx.api.listRaces(eventId), selected: RaceHeat | null = null, dirty = false, alive = true;
+  const staff = roles.some(r=>r.role!=='team_manager');
+  let [setup, inspections] = await Promise.all([staff?ctx.api.getRacingSetup(eventId):Promise.resolve(defaultRacingSetup()),staff?ctx.api.listInspections(eventId):Promise.resolve([])]);
   let captureNeedsFinish = false;
   let source: RaceInput['source'] = 'manual', sourceRunId: string | null = null;
   let timing: TimingState | null = null, armed: { heat: string; connection: string; baseline: string } | null = null;
@@ -33,7 +37,8 @@ export async function racingScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
   const renderBoard = () => {
     counters.replaceChildren(...[['Recorded heats',races.filter(raceRecorded).length],['Queued heats',races.filter(r => !raceRecorded(r)).length],['Teams entered',teams.length]].map(([label,value]) => h('div',null,h('strong',null,value),h('span',null,label))));
     queue.replaceChildren(h('h2',null,'Race queue'),...(races.length ? races.map(r => h('button',{type:'button',class:'race-queue-item', 'aria-pressed':selected?.id===r.id, onclick:() => select(r)},
-      h('span',{class:'eyebrow'},`HEAT ${String(r.number).padStart(2,'0')} · ${r.phase === 'reaction' ? 'Reaction' : 'Knockout'}`),h('strong',null,r.label),h('span',{class:'small'},`${teamName(r.lane1.teamId)} / ${teamName(r.lane2.teamId)}`),h('span',{class:'small muted'},outcome(r)))) : [h('p',{class:'muted'},'No heats yet. Add your first pairing below.')]));
+      h('span',{class:'eyebrow'},`HEAT ${String(r.number).padStart(2,'0')} · ${r.phase === 'reaction' ? 'Reaction' : 'Knockout'}`),h('strong',null,r.label),h('span',{class:'small'},`${teamName(r.lane1.teamId)} / ${teamName(r.lane2.teamId)}`),h('span',{class:'small muted'},r.phase==='knockout'?'Knockout · see bracket outcome':outcome(r)))) : [h('p',{class:'muted'},'No heats yet. Add your first pairing below.')]));
+    competition.render();
     const standings = raceStandings(races);
     let rank=0, previous:number|null=null;
     board.replaceChildren(table(['Position','Team','Runs','Best total','Best car'],standings.map((r,i) => { if(r.totalMs!==null && r.totalMs!==previous) rank=i+1; previous=r.totalMs; return h('tr',null,h('td',{class:'num'},r.totalMs===null?'—':rank),h('th',{scope:'row'},teamName(r.teamId)),h('td',{class:'num'},r.runs),h('td',{class:'num'},seconds(r.totalMs)),h('td',{class:'num'},seconds(r.carMs))); })));
@@ -53,7 +58,8 @@ export async function racingScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
       for(const input of [total,reaction]) input.addEventListener('input',()=>{if(total.value || reaction.value)result.value='finished';update();changed();});
       result.addEventListener('change',()=>{if(result.value!=='finished'){total.value='';reaction.value='';}update();changed();});
       for(const input of [team,car])input.addEventListener('change',changed);
-      const controls=[team,car,result,total,reaction];controls.forEach(c=>c.disabled=!canEdit);
+      const controls=[team,car,result,total,reaction];controls.forEach(c=>c.disabled=!canEdit || (row.phase==='reaction' && setup.reactionComplete));
+      if(row.bracket)team.disabled=true;
       update();
       const node=h('fieldset',{class:`race-lane race-lane--${n}`},h('legend',null,`Lane ${n}`),field('Team',team),field('Car',car),field('Result',result),field('Total time · seconds',total),field('Reaction time · seconds',reaction),carTime);
       const value=():RaceLane=>({teamId:team.value,car:car.value as 'A'|'B',status:result.value as RaceStatus,totalMs:result.value==='finished'?parseSeconds(total.value):null,reactionMs:result.value==='finished'?parseSeconds(reaction.value):null});
@@ -62,25 +68,26 @@ export async function racingScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
     const left=laneControls(row.lane1,1),right=laneControls(row.lane2,2);
     const label=h('input',{value:row.label,maxlength:100,disabled:!canEdit});label.addEventListener('input',changed);
     const note=h('textarea',{rows:2,maxlength:1000,disabled:!canEdit,'aria-label':'Race notes or correction reason',placeholder:raceRecorded(row)?'Explain the correction before saving.':'Optional official notes'});note.addEventListener('input',changed);
-    const save=h('button',{class:'btn',type:'submit',disabled:!canEdit},'Save race result');
+    const save=h('button',{class:'btn',type:'submit',disabled:!canEdit||(row.phase==='reaction'&&setup.reactionComplete)},'Save race result');
     const reload=h('button',{class:'btn btn--ghost',type:'button',onclick:()=>{const fresh=races.find(r=>r.id===row.id);if(fresh)select(fresh);}},'Reload saved race');
-    const resultPreview=h('p',{class:'race-outcome',role:'status'},outcome(row));
+    const preview=(r:RaceInput)=>{if(r.phase==='reaction')return outcome(r);const a=adjustedTime(r,r.lane1,inspections),b=adjustedTime(r,r.lane2,inspections);if([r.lane1,r.lane2].some(l=>!carCheck(inspections,l.teamId,l.car).ready))return 'Awaiting submitted inspection · adjusted totals pending';return `${outcome({...r,lane1:{...r.lane1,totalMs:a},lane2:{...r.lane2,totalMs:b}})} · adjusted totals ${seconds(a)} / ${seconds(b)} s${[r.lane1,r.lane2].some(l=>!carCheck(inspections,l.teamId,l.car).ready)?' · awaiting inspection':''}`;};
+    const resultPreview=h('p',{class:'race-outcome',role:'status'},preview(row));
     const form=h('form',{class:'stack'},field('Heat label',label),h('div',{class:'race-lanes'},left.node,right.node),resultPreview,field(raceRecorded(row)?'Correction reason · required':'Official notes',note),h('div',{class:'actions'},save,reload));
-    form.addEventListener('input',()=>{resultPreview.textContent=outcome({...row,lane1:left.value(),lane2:right.value()});});
+    form.addEventListener('input',()=>{resultPreview.textContent=preview({...row,lane1:left.value(),lane2:right.value()});});
     applyCapture=(reading)=>{
       captureNeedsFinish=[reading.lane1,reading.lane2].some(l=>l.status==='reaction_only');
       for(const [control,lane] of [[left,reading.lane1],[right,reading.lane2]] as const){control.result.value=lane.status==='reaction_only'?'pending':lane.status;control.total.value=lane.totalMs===null?'':seconds(lane.totalMs);control.reaction.value=lane.reactionMs===null?'':seconds(lane.reactionMs);control.update();}
       source='denford';sourceRunId=`${timing!.connectionId}:${reading.raceId}`;changed();
-      resultPreview.textContent=outcome({...row,lane1:left.value(),lane2:right.value()});
+      resultPreview.textContent=preview({...row,lane1:left.value(),lane2:right.value()});
       status.textContent=[reading.lane1,reading.lane2].some(l=>l.status==='reaction_only')?'Reaction-only gate mode: finish times are missing. Enter real total times before saving.':`Captured track run ${reading.raceId}. Review both lanes, then save.`;
     };
     form.addEventListener('submit',async e=>{
       e.preventDefault();if(!canEdit || save.disabled)return;
-      const input:RaceInput={label:label.value,phase:row.phase,lane1:left.value(),lane2:right.value(),note:note.value,source,sourceRunId};
+      const input:RaceInput={bracket:row.bracket,label:label.value,phase:row.phase,lane1:left.value(),lane2:right.value(),note:note.value,source,sourceRunId};
       const issue=(captureNeedsFinish && (left.result.value==='pending'||right.result.value==='pending') ? 'The track supplied reaction times only. Enter real total times for those lanes before saving.' : null) ?? validateRace(input) ?? (raceRecorded(row)&&note.value.trim().length<5?'Explain the correction in at least 5 characters.':null);
       if(issue){error.textContent=issue;error.hidden=false;return;}
       save.disabled=true;
-      try{const saved=await ctx.api.saveRace(eventId,row.id,row.revision,input);if(!alive)return;races=races.filter(r=>r.id!==saved.id);races.push(saved);races.sort((a,b)=>a.number-b.number);select(saved,true);status.textContent='Race result saved and shared.';}catch(e){if(alive)fail(e);}finally{if(alive)save.disabled=!canEdit;}
+      try{const saved=await ctx.api.saveRace(eventId,row.id,row.revision,input);if(!alive)return;races=races.filter(r=>r.id!==saved.id);races.push(saved);races.sort((a,b)=>a.number-b.number);await refresh();select(saved,true);status.textContent='Race result saved and shared.';}catch(e){if(alive)fail(e);}finally{if(alive)save.disabled=!canEdit;}
     });
     editor.replaceChildren(h('div',{class:'race-console-heading'},h('div',null,h('p',{class:'eyebrow'},`${row.phase==='reaction'?'Reaction racing':'Knockout racing'} · HEAT ${String(row.number).padStart(2,'0')}`),h('h2',null,row.label)),tag(raceRecorded(row)?'Recorded':'Ready to race',raceRecorded(row)?'pass':'todo')),form);
     renderBoard();updateTrack();
@@ -88,7 +95,7 @@ export async function racingScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
   const addForm=h('form',{class:'stack race-add'});
   if(canEdit){
     const a=teamSelect(),b=teamSelect();a.setAttribute('aria-label','New heat lane 1');b.setAttribute('aria-label','New heat lane 2');
-    const phase=h('select',{'aria-label':'New heat phase'},h('option',{value:'reaction'},'Reaction racing'),h('option',{value:'knockout'},'Knockout racing'));
+    const phase=h('select',{'aria-label':'New heat phase'},h('option',{value:'reaction'},'Reaction racing'));
     const add=h('button',{class:'btn btn--ghost',type:'submit',disabled:teams.length<2},'Add pairing');
     addForm.append(h('h3',null,'New pairing'),field('Phase',phase),field('Lane 1',a),field('Lane 2',b),add);
     addForm.addEventListener('submit',async e=>{e.preventDefault();if(add.disabled)return;if(dirty&&!window.confirm('Discard the unsaved lane changes and create a new pairing?'))return;if(!a.value||!b.value||a.value===b.value){error.textContent='Choose two different teams for this heat.';error.hidden=false;return;}add.disabled=true;
@@ -142,14 +149,15 @@ export async function racingScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
     }catch{if(alive){trackStatus.textContent='Connection unavailable';capture.disabled=true;}}finally{polling=false;}
   };
   const timer=setInterval(()=>void pollTiming(),2000);ctx.onLeave(()=>clearInterval(timer));void pollTiming();
-  const refresh=async()=>{const fresh=await ctx.api.listRaces(eventId);if(!alive)return;races=fresh;renderBoard();if(selected){const latest=races.find(r=>r.id===selected!.id);if(latest&&latest.revision!==selected.revision){if(dirty)status.textContent='This heat was changed on another device. Reload it before saving your changes.';else select(latest,true);}}};
+  const refresh=async()=>{const [fresh,newSetup,newInspections]=await Promise.all([ctx.api.listRaces(eventId),staff?ctx.api.getRacingSetup(eventId):Promise.resolve(setup),staff?ctx.api.listInspections(eventId):Promise.resolve(inspections)]);if(!alive)return;const checksChanged=setup.version!==newSetup.version;races=fresh;setup=newSetup;inspections=newInspections;renderBoard();if(selected){const latest=races.find(r=>r.id===selected!.id);if(latest&&(latest.revision!==selected.revision||checksChanged)){if(dirty)status.textContent='This heat was changed on another device. Reload it before saving your changes.';else select(latest,true);}}};
+  const competition=competitionPanel(ctx,eventId,()=>({teams,races,inspections,setup}),(row)=>{select(row);editor.scrollIntoView?.({behavior:'smooth',block:'start'});},refresh,fail,!event.resultsReleased&&roles.some(r=>['chair','organiser'].includes(r.role)),canEdit);
   liveRefresh(ctx,refresh,fail);
   renderBoard();
   const first=races.find(r=>!raceRecorded(r))??races.at(-1);
   if(first)select(first);else editor.append(h('p',{class:'eyebrow'},'Start line'),h('h2',null,'Set the first pairing.'),h('p',{class:'muted'},canEdit?'Choose the teams for both lanes, then add the heat to the queue.':'A race official will add the first pairing.'));
   return h('div',{class:'race-screen stack stack--lg'},h('header',{class:'race-heading'},h('div',null,h('p',{class:'eyebrow'},event.name),h('h1',null,'Race control'),h('p',{class:'lead'},'Two lanes. Every run recorded.')),trackStatus),counters,
     event.resultsReleased?h('p',{class:'notice'},'Results are released. Race records are read-only.'):!canEdit?h('p',{class:'notice'},'Viewing race records. Only organisers, the Chair and race officials can enter results.'):null,
-    error,status,h('div',{class:'race-workspace'},h('aside',{class:'stack'},queue,canEdit?addForm:null),editor),
+    error,status,h('div',{class:'race-workspace'},h('aside',{class:'stack'},queue,canEdit?addForm:null),editor),staff?competition.root:null,
     h('section',{class:'section stack'},h('div',{class:'row__head'},h('h2',null,'Denford timing'),capture),trackHelp,canEdit?h('div',{class:'inline-form'},field('Connection method',connectionMethod),field('Exact track address',gateUrl),pair):null,canEdit?connectionHelp:null,pairingHelp),
-    h('section',{class:'section stack'},h('h2',null,'Reaction racing standings'),h('p',{class:'muted small'},'Times in seconds. Best total and best car time are tracked independently. These standings do not add points to the overall rankings or advance a knockout bracket.'),board));
+    h('section',{class:'section stack'},h('h2',null,'Reaction racing standings'),h('p',{class:'muted small'},'Times in seconds. Best total and best car time are tracked independently. Confirmed racing points feed into overall rankings. Approve the top-64 seeds in Competition racing to start the bracket.'),board));
 }

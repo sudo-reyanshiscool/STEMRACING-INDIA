@@ -1,0 +1,18 @@
+# Racing workflow
+
+Organisers and the Chair configure racing; race officials enter timings. Other event staff view the shared state. The Denford bridge continues to stage raw measurements for review before saving, over the track's Wi-Fi or Ethernet network.
+
+1. Queue four reaction runs per team. Each car races once in each lane, including odd-sized fields. Enter actual test or track measurements; DNF, DNS and false starts retain their statuses.
+2. Confirm reaction racing complete only once every team has recorded both cars in both lanes. Reaction results then lock. Before any knockout heat exists, reopening reaction racing clears approved seeds and allows corrections.
+3. Preview and approve up to 64 seeds from best total reaction times. For equal qualifying times, staff can reorder only tied teams and explicitly approve that order, including a tie at the qualification cutoff. This does not change the measured times or declare a race winner.
+4. Submit both cars' technical inspections. Pending/reopened checks block advancement. Under this event's user-specified rules, a submitted PERF or SAF failure on either car automatically eliminates the team in round one, including a bye.
+5. Queue matches from the bracket. Nominate Car A or B, review both lanes, and save. Raw measurements remain unchanged. For knockouts only, the nominated car's total receives 200 ms per failed PERF article and 300 ms per failed SAF article, using the technical evaluator's effective classifications. Existing specification point deductions also remain.
+6. Ties and double failures require a new attempt. A non-finisher loses to a finisher. Winners advance through six rounds; byes fill unoccupied seeds. If an earlier correction changes a winner, affected later heats cannot advance until repaired/rerun. Recorded attempts and correction reasons remain in the audit trail.
+7. Confirm the eight knockout stage scores. The supplied C9 table repeats round sizes and omits a runner-up/top-64 table, so unresolved stages stay blank. The UI carries the stated quarter-final 85, semi-final 106, winner 135 and non-qualifier 10 as editable defaults; no unspecified stage values are silently invented.
+8. Publish the updated overall ranking and release it. Incomplete racing or missing stage scores blocks release. Race/setup/inspection changes invalidate previously published rankings, including deletions and reopened inspections.
+
+Reaction scoring follows C9.5's best-total formula (105/100/95 for the first three places, then the base-time formula with a floor of 5); false starts cost 2.5 points, and DNFs deduct 1 point for teams on the five-point floor. Knockout DNF/false-start attempts deduct 2.5 points. Automatic race deductions stay separate from manually entered protest penalties. The fastest eligible car bonus uses raw car time (total minus reaction) from reaction runs; PERF failures on either car exclude the team from this bonus. Missing inspections leave eligibility pending.
+
+The top-64 size, SAF/PERF first-round eliminations and 0.2/0.3-second additions are explicit event-specific user instructions. They override the supplied PDF where different. The four-run schedule follows C9.1; C9.4/C9.5 contain contradictory run-count wording.
+
+Existing unlinked knockout heats remain historical records and are not guessed into bracket positions. No live timings, inspections or seed order are fabricated by the migration. A 64-team synthetic tournament, SQL permission/version checks and browser recording were verified; physical Denford integration still needs testing on the actual track network.

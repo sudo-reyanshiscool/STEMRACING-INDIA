@@ -44,6 +44,8 @@ describe('manager contacts and private result delivery',()=>{
  it('requires both released results and organiser/Chair-confirmed awards',async()=>{
   await as(db,'organiser',q=>q('select set_team_contact($1,$2,$3)',[w.eventId,w.team1,'manager@example.com']));
   await expect(as(db,'organiser',q=>q('select reserve_team_results_email($1,$2,(select id from ranking_snapshots where event_id=$1 order by created_at desc,id desc limit 1),(select awards_version from result_mail_settings where event_id=$1),(select manager_email from team_contacts where event_id=$1 and team_id=$2))',[w.eventId,w.team1]))).rejects.toThrow(/release final/);
+  const version=(await db.query<{v:string}>("select racing_version($1) as v",[w.eventId])).rows[0].v;
+  snapshot=(await as(db,'chair',q=>q("insert into ranking_snapshots(event_id,ruleset_id,input_hash,inputs,rows) select event_id,ruleset_id,input_hash,$2::jsonb,rows from ranking_snapshots where id=$1 returning id",[snapshot,{racingVersion:version}]))).rows[0].id;
   await db.query('update events set results_released=true where id=$1',[w.eventId]);
   await expect(as(db,'organiser',q=>q('select reserve_team_results_email($1,$2,(select id from ranking_snapshots where event_id=$1 order by created_at desc,id desc limit 1),(select awards_version from result_mail_settings where event_id=$1),(select manager_email from team_contacts where event_id=$1 and team_id=$2))',[w.eventId,w.team1]))).rejects.toThrow(/confirm awards/);
   await expect(as(db,'judgeV',q=>q('select confirm_event_awards($1)',[w.eventId]))).rejects.toThrow(/only the Organiser/);

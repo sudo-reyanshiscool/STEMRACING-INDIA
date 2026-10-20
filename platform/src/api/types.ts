@@ -1,3 +1,4 @@
+import type { RacingSetup, RacingSetupInput } from '../racing/competition';
 import type { TeamContact, ResultMailState, ResultsPacket, ResultMailSelection } from './result-mail';
 import type {DrawLotsState,TeamNumberAssignment,JudgeLotAssignment} from './draw-lots';
 import type { RaceHeat, RaceInput, TimingState, TimingPair } from '../racing';
@@ -102,6 +103,9 @@ export interface Api {
   removeRole(roleId: string): Promise<void>;
   removeInvitation(inviteId: string): Promise<void>;
   sendInvitation(inviteId: string): Promise<void>;
+  queueReactionRaces(eventId: string): Promise<void>;
+  getRacingSetup(eventId: string): Promise<RacingSetup>;
+  saveRacingSetup(eventId: string, revision: number, input: RacingSetupInput): Promise<RacingSetup>;
   listRaces(eventId: string): Promise<RaceHeat[]>;
   saveRace(eventId: string, id: string, revision: number, input: RaceInput): Promise<RaceHeat>;
   getTiming(eventId: string): Promise<TimingState | null>;

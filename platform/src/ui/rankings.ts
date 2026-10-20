@@ -1,3 +1,4 @@
+import { competitionScores } from '../racing/competition';
 import { ApiError, type CardRow, type EventRow, type OverrideRow, type PenaltyRow, type RoleRow, type SnapshotRow, type TeamRow } from '../api';
 import { canonicalJson, rank, RankingInputError, sha256Hex, validateScores, type RankInputs, type Ranking, type Ruleset } from '../engine';
 import type { Inspection } from '../technical';
@@ -20,7 +21,7 @@ const when = (iso: string) => {
 };
 
 /** Exactly what rank() receives and what a snapshot stores: submitted cards only, no comments, in a fixed order. */
-type Inputs = Omit<RankInputs, 'ruleset'>;
+type Inputs = Omit<RankInputs, 'ruleset'> & {racingVersion?:string;racingIssues?:string[]};
 
 function buildInputs(teams: TeamRow[], cards: CardRow[], overrides: OverrideRow[], penalties: PenaltyRow[], inspections: Inspection[] = []): Inputs {
   const derived: Record<string, Record<string, number>> = {};
@@ -118,14 +119,22 @@ export async function rankingsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
   const say = (text: string) => { notice.textContent = text; notice.hidden = false; };
   const clear = () => { notice.hidden = true; error.hidden = true; };
 
-  const compute = async (): Promise<Computed | null> => {
-    const [event, teams, cards, overrides, penalties, allRoles, latest, conflicts, inspections] = await Promise.all([
+  const compute = async (attempt=0): Promise<Computed | null> => {
+    const before = await ctx.api.getRacingSetup(eventId);
+    const [event, teams, cards, overrides, penalties, allRoles, latest, conflicts, inspections, races] = await Promise.all([
       ctx.api.getEvent(eventId), ctx.api.listTeams(eventId), ctx.api.listCards(eventId), ctx.api.listOverrides(eventId),
       ctx.api.listPenalties(eventId), ctx.api.listRoles(eventId), ctx.api.latestSnapshot(eventId), ctx.api.listConflicts(eventId),
-      ctx.api.listInspections(eventId).catch(() => []),
+      ctx.api.listInspections(eventId), ctx.api.listRaces(eventId),
     ]);
     if (!event) return null;
+    const racingSetup = await ctx.api.getRacingSetup(eventId);
+    if(before.version!==racingSetup.version){if(attempt<2)return compute(attempt+1);throw new ApiError('conflict','Racing is changing. Refresh before publishing.');}
     const inputs = buildInputs(teams, cards, overrides, penalties, inspections);
+    const racing = competitionScores(teams.map(t=>t.id),races,inspections,racingSetup);
+    for(const [id,values] of Object.entries(racing.derived))inputs.derived![id]={...inputs.derived![id],...values};
+    inputs.racingPenalties=racing.penalties;
+    inputs.racingVersion=racingSetup.version;
+    inputs.racingIssues=racing.issues;
     let outcome: Outcome;
     try {
       outcome = { ok: true, ranking: rank({ ruleset: event.ruleset, ...inputs }), hash: null };
@@ -389,6 +398,7 @@ export async function rankingsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
     else if (hash === null) why = 'Calculating the ranking fingerprint. This takes a moment.';
     publish.disabled = released || why !== null;
     const releaseWhy = released ? null
+      : c.inputs.racingIssues?.length ? c.inputs.racingIssues.join(' ')
       : why ?? (latest === null ? 'Publish the ranking before releasing it. Everyone sees final totals; signed-in team managers also see their own teams’ detailed scores.'
         : !current ? 'The published ranking is out of date. Publish it again before releasing.' : null);
     release.disabled = releaseWhy !== null;
@@ -478,7 +488,7 @@ export async function rankingsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
 
   return h('div', { class: 'stack stack--lg' },
     h('div', { class: 'stack' }, h('a', { class: 'back', href: eventHref }, first.name), h('h1', null, 'Rankings'),
-      h('p', { class: 'lead' }, 'Totals from submitted scorecards, Chair overrides and protest penalties. Specification and racing points join in later phases.')),
+      h('p', { class: 'lead' }, 'Totals from submitted scorecards, Chair overrides and protest penalties. Submitted technical inspections and confirmed racing results supply specification and racing points.')),
     error, notice, holder,
   );
 }

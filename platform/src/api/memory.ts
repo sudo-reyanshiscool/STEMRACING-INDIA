@@ -1,3 +1,4 @@
+import { defaultRacingSetup, validateSetup, reactionPairings, type RacingSetup, type RacingSetupInput } from '../racing/competition';
 import { raceRecorded, validateRace, type RaceHeat, type RaceInput, type TimingState } from '../racing';
 import { validateScores, type Area } from '../engine';
 import { INDIA_2026 } from '../rulesets';
@@ -40,6 +41,7 @@ export class MemoryApi implements Api {
   private conflicts: { eventId: string; judgeId: string; teamId: string }[] = [];
   private cards: CardRow[] = [];
   private races: RaceHeat[] = [];
+  private racingSetups = new Map<string,RacingSetup>();
   private broadcasts: BroadcastEmail[] = [];
   private timing = new Map<string, TimingState>();
   private reviews = new Map<string, CardReview>();
@@ -281,6 +283,10 @@ export class MemoryApi implements Api {
     if (this.snapshotVersion.get(latest.id) !== this.version) {
       throw new ApiError('locked', 'The published ranking is out of date. Publish it again before releasing.');
     }
+    if(this.racingSetups.has(eventId)) {
+      const inputs=this.snapshotInputs.get(latest.id) as {racingIssues?:string[]}|undefined;
+      if(!inputs?.racingIssues || inputs.racingIssues.length)throw new ApiError('locked','Finish racing setup and bracket before release');
+    }
     ev.resultsReleased = true;
   }
 
@@ -402,6 +408,29 @@ export class MemoryApi implements Api {
     this.invites = this.invites.filter((x) => x.id !== inviteId);
   }
 
+  async queueReactionRaces(eventId:string) {
+    this.require(eventId,'chair','organiser');this.frozen(eventId,'races');
+    if(this.races.some(r=>r.eventId===eventId&&r.phase==='reaction')||this.racingSetups.get(eventId)?.reactionComplete)throw new ApiError('locked','Reaction racing already queued or locked');
+    const ids=this.teams.filter(t=>t.eventId===eventId).sort((a,b)=>a.number.localeCompare(b.number)).map(t=>t.id);
+    if(ids.length<2)throw new ApiError('invalid','At least two teams required');
+    for(const input of reactionPairings(ids))await this.saveRace(eventId,crypto.randomUUID(),0,input);
+  }
+  async getRacingSetup(eventId: string): Promise<RacingSetup> {
+    this.require(eventId,'organiser','chair','judge','lead_judge','scrutineer','race_official');
+    return copy({...this.racingSetups.get(eventId) ?? defaultRacingSetup(),version:JSON.stringify({setup:this.racingSetups.get(eventId),races:this.races.filter(r=>r.eventId===eventId),inspections:this.inspections.filter(i=>i.eventId===eventId)})});
+  }
+  async saveRacingSetup(eventId:string,revision:number,input:RacingSetupInput):Promise<RacingSetup> {
+    this.require(eventId,'organiser','chair');this.frozen(eventId,'racing setup');
+    const old=this.racingSetups.get(eventId) ?? defaultRacingSetup();
+    if(old.revision!==revision)throw new ApiError('conflict','Racing setup changed');
+    const error=validateSetup(input);if(error)throw new ApiError('invalid',error);
+    input.seeds.forEach(id=>this.teamOrThrow(eventId,id));
+    const races=this.races.filter(r=>r.eventId===eventId);
+    if(input.reactionComplete && (races.some(r=>r.phase==='reaction' && (r.lane1.status==='pending'||r.lane2.status==='pending')) || this.teams.filter(t=>t.eventId===eventId).some(t=>(['A','B'] as const).some(car=>(['lane1','lane2'] as const).some(lane=>!races.some(r=>r.phase==='reaction'&&r[lane].teamId===t.id&&r[lane].car===car))))))throw new ApiError('locked','Finish reaction races for every team first');
+    if(races.some(r=>r.bracket) && (JSON.stringify(input.seeds)!==JSON.stringify(old.seeds)||!input.reactionComplete))throw new ApiError('locked','Bracket seeds are locked');
+    this.racingSetups.set(eventId,{...copy(input),revision:revision+1,version:''});this.version++;
+    return this.getRacingSetup(eventId);
+  }
   async listRaces(eventId: string) {
     const roles = this.rolesOf(eventId);
     return copy(roles.length && (roles.some(r => r.role !== 'team_manager') || this.released(eventId)) ? this.races.filter(r => r.eventId === eventId) : []);
@@ -411,13 +440,18 @@ export class MemoryApi implements Api {
     this.frozen(eventId, 'race results');
     const previous = this.races.find(r => r.eventId === eventId && r.id === id);
     if ((previous?.revision ?? 0) !== revision) throw new ApiError('conflict', 'Race changed on another device');
+    const setup = this.racingSetups.get(eventId);
+    if(setup?.reactionComplete && input.phase==='reaction')throw new ApiError('locked','Reopen reaction racing setup before editing');
+    if(JSON.stringify(previous?.bracket??null)!==JSON.stringify(input.bracket??null) && previous)throw new ApiError('locked','Bracket identity is fixed');
+    if(input.bracket && (!setup?.seeds.includes(input.lane1.teamId)||!setup.seeds.includes(input.lane2.teamId)))throw new ApiError('invalid','Approve seeds first');
+    if(input.bracket && this.races.some(r=>r.eventId===eventId && r.id!==id && r.bracket?.round===input.bracket!.round && r.bracket.slot===input.bracket!.slot && r.number>(previous?.number??0) && (r.lane1.status==='pending'||r.lane2.status==='pending')))throw new ApiError('locked','Open the existing pending attempt');
     const error = validateRace(input);
     if (error) throw new ApiError('invalid', error);
     this.teamOrThrow(eventId, input.lane1.teamId); this.teamOrThrow(eventId, input.lane2.teamId);
     if (previous && raceRecorded(previous) && input.note.trim().length < 5) throw new ApiError('invalid', 'Give a correction reason');
     if (input.sourceRunId && this.races.some(r => r.eventId === eventId && r.id !== id && r.sourceRunId === input.sourceRunId)) throw new ApiError('duplicate', 'This track run was already saved');
     const row: RaceHeat = { ...copy(input), label: input.label.trim(), note: input.note.trim(), id, eventId, number: previous?.number ?? 1 + Math.max(0, ...this.races.filter(r => r.eventId === eventId).map(r => r.number)), revision: revision + 1, updatedAt: new Date().toISOString() };
-    this.races = this.races.filter(r => r.id !== id); this.races.push(row);
+    this.races = this.races.filter(r => r.id !== id); this.races.push(row); this.version++;
     return copy(row);
   }
   async getTiming(eventId: string) {
@@ -440,6 +474,7 @@ export class MemoryApi implements Api {
   }
   async createTeam(eventId: string, i: NewTeam) {
     this.require(eventId, 'chair', 'organiser');
+    if(this.racingSetups.get(eventId)?.reactionComplete)throw new ApiError('locked','Racing roster is locked');
     const cleaned=cleanTeam(i);
     const number = this.text(i.number, 'Team number', 12);
     const name = this.text(i.name, 'Team name', 80);
@@ -463,6 +498,7 @@ export class MemoryApi implements Api {
     if (this.cards.some((c) => c.teamId === teamId && c.status === 'submitted')) {
       throw new ApiError('locked', 'Ask the Chair to reopen submitted scorecards before deleting this team');
     }
+    if(this.racingSetups.get(eventId)?.seeds.includes(teamId))throw new ApiError('locked','Seeded teams cannot be deleted');
     if (this.races.some(r => (r.lane1.teamId === teamId || r.lane2.teamId === teamId) && raceRecorded(r))) throw new ApiError('locked', 'Recorded races prevent team deletion');
     this.races = this.races.filter(r => r.lane1.teamId !== teamId && r.lane2.teamId !== teamId);
     // Match the database's cascades, after every guard passes, with no partial deletion.
@@ -481,6 +517,7 @@ export class MemoryApi implements Api {
 
   async importTeams(eventId: string, inputs: NewTeam[]) {
     this.require(eventId, 'chair', 'organiser');
+    if(this.racingSetups.get(eventId)?.reactionComplete)throw new ApiError('locked','Racing roster is locked');
     this.eventOrThrow(eventId);
     if (!Array.isArray(inputs) || !inputs.length || inputs.length > MAX_IMPORT_TEAMS) throw new ApiError('invalid', 'Import between 1 and 1000 teams');
     const teams = inputs.map(cleanTeam);

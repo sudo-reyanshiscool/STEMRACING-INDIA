@@ -12,6 +12,8 @@ export interface RankInputs {
   cards: CardInput[];
   overrides: OverrideInput[];
   penalties: PenaltyInput[];
+  /** Automatic race deductions, separate from manual protest penalties. */
+  racingPenalties?: PenaltyInput[];
   /** teamId -> areaId -> value, for derived areas filled by later phases (specifications, racing). */
   derived?: Record<string, Record<string, number>>;
 }
@@ -89,7 +91,7 @@ export function rank(inputs: RankInputs): Ranking {
   }
 
   const penaltyByTeam = new Map<string, number>();
-  for (const p of inputs.penalties) {
+  for (const p of [...inputs.penalties, ...inputs.racingPenalties ?? []]) {
     if (!Number.isFinite(p.points) || p.points < 0) throw new RankingInputError('Penalty points must be zero or more');
     penaltyByTeam.set(p.teamId, round1((penaltyByTeam.get(p.teamId) ?? 0) + p.points));
   }

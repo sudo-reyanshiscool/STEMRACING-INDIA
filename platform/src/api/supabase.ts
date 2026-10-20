@@ -130,7 +130,7 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
   };
   const raceRow = (r: any): RaceHeat => {
     const lane = (n: number): RaceLane => ({ teamId: r[`lane${n}_team`], car: r[`lane${n}_car`], status: r[`lane${n}_status`], totalMs: r[`lane${n}_total_ms`], reactionMs: r[`lane${n}_reaction_ms`] });
-    return { id: r.id, eventId: r.event_id, number: r.heat_number, label: r.label, phase: r.phase, lane1: lane(1), lane2: lane(2), note: r.note, source: r.source, sourceRunId: r.source_run_id, revision: r.revision, updatedAt: r.updated_at };
+    return { bracket: r.bracket_round == null ? null : {round:r.bracket_round,slot:r.bracket_slot}, id: r.id, eventId: r.event_id, number: r.heat_number, label: r.label, phase: r.phase, lane1: lane(1), lane2: lane(2), note: r.note, source: r.source, sourceRunId: r.source_run_id, revision: r.revision, updatedAt: r.updated_at };
   };
   return {
     async getSession() {
@@ -267,6 +267,9 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
       await removeById('invitations', inviteId);
     },
 
+    async queueReactionRaces(eventId) { ok(await guard(() => sb.rpc('queue_reaction_races',{p_event:eventId}))); },
+    async getRacingSetup(eventId) { return ok(await guard(() => sb.rpc('racing_state',{p_event:eventId}))); },
+    async saveRacingSetup(eventId, revision, input) { return ok(await guard(() => sb.rpc('save_racing_setup',{p_event:eventId,p_revision:revision,p_input:input}))); },
     async listRaces(eventId) {
       if (!(await session())) return [];
       return (await pages<any>((a,b) => sb.from('race_heats').select('*').eq('event_id',eventId).order('heat_number').order('id').range(a,b))).map(raceRow);
