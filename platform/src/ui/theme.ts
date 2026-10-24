@@ -10,7 +10,7 @@ export function preferredTheme(): Theme {
 
 export function applyTheme(theme: Theme): void {
   document.documentElement.dataset.theme = theme;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#05000B' : '#F6F5F8');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#05000B' : '#F2F0EB');
 }
 
 function themeIcon(theme: Theme): SVGSVGElement {

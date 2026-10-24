@@ -106,7 +106,7 @@ describe('device theme preference', () => {
     expect(button.getAttribute('aria-checked')).toBe('true');
     expect(document.querySelector('meta')?.content).toBe('#05000B');
     applyTheme('light');
-    expect(document.querySelector('meta')?.content).toBe('#F6F5F8');
+    expect(document.querySelector('meta')?.content).toBe('#F2F0EB');
   });
 
   it('keeps the switch present through sign in, sign out and loading states', () => {
