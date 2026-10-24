@@ -33,6 +33,7 @@ describe('showcase navigation and presentation', () => {
       if (screen === resultsScreen) expect(text(node)).toContain('Showcase Team');
       if (screen === communicationsScreen) expect(text(node)).toContain('Simulate announcement');
       if (screen === peopleScreen) expect(text(node)).toContain('Simulate invitation');
+      if (screen === drawLotsScreen) expect(text(node)).not.toContain('SUPERCHARGED stays 001');
       await Promise.all(leaves.map(leave => leave()));
     }
   });

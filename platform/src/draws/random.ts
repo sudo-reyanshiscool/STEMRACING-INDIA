@@ -10,9 +10,9 @@ const randomIndex:Index=limit=>{
 function shuffle<T>(items:readonly T[],pick:Index):T[]{
  const result=[...items];for(let i=result.length-1;i>0;i--){const j=pick(i+1);[result[i],result[j]]=[result[j],result[i]];}return result;
 }
-export function drawTeamNumbers(teams:TeamRow[],pick:Index=randomIndex):TeamNumberAssignment[]{
+export function drawTeamNumbers(teams:TeamRow[],pick:Index=randomIndex,options:{reserveSupercharged?:boolean}={}):TeamNumberAssignment[]{
  if(!teams.length||teams.length>1000)throw new DrawError('A draw needs between 1 and 1,000 teams.');
- const pinned=teams.filter(t=>t.name.trim().toUpperCase()==='SUPERCHARGED');
+ const pinned=options.reserveSupercharged===false?[]:teams.filter(t=>t.name.trim().toUpperCase()==='SUPERCHARGED');
  if(pinned.length>1)throw new DrawError('More than one team is named SUPERCHARGED. Give each team a distinct name before drawing numbers.');
  const order=[...pinned,...shuffle(teams.filter(t=>!pinned.includes(t)),pick)];
  return order.map((t,i)=>({teamId:t.id,number:String(i+1).padStart(3,'0')}));

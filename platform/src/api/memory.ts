@@ -507,7 +507,7 @@ export class MemoryApi implements Api {
     if(state.numberingLocked)throw new ApiError('locked','Numbering is locked after scoring or racing starts');
     if(version!==state.version)throw new ApiError('conflict','Draw data changed');
     const valid=Array.from({length:n},(_,i)=>String(i+1).padStart(3,'0'));
-    if(!n||n>1000||assignments.length!==n||new Set(assignments.map(a=>a.teamId)).size!==n||new Set(assignments.map(a=>a.number)).size!==n||assignments.some(a=>!state.teams.some(t=>t.id===a.teamId)||!valid.includes(a.number)||state.teams.some(t=>t.id===a.teamId&&t.name.trim().toUpperCase()==='SUPERCHARGED'&&a.number!=='001')))throw new ApiError('invalid','Invalid team number draw');
+    if(!n||n>1000||assignments.length!==n||new Set(assignments.map(a=>a.teamId)).size!==n||new Set(assignments.map(a=>a.number)).size!==n||assignments.some(a=>!state.teams.some(t=>t.id===a.teamId)||!valid.includes(a.number)||(!this.showcaseMode&&state.teams.some(t=>t.id===a.teamId&&t.name.trim().toUpperCase()==='SUPERCHARGED'&&a.number!=='001'))))throw new ApiError('invalid','Invalid team number draw');
     for(const a of assignments)this.teams.find(t=>t.id===a.teamId)!.number=a.number;
     this.version++;
   }

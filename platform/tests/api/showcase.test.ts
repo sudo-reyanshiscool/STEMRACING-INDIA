@@ -3,6 +3,18 @@ import { loadShowcase, SHOWCASE_EVENT_ID } from '../../src/api/showcase';
 import { readOnlySource } from '../fixtures/showcase';
 
 describe('Test Event showcase isolation', () => {
+  it('allows SUPERCHARGED to receive a different number in a showcase draw', async () => {
+    const {api: shared, seed} = readOnlySource();
+    seed.teams[0].name = 'SUPERCHARGED';
+    seed.teams.push({...seed.teams[0],id:'team-two',name:'Other Team',number:'002'});
+    const api = await loadShowcase(shared, SHOWCASE_EVENT_ID);
+    const draw = await api.drawLotsState(SHOWCASE_EVENT_ID);
+    await api.applyTeamNumberDraw(SHOWCASE_EVENT_ID, draw.version, [
+      {teamId:seed.teams[0].id,number:'002'}, {teamId:'team-two',number:'001'},
+    ]);
+    expect((await api.listTeams(SHOWCASE_EVENT_ID)).find(t=>t.name==='SUPERCHARGED')?.number).toBe('002');
+    expect(seed.teams[0].number).toBe('001');
+  });
   it('retains the populated results and opens independent, prefilled scorecards', async () => {
     const {api: shared, calls, seed} = readOnlySource();
     const before = structuredClone(seed);

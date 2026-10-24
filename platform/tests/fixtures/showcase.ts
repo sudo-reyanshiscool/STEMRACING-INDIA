@@ -18,7 +18,7 @@ export function showcaseSeed(): ShowcaseSeed {
     invitations: [{ id: 'pending-invite', eventId, email: 'invitee@example.test', role: 'race_official', panel: null, teamId: null, emailStatus: 'not_sent' }],
     cards: [card], feedback: [{ cardId: card.id, overall: 'Prepared and clearly explained.', strengths: 'Complete evidence.', improvements: 'Keep refining.' }],
     nominations: [], conflicts: [], exemptions: [], overrides: [], penalties: [], inspections: [], races: [],
-    racingSetup: defaultRacingSetup(), broadcasts: [], contacts: [{ teamId: team.id, managerEmail: 'manager@example.test' }],
+    racingSetup: defaultRacingSetup(), broadcasts: [], contacts: [{ teamId: team.id, managerEmail: 'shubham@stempify.com' }],
     mail: { confirmed: true, version: 'awards-v1', snapshotId: 'snapshot-one', awards: [{ id: 'award-one', title: 'Best Team', teamId: team.id }], deliveries: [] },
     snapshot: { id: 'snapshot-one', eventId, createdAt: '2026-10-24T00:00:00Z', rulesetId: INDIA_2026.id, inputHash: 'a'.repeat(64), rows: ranking.rows, released: true },
     snapshotInputs: { racingIssues: [] },

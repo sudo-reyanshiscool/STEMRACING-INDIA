@@ -5,6 +5,11 @@ const teams=(n:number):TeamRow[]=>Array.from({length:n},(_,i)=>({id:`t${i}`,even
 const state=(n=5,j=3):DrawLotsState=>({version:'x',teams:teams(n),roles:Array.from({length:j},(_,i)=>({id:`r${i}`,eventId:'e',userId:`j${i}`,role:'judge',panel:'verbal',teamId:null,email:`judge${i}@x.test`})),conflicts:[],exemptions:[],released:false,numberingLocked:false,lockedPanels:[]});
 const pick=(n:number)=>n-1;
 describe('random setup draws',()=>{
+ it('includes SUPERCHARGED in the full random draw when the showcase disables the reservation',()=>{
+  const result=drawTeamNumbers(teams(3),()=>0,{reserveSupercharged:false});
+  expect(result.find(a=>a.teamId==='t2')!.number).not.toBe('001');
+  expect(result.map(a=>a.number)).toEqual(['001','002','003']);
+ });
  it('reserves 001 for SUPERCHARGED and generates distinct contiguous numbers for all teams',()=>{
   for(const n of [3,50,1000]){const t=teams(n),result=drawTeamNumbers(t);
    expect(result.find(a=>a.teamId==='t2')!.number).toBe('001');

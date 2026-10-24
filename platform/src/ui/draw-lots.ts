@@ -29,7 +29,7 @@ export async function drawLotsScreen(ctx:Ctx,eventId:string):Promise<HTMLElement
  const teamLabel=(id:string)=>{const t=state.teams.find(t=>t.id===id);return t?`Team ${t.number} · ${t.name}`:'Removed team';};
  function render(){
   const numberButton=h('button',{class:'btn btn--ghost',type:'button',disabled:state.numberingLocked||!state.teams.length},numberPreview?'Redraw team numbers':'Preview number draw');
-  numberButton.onclick=()=>{error.hidden=true;status.hidden=true;try{numberPreview={version:state.version,rows:drawTeamNumbers(state.teams)};render();}catch(e){fail(e);}};
+  numberButton.onclick=()=>{error.hidden=true;status.hidden=true;try{numberPreview={version:state.version,rows:drawTeamNumbers(state.teams,undefined,{reserveSupercharged:!ctx.demo})};render();}catch(e){fail(e);}};
   const applyNumbers=h('button',{class:'btn btn--primary',type:'button'},'Apply these team numbers');
   applyNumbers.onclick=()=>void run(async()=>{const preview=numberPreview!;await ctx.api.applyTeamNumberDraw(eventId,preview.version,preview.rows);await fresh();status.textContent='Team numbers applied.';status.hidden=false;});
   const numberRows=numberPreview?numberPreview.rows.map(row=>{const team=state.teams.find(t=>t.id===row.teamId)!;return h('tr',null,h('td',null,team.name),h('td',null,team.number),h('td',null,row.number));}):[];
@@ -48,7 +48,7 @@ export async function drawLotsScreen(ctx:Ctx,eventId:string):Promise<HTMLElement
   const refresh=h('button',{class:'btn btn--ghost',type:'button'},'Refresh draw data');refresh.onclick=()=>void run(fresh);
   body.replaceChildren(
    h('div',{class:'actions'},refresh),
-   h('section',{class:'section stack'},h('h2',null,'Random team numbers'),h('p',{class:'muted'},'Draw unique numbers from 001 upwards. SUPERCHARGED stays 001. Review the complete list before applying.'),
+   h('section',{class:'section stack'},h('h2',null,'Random team numbers'),h('p',{class:'muted'},ctx.demo?'Draw unique numbers from 001 upwards. Every team takes part in the random draw. Review the complete list before applying.':'Draw unique numbers from 001 upwards. SUPERCHARGED stays 001. Review the complete list before applying.'),
     state.numberingLocked?h('p',{class:'notice'},'Team-number draws are for event setup. This event already has scorecards, inspections, races, published rankings or released results.'):null,
     numberButton,numberPreview?h('div',{class:'stack'},h('p',{class:'notice'},'Preview only. Current team numbers have not changed.'),h('div',{class:'table-wrap'},h('table',{class:'table'},h('thead',null,h('tr',null,['Team','Current number','Drawn number'].map(s=>h('th',null,s)))),h('tbody',null,numberRows))),applyNumbers):null),
    h('section',{class:'section stack'},h('h2',null,'Random judging lots'),h('p',{class:'muted'},'Split all teams as evenly as possible between selected judges on one panel. Conflicts and exemptions are excluded. Only the selected judges’ assignments on this panel will be replaced.'),
