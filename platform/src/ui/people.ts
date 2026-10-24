@@ -1,3 +1,4 @@
+import { buttonBusy } from './button-busy';
 import { ApiError, type Panel, type Role, type RoleRow } from '../api';
 import { reportActionError } from './actions';
 import type { Ctx } from './ctx';
@@ -45,11 +46,12 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
   // One write at a time: every Remove/Withdraw/Send control is disabled while one is in flight.
   let inFlight = false;
   const controls = () => [...peopleHolder.querySelectorAll('button'), ...inviteHolder.querySelectorAll('button'), ...assignmentHolder.querySelectorAll('button'), ...form.querySelectorAll('button')];
-  const run = async (action: () => Promise<void>): Promise<void> => {
+  const run = async (action: () => Promise<void>, button?: HTMLButtonElement): Promise<void> => {
     if (inFlight) return;
     inFlight = true;
     error.hidden = true;
     status.hidden = true;
+    const finish = button ? buttonBusy(button, 'Please wait…') : () => {};
     controls().forEach((b) => { b.disabled = true; });
     try {
       await action();
@@ -57,6 +59,8 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
       fail(e);
     } finally {
       inFlight = false;
+      finish();
+      syncSubmit();
       controls().forEach((b) => { b.disabled = false; });
     }
   };
@@ -203,7 +207,7 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
       status.hidden = false;
       emailInput.value = ''; nameInput.value = '';
       await refresh();
-    });
+    }, inviteButton);
   });
 
   await refresh();

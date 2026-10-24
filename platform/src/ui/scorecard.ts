@@ -1,3 +1,4 @@
+import { buttonBusy } from './button-busy';
 import { ApiError, type CardRow } from '../api';
 import { areaTotal, bandIndex, type Criterion } from '../engine';
 import { reportActionError } from './actions';
@@ -357,6 +358,7 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
       overallInput.setAttribute('aria-invalid', 'true'); overallInput.focus(); return;
     }
     submitting = true; refresh();
+    const finish = buttonBusy(check, 'Checking card…');
     try {
       await ctx.flush();
       const saved = await review.flush();
@@ -375,7 +377,7 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
         h('p', { class: 'small muted' }, 'Submitting locks this card. Only the Chair can reopen it.'));
       reviewSummary.hidden = false; reviewSummary.focus();
     } catch (e) { if (alive) showAlert(errorText(e)); }
-    finally { submitting = false; if (alive) refresh(); }
+    finally { finish(); submitting = false; if (alive) refresh(); }
   });
 
   submit.addEventListener('click', async () => {
@@ -395,6 +397,7 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
     }
     submitting = true;
     refresh();
+    const finish = buttonBusy(submit, 'Submitting…');
     try {
       await ctx.api.submitCard(card.id);
       if (!alive) return;
@@ -417,6 +420,7 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
         showAlert(errorText(e));
       }
     } finally {
+      finish();
       submitting = false;
       if (alive) refresh();
     }

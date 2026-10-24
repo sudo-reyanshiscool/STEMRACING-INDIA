@@ -1,3 +1,4 @@
+import { buttonBusy } from './button-busy';
 import type { Ctx } from './ctx';
 import { codeText, errorText, isPlausibleEmail } from './common';
 import { h } from './dom';
@@ -16,7 +17,13 @@ export function loginScreen(ctx: Ctx, options: { authError?: string; showCode?: 
   const codeSection = h('details', { class: 'section' }, h('summary', null, 'Have a sign-in code?'), codeForm);
   codeSection.open = options.showCode ?? !!options.authError;
   let busy = false;
-  const setBusy = (value: boolean) => { busy = value; submitBtn.disabled = value; verifyBtn.disabled = value; };
+  let finishBusy = () => {};
+  const setBusy = (value: boolean, button = submitBtn, label = 'Sending email…') => {
+    busy = value;
+    if (value) finishBusy = buttonBusy(button, label);
+    else finishBusy();
+    submitBtn.disabled = value; verifyBtn.disabled = value;
+  };
   const validEmail = () => {
     if (isPlausibleEmail(email.value)) return true;
     error.textContent = 'Enter a valid email address, for example name@school.org.'; error.hidden = false; return false;
@@ -50,7 +57,7 @@ export function loginScreen(ctx: Ctx, options: { authError?: string; showCode?: 
     if (!/^\d{6,10}$/.test(token)) {
       error.textContent = 'Enter the verification code from your latest email (6–10 digits).'; error.hidden = false; return;
     }
-    setBusy(true);
+    setBusy(true, verifyBtn, 'Verifying…');
     try {
       await ctx.flush();
       await ctx.api.verifyEmailCode(email.value.trim().toLowerCase(), token);
@@ -60,7 +67,8 @@ export function loginScreen(ctx: Ctx, options: { authError?: string; showCode?: 
     finally { setBusy(false); }
   });
   const waiting = ctx.queue.status().pending;
-  return h('div', { class: 'stack stack--lg' },
+  return h('div', { class: 'stack stack--lg login-screen' },
+    h('p', { class: 'eyebrow' }, 'STEM Racing India · Events platform'),
     h('h1', null, 'Sign in'),
     h('p', { class: 'lead' }, 'Use the email address your event organiser invited.'),
     waiting > 0

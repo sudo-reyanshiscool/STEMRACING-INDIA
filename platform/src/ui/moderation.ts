@@ -1,3 +1,4 @@
+import { buttonBusy } from './button-busy';
 import type { CardRow, OverrideRow, Panel, TeamRow } from '../api';
 import { ApiError } from '../api';
 import { areaTotal, round1, validateScores, type Area } from '../engine';
@@ -218,7 +219,7 @@ export async function moderationScreen(ctx: Ctx, eventId: string): Promise<HTMLE
   /** Runs one write: guards double submits, refreshes after, and always re-enables the button. */
   const act = async (button: HTMLButtonElement, work: () => Promise<void>, done: string, isReopen: boolean) => {
     busy = true;
-    button.disabled = true;
+    const finish = buttonBusy(button, 'Updating…');
     try {
       try {
         await work();
@@ -243,7 +244,7 @@ export async function moderationScreen(ctx: Ctx, eventId: string): Promise<HTMLE
       if (alive) { status.textContent = done; status.hidden = false; }
     } finally {
       busy = false;
-      button.disabled = false;
+      finish();
     }
   };
 

@@ -3,7 +3,12 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#05000B" />
+    <meta name="theme-color" content="#F6F5F8" />
+    <script>
+      // Apply the saved choice before styles load, avoiding a flash of the other theme.
+      try { document.documentElement.dataset.theme = localStorage.getItem('stem-racing-india-theme') === 'dark' ? 'dark' : 'light'; }
+      catch { document.documentElement.dataset.theme = 'light'; }
+    </script>
     <title>STEM Racing India | Events Platform</title>
     <meta name="description" content="Digital judging, scorecards and event results for STEM Racing India." />
     <link rel="canonical" href="https://stemracingindia-events.vercel.app/" />

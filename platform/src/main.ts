@@ -90,6 +90,7 @@ async function boot(): Promise<void> {
   async function render(route: Route): Promise<void> {
     current = route;
     const mine = ++token;
+    shell.setLoading(true);
     for (const fn of leaves) {
       try { void Promise.resolve(fn()).catch(console.error); } catch (e) { console.error(e); }
     }
@@ -119,6 +120,8 @@ async function boot(): Promise<void> {
     } catch (e) {
       if (mine !== token) return;
       shell.main.replaceChildren(errorScreen(ctx, e));
+    } finally {
+      if (mine === token) shell.setLoading(false);
     }
   }
 

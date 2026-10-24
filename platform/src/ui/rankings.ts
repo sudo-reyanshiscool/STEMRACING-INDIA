@@ -1,3 +1,4 @@
+import { buttonBusy } from './button-busy';
 import { competitionScores } from '../racing/competition';
 import { ApiError, type CardRow, type EventRow, type OverrideRow, type PenaltyRow, type RoleRow, type SnapshotRow, type TeamRow } from '../api';
 import { canonicalJson, rank, RankingInputError, sha256Hex, validateScores, type RankInputs, type Ranking, type Ruleset } from '../engine';
@@ -281,7 +282,7 @@ export async function rankingsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
   /** One write at a time. The write's own failure and a failed redraw afterwards are told apart. */
   const act = async (button: HTMLButtonElement, work: () => Promise<void>, done: string | null, redraw = true, lockedText = RELEASED_LOCK) => {
     busy = true;
-    button.disabled = true;
+    const finish = buttonBusy(button, 'Updating…');
     try {
       try {
         await work();
@@ -303,6 +304,7 @@ export async function rankingsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
       if (alive && done) say(done);
     } finally {
       busy = false;
+      finish();
       button.disabled = false;
     }
   };

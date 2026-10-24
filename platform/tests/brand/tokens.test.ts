@@ -40,3 +40,24 @@ describe('brand tokens', () => {
     expect(contrast(hex('podium-gold'), hex('carbon-800'))).toBeGreaterThanOrEqual(3);
   });
 });
+
+describe('light and dark interface contrast', () => {
+  const root = css.match(/:root\s*\{([^}]+)\}/)![1];
+  const dark = css.match(/:root\[data-theme="dark"\]\s*\{([^}]+)\}/)![1];
+  const declarations = (block: string) => Object.fromEntries([...block.matchAll(/--([\w-]+):\s*([^;]+);/g)].map(m => [m[1], m[2].trim()]));
+  for (const [theme, block] of [['light', root], ['dark', root + dark]]) {
+    it(`keeps text and score-band guidance readable in ${theme} mode`, () => {
+      const tokens = declarations(block);
+      const resolve = (name: string): string => {
+        const value = tokens[name];
+        return value.startsWith('var(') ? resolve(value.slice(6, -1)) : value;
+      };
+      for (const surface of ['bg', 'bg-raised', 'bg-subtle', 'input-bg', 'sheet-surface', 'sheet-subtotal']) {
+        for (const text of ['fg', 'fg-strong', 'fg-muted']) expect(contrast(resolve(text), resolve(surface)), `${text} on ${surface}`).toBeGreaterThanOrEqual(4.5);
+      }
+      for (const band of ['low','mid-low','mid-high','high']) expect(contrast(resolve(`band-${band}`), resolve(`band-${band}-bg`)), band).toBeGreaterThanOrEqual(4.5);
+      for (const text of ['danger', 'warning', 'success', 'heading-accent']) expect(contrast(resolve(text), resolve('bg-raised')), text).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(resolve('focus'), resolve('bg'))).toBeGreaterThanOrEqual(3);
+    });
+  }
+});

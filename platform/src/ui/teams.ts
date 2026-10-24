@@ -1,3 +1,4 @@
+import { buttonBusy } from './button-busy';
 import {validManagerEmail} from '../api/team-input';
 import { reportActionError } from './actions';
 import type { Ctx } from './ctx';
@@ -35,7 +36,7 @@ export async function teamsScreen(ctx: Ctx, eventId: string): Promise<HTMLElemen
     const holder=h('div',{class:'stack'},currentEmail,edit);edit.onclick=()=>{edit.hidden=true;holder.append(form);};
     form.onsubmit=async e=>{e.preventDefault();if(save.disabled)return;message.hidden=true;
       if(input.value.trim()&&!validManagerEmail(input.value.trim())){message.textContent='Enter a valid manager email.';message.hidden=false;return;}
-      save.disabled=true;try{await ctx.api.setTeamContact(eventId,teamId,input.value);message.textContent='Manager email saved.';message.hidden=false;currentEmail.textContent=input.value.trim()?`Manager: ${input.value.trim().toLowerCase()}`:'Manager email not provided';}catch(error){reportActionError(ctx,message,error);}finally{save.disabled=false;}
+      const finish=buttonBusy(save);try{await ctx.api.setTeamContact(eventId,teamId,input.value);message.textContent='Manager email saved.';message.hidden=false;currentEmail.textContent=input.value.trim()?`Manager: ${input.value.trim().toLowerCase()}`:'Manager email not provided';}catch(error){reportActionError(ctx,message,error);}finally{finish();}
     };return holder;
   };
   await showTeams();
@@ -76,7 +77,7 @@ export async function teamsScreen(ctx: Ctx, eventId: string): Promise<HTMLElemen
         return;
       }
       inFlight = true;
-      submit.disabled = true;
+      const finish = buttonBusy(submit, 'Adding team…');
       try {
         const team = await ctx.api.createTeam(eventId, { number, name, school, ...(managerEmail?{managerEmail}:{}) });
         f.reset();
@@ -87,7 +88,7 @@ export async function teamsScreen(ctx: Ctx, eventId: string): Promise<HTMLElemen
         if (alive) reportActionError(ctx, error, err, { duplicate: 'That team number is already used in this event' });
       } finally {
         inFlight = false;
-        submit.disabled = false;
+        finish();
       }
     });
   }

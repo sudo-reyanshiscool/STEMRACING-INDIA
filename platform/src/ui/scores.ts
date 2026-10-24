@@ -1,3 +1,4 @@
+import { buttonBusy } from './button-busy';
 import { areaTotal, validateScores } from '../engine';
 import type { CardRow } from '../api';
 import { reportActionError } from './actions';
@@ -175,9 +176,9 @@ export async function scoresScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
   fingerprint = JSON.stringify(data); options(); draw();
   team.addEventListener('change', draw); panel.addEventListener('change', draw);
   refresh.addEventListener('click', async () => {
-    if (refresh.disabled) return; refresh.disabled = true;
+    if (refresh.disabled) return; const finish = buttonBusy(refresh, 'Refreshing…');
     try { await update(); } catch (e) { if (alive) reportActionError(ctx, error, e); }
-    finally { if (alive) refresh.disabled = false; }
+    finally { finish(); }
   });
   liveRefresh(ctx, update, (e) => reportActionError(ctx, error, e));
   return h('div', { class: 'stack stack--lg' }, h('div', { class: 'stack' },

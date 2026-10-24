@@ -1,3 +1,4 @@
+import { buttonBusy } from './button-busy';
 import { organiserControls } from './organisers';
 import type { Ctx } from './ctx';
 import { reportActionError } from './actions';
@@ -24,9 +25,10 @@ export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
     const failure = h('p', { class: 'alert', role: 'alert', hidden: true });
     restore.addEventListener('click', async () => {
       if (restore.disabled) return;
-      restore.disabled = true; failure.hidden = true;
+      const finish = buttonBusy(restore, 'Restoring…'); failure.hidden = true;
       try { await ctx.api.restoreEvent(event.id); if (alive) ctx.rerender(); }
-      catch (e) { if (alive) { reportActionError(ctx, failure, e); restore.disabled = false; } }
+      catch (e) { if (alive) { reportActionError(ctx, failure, e); } }
+      finally { finish(); }
     });
     return h('li', null, h('strong', null, event.name), h('span', { class: 'muted small' }, event.startsOn ?? ''), restore, failure);
   })));
@@ -41,7 +43,7 @@ export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
       return;
     }
     busy = true;
-    submitBtn.disabled = true;
+    const finish = buttonBusy(submitBtn, 'Creating event…');
     try {
       const ev = await ctx.api.createEvent({ name: String(f.get('name')), startsOn: String(f.get('date') ?? '') || undefined });
       location.hash = routeHref({ name: 'event', eventId: ev.id });
@@ -49,17 +51,17 @@ export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
       reportActionError(ctx, error, err);
     } finally {
       busy = false;
-      submitBtn.disabled = false;
+      finish();
     }
   });
   return h('div', { class: 'stack stack--lg' },
-    h('div', { class: 'stack' }, h('p', { class: 'eyebrow' }, 'STEM Racing India National Finals'), h('h1', null, 'Events'),
+    h('div', { class: 'stack' }, h('p', { class: 'eyebrow' }, 'STEM Racing India · Nationals & Regionals'), h('h1', null, 'Events'),
       h('p', { class: 'lead' }, 'Judging, racing and results for each event, in one place.'),
       access.kind ? h('p', {class:'tag tag--pass'},access.kind==='admin'?'Platform Admin · permanent access to every event':access.kind==='platform'?'Platform Organiser · all events':'Competition Organiser · assigned events') : null),
     h('section', { class: 'section' },
       events.length === 0
         ? h('p', { class: 'muted' }, canCreate ? 'No events yet. Create one, or ask an organiser to invite you.' : 'No events yet. Ask an organiser to invite you to an event.')
-        : h('ul', { class: 'list' }, events.map((e) =>
+        : h('ul', { class: 'list event-list' }, events.map((e) =>
             h('li', null, h('a', { href: routeHref({ name: 'event', eventId: e.id }) }, h('strong', null, e.name)),
               h('span', { class: 'muted small' }, e.startsOn ?? ''), e.resultsReleased ? h('span', { class: 'tag tag--pass' }, 'Results released') : null)))),
     canCreate ? h('section', { class: 'section' }, h('h2', null, 'New event'), error, form) : null,

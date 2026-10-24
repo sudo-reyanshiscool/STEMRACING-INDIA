@@ -1,3 +1,4 @@
+import { buttonBusy } from './button-busy';
 import type { Car, Inspection, Measurements, Value } from '../technical';
 import { INDIA_TECHNICAL, SECTIONS, summarise } from '../technical';
 import { downloadSheet } from '../pdf/resultSheet';
@@ -174,7 +175,8 @@ export async function inspectionScreen(ctx: Ctx, eventId: string, teamId: string
       const ok = window.confirm(`There are still ${s.pending.length} unmeasured items. Submit anyway?`);
       if (!ok) return;
     }
-    submitBtn.disabled = true;
+    if (submitBtn.disabled) return;
+    const finish = buttonBusy(submitBtn, 'Submitting…');
     error.hidden = true;
     try {
       await savePromise;
@@ -183,7 +185,7 @@ export async function inspectionScreen(ctx: Ctx, eventId: string, teamId: string
       updateStatusBadge();
       ctx.rerender();
     } catch (e) {
-      submitBtn.disabled = false;
+      finish();
       if (alive) reportActionError(ctx, error, e);
     }
   });

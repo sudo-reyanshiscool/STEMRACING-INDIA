@@ -6,7 +6,7 @@ body {
 }
 :focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
 .btn:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible, button:focus-visible {
-  box-shadow: 0 0 0 6px var(--carbon-shadow);
+  box-shadow: 0 0 0 6px var(--bg);
 }
 .skip { position: absolute; left: -9999px; background: var(--white); color: var(--carbon-shadow); padding: 12px 16px; border-radius: var(--radius-button); }
 .skip:focus { left: var(--gutter); top: 8px; z-index: 20; }
@@ -15,8 +15,7 @@ h1, h2 { font-family: var(--font-display); font-style: italic; font-weight: 700;
 h1 { color: var(--fg-strong); font-size: clamp(2.25rem, 1.6rem + 2.6vw, 3.5rem); line-height: 1.05; }
 h2 {
   width: fit-content; padding-inline-end: .15em; font-size: clamp(1.75rem, 1.3rem + 1.6vw, 2.5rem); line-height: 1.05;
-  background: linear-gradient(90deg, var(--chicane-violet) -15%, var(--pitlane-pink) 52%, var(--burnout-orange) 100%);
-  -webkit-background-clip: text; background-clip: text; color: transparent;
+  color: var(--heading-accent);
 }
 @media (forced-colors: active) { h2 { background: none; color: CanvasText; } }
 h3 { font-size: 20px; line-height: 1.25; font-weight: 700; margin: 0; color: var(--fg-strong); }

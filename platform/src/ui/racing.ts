@@ -1,3 +1,4 @@
+import { buttonBusy } from './button-busy';
 import { competitionPanel } from './racing-competition';
 import { defaultRacingSetup, adjustedTime, carCheck } from '../racing/competition';
 import { blankLane, outcome, parseDenford, parseSeconds, raceRecorded, raceStandings, seconds, STATUS_LABEL, validateRace, type RaceHeat, type RaceInput, type RaceLane, type RaceStatus, type TimingState } from '../racing';
@@ -86,8 +87,8 @@ export async function racingScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
       const input:RaceInput={bracket:row.bracket,label:label.value,phase:row.phase,lane1:left.value(),lane2:right.value(),note:note.value,source,sourceRunId};
       const issue=(captureNeedsFinish && (left.result.value==='pending'||right.result.value==='pending') ? 'The track supplied reaction times only. Enter real total times for those lanes before saving.' : null) ?? validateRace(input) ?? (raceRecorded(row)&&note.value.trim().length<5?'Explain the correction in at least 5 characters.':null);
       if(issue){error.textContent=issue;error.hidden=false;return;}
-      save.disabled=true;
-      try{const saved=await ctx.api.saveRace(eventId,row.id,row.revision,input);if(!alive)return;races=races.filter(r=>r.id!==saved.id);races.push(saved);races.sort((a,b)=>a.number-b.number);await refresh();select(saved,true);status.textContent='Race result saved and shared.';}catch(e){if(alive)fail(e);}finally{if(alive)save.disabled=!canEdit;}
+      const finish = buttonBusy(save, 'Saving race…');
+      try{const saved=await ctx.api.saveRace(eventId,row.id,row.revision,input);if(!alive)return;races=races.filter(r=>r.id!==saved.id);races.push(saved);races.sort((a,b)=>a.number-b.number);await refresh();select(saved,true);status.textContent='Race result saved and shared.';}catch(e){if(alive)fail(e);}finally{finish();if(alive)save.disabled=!canEdit;}
     });
     editor.replaceChildren(h('div',{class:'race-console-heading'},h('div',null,h('p',{class:'eyebrow'},`${row.phase==='reaction'?'Reaction racing':'Knockout racing'} · HEAT ${String(row.number).padStart(2,'0')}`),h('h2',null,row.label)),tag(raceRecorded(row)?'Recorded':'Ready to race',raceRecorded(row)?'pass':'todo')),form);
     renderBoard();updateTrack();
@@ -98,8 +99,8 @@ export async function racingScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
     const phase=h('select',{'aria-label':'New heat phase'},h('option',{value:'reaction'},'Reaction racing'));
     const add=h('button',{class:'btn btn--ghost',type:'submit',disabled:teams.length<2},'Add pairing');
     addForm.append(h('h3',null,'New pairing'),field('Phase',phase),field('Lane 1',a),field('Lane 2',b),add);
-    addForm.addEventListener('submit',async e=>{e.preventDefault();if(add.disabled)return;if(dirty&&!window.confirm('Discard the unsaved lane changes and create a new pairing?'))return;if(!a.value||!b.value||a.value===b.value){error.textContent='Choose two different teams for this heat.';error.hidden=false;return;}add.disabled=true;
-      try{const row=await ctx.api.saveRace(eventId,crypto.randomUUID(),0,{label:`${phase.value==='reaction'?'Reaction':'Knockout'} · Heat ${Math.max(0,...races.map(r=>r.number))+1}`,phase:phase.value as RaceInput['phase'],lane1:blankLane(a.value),lane2:blankLane(b.value),note:'',source:'manual',sourceRunId:null});races.push(row);if(alive)select(row,true);}catch(e){if(alive)fail(e);}finally{if(alive)add.disabled=false;}
+    addForm.addEventListener('submit',async e=>{e.preventDefault();if(add.disabled)return;if(dirty&&!window.confirm('Discard the unsaved lane changes and create a new pairing?'))return;if(!a.value||!b.value||a.value===b.value){error.textContent='Choose two different teams for this heat.';error.hidden=false;return;}const finish = buttonBusy(add, 'Adding pairing…');
+      try{const row=await ctx.api.saveRace(eventId,crypto.randomUUID(),0,{label:`${phase.value==='reaction'?'Reaction':'Knockout'} · Heat ${Math.max(0,...races.map(r=>r.number))+1}`,phase:phase.value as RaceInput['phase'],lane1:blankLane(a.value),lane2:blankLane(b.value),note:'',source:'manual',sourceRunId:null});races.push(row);if(alive)select(row,true);}catch(e){if(alive)fail(e);}finally{finish();}
     });
   }
   const connectionMethod=h('select',{'aria-label':'Track connection method'},h('option',{value:'wifi'},'Track Wi-Fi'),h('option',{value:'ethernet'},'Ethernet'));
@@ -116,7 +117,7 @@ export async function racingScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
     if(pair.disabled)return;
     if(timing && !window.confirm('Replace the current track pairing? The track laptop will need the new pairing file.'))return;
     if(!/^http:\/\/(?:\d{1,3}\.){3}\d{1,3}(?::\d{1,5})?\/?$/.test(gateUrl.value)){error.textContent='Enter the exact track IP address, including http://.';error.hidden=false;gateUrl.focus();return;}
-    pair.disabled=true;
+    const finish = buttonBusy(pair, 'Pairing…');
     try{
       const connection=await ctx.api.pairTiming(eventId);
       const config={connectionMethod:connectionMethod.value,gateUrl:gateUrl.value,projectUrl:import.meta.env.VITE_SUPABASE_URL,anonKey:import.meta.env.VITE_SUPABASE_ANON_KEY,token:connection.token};
@@ -125,7 +126,7 @@ export async function racingScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
       ctx.onLeave(()=>URL.revokeObjectURL(url));
       pairingHelp.replaceChildren(h('p',{class:'small'},'Run the bridge on the laptop connected to this track. Keep the pairing file private. It expires in 8 hours; pairing again replaces it.'),link,h('a',{href:'/tools/denford-bridge.py',download:'denford-bridge.py'},'Get the Python bridge'),h('code',null,'python3 denford-bridge.py --config /path/to/denford-connection.json'));
       timing={connectionId:connection.connectionId,expiresAt:connection.expiresAt,lastSeenAt:null,payload:null};armed=null;updateTrack();
-    }catch(e){fail(e);}finally{pair.disabled=!canEdit;}
+    }catch(e){fail(e);}finally{finish();pair.disabled=!canEdit;}
   });
   function updateTrack(){
     const connected=!!timing?.lastSeenAt && Date.now()-Date.parse(timing.lastSeenAt)<15000 && Date.parse(timing.expiresAt)>Date.now();
