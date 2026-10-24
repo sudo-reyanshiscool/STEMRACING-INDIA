@@ -1,5 +1,6 @@
 export type Route =
   | { name: 'home' }
+  | { name: 'security' }
   | { name: 'event'; eventId: string }
   | { name: 'teams'; eventId: string }
   | { name: 'people'; eventId: string }
@@ -26,6 +27,7 @@ export function parseHash(hash: string): Route {
   } catch {
     return HOME;
   }
+  if (decoded[0] === 'security' && decoded.length === 1) return { name: 'security' };
   if (decoded[0] !== 'event' || !decoded[1]) return HOME;
   const eventId = decoded[1];
   if (decoded.length === 2) return { name: 'event', eventId };
@@ -45,6 +47,7 @@ const e = encodeURIComponent;
 export function routeHref(r: Route): string {
   switch (r.name) {
     case 'home': return '#/';
+    case 'security': return '#/security';
     case 'event': return `#/event/${e(r.eventId)}`;
     case 'scorecard': return `#/event/${e(r.eventId)}/score/${e(r.teamId)}/${e(r.areaId)}`;
     case 'inspection': return `#/event/${e(r.eventId)}/inspection/${e(r.teamId)}/${e(r.car)}`;

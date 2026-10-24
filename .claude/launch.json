@@ -15,6 +15,27 @@
       "port": 5173
     },
     {
+      "name": "ceremony",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5180",
+        "-d",
+        "ceremony"
+      ],
+      "port": 5180
+    },
+    {
+      "name": "team-intro",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "team-intro/serve.py",
+        "5181"
+      ],
+      "port": 5181
+    },
+    {
       "name": "platform",
       "runtimeExecutable": "npm",
       "runtimeArgs": [

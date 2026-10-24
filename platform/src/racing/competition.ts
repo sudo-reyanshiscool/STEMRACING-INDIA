@@ -120,8 +120,66 @@ export function competitionScores(teamIds: string[], races: RaceHeat[], inspecti
   return { derived, penalties:[...deductions].filter(([,points])=>points>0).map(([teamId,points])=>({teamId,points})).sort((a,b)=>a.teamId.localeCompare(b.teamId)), issues, bracket };
 }
 
-/** Four reaction runs per team: each car in each lane, including an odd field. */
+/** Four reaction runs per team: each car in each lane, with Heat 1 & Heat 2 paired and opposite. */
 export function reactionPairings(ids: string[]): RaceInput[] {
   if (ids.length < 2) return [];
-  return ids.flatMap((id,i) => (['A','B'] as const).map(car => ({label:`Reaction · ${i+1}${car}`,phase:'reaction' as const,lane1:{teamId:id,car,status:'pending' as const,totalMs:null,reactionMs:null},lane2:{teamId:ids[(i+1)%ids.length],car,status:'pending' as const,totalMs:null,reactionMs:null},note:'',source:'manual' as const,sourceRunId:null})));
+  const n = ids.length;
+  const races: RaceInput[] = [];
+  let heatNum = 1;
+
+  if (n % 2 === 0) {
+    for (let i = 0; i < n; i += 2) {
+      const t1 = ids[i];
+      const t2 = ids[i + 1];
+      for (const car of ['A', 'B'] as const) {
+        // Heat 1 of pair: Team 1 in Lane 1, Team 2 in Lane 2
+        races.push({
+          label: `RR-H${String(heatNum++).padStart(2, '0')}`,
+          phase: 'reaction',
+          lane1: { teamId: t1, car, status: 'pending', totalMs: null, reactionMs: null },
+          lane2: { teamId: t2, car, status: 'pending', totalMs: null, reactionMs: null },
+          note: '',
+          source: 'manual',
+          sourceRunId: null,
+        });
+        // Heat 2 of pair: same cars, opposite lanes (Team 2 in Lane 1, Team 1 in Lane 2)
+        races.push({
+          label: `RR-H${String(heatNum++).padStart(2, '0')}`,
+          phase: 'reaction',
+          lane1: { teamId: t2, car, status: 'pending', totalMs: null, reactionMs: null },
+          lane2: { teamId: t1, car, status: 'pending', totalMs: null, reactionMs: null },
+          note: '',
+          source: 'manual',
+          sourceRunId: null,
+        });
+      }
+    }
+  } else {
+    // Odd field: circular chain where each team gets 2 runs per car, in back-to-back swapped pairs
+    for (let i = 0; i < n; i++) {
+      const t1 = ids[i];
+      const t2 = ids[(i + 1) % n];
+      const car1 = i % 2 === 0 ? 'A' : 'B';
+      const car2 = i === n - 1 ? 'B' : (i % 2 === 0 ? 'A' : 'B');
+      races.push({
+        label: `RR-H${String(heatNum++).padStart(2, '0')}`,
+        phase: 'reaction',
+        lane1: { teamId: t1, car: car1, status: 'pending', totalMs: null, reactionMs: null },
+        lane2: { teamId: t2, car: car2, status: 'pending', totalMs: null, reactionMs: null },
+        note: '',
+        source: 'manual',
+        sourceRunId: null,
+      });
+      races.push({
+        label: `RR-H${String(heatNum++).padStart(2, '0')}`,
+        phase: 'reaction',
+        lane1: { teamId: t2, car: car2, status: 'pending', totalMs: null, reactionMs: null },
+        lane2: { teamId: t1, car: car1, status: 'pending', totalMs: null, reactionMs: null },
+        note: '',
+        source: 'manual',
+        sourceRunId: null,
+      });
+    }
+  }
+  return races;
 }

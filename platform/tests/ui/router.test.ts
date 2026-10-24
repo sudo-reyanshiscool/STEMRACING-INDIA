@@ -5,6 +5,7 @@ describe('router', () => {
   it('parses every route', () => {
     expect(parseHash('')).toEqual({ name: 'home' });
     expect(parseHash('#/')).toEqual({ name: 'home' });
+    expect(parseHash('#/security')).toEqual({ name: 'security' });
     expect(parseHash('#/event/e1')).toEqual({ name: 'event', eventId: 'e1' });
     expect(parseHash('#/event/e1/teams')).toEqual({ name: 'teams', eventId: 'e1' });
     expect(parseHash('#/event/e1/people')).toEqual({ name: 'people', eventId: 'e1' });
@@ -23,7 +24,7 @@ describe('router', () => {
 
   it('round-trips ids containing spaces, slashes and non-Latin text', () => {
     const routes: Route[] = [
-      { name: 'home' }, { name: 'event', eventId: 'a b' }, { name: 'teams', eventId: 'a/b' },
+      { name: 'home' }, { name: 'security' }, { name: 'event', eventId: 'a b' }, { name: 'teams', eventId: 'a/b' },
       { name: 'scorecard', eventId: 'e 1', teamId: 'स्टेम', areaId: 'x/y' }, { name: 'results', eventId: 'é' },
     ];
     for (const r of routes) expect(parseHash(routeHref(r))).toEqual(r);

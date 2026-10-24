@@ -46,7 +46,8 @@ export function mapPgError(e: { message: string; code?: string }): ApiError {
 export function mapAuthError(e: { message: string; name?: string; code?: string; status?: number }): ApiError {
   if (e.status === 0 || e.name === 'AuthRetryableFetchError') return new ApiError('network', 'No connection to the server');
   if (e.status === 429) return new ApiError('rate-limited', 'Email sending limit reached');
-  if (e.code && ['otp_expired', 'flow_state_expired', 'flow_state_not_found', 'bad_code_verifier'].includes(e.code)) return new ApiError('invalid-auth', 'Sign-in link or code expired');
+  if (e.code && ['otp_expired', 'flow_state_expired', 'flow_state_not_found', 'bad_code_verifier', 'mfa_challenge_expired'].includes(e.code)) return new ApiError('invalid-auth', 'Sign-in link or code expired');
+  if (e.code && ['mfa_verification_failed', 'invalid_grant', 'mfa_factor_not_found', 'mfa_challenge_not_found'].includes(e.code)) return new ApiError('invalid-auth', 'Invalid authenticator code. Check your app and try again.');
   if (e.code === 'email_address_invalid' || e.code === 'validation_failed') return new ApiError('invalid', e.message);
   return mapPgError({ message: e.message });
 }

@@ -76,5 +76,6 @@ export function loginScreen(ctx: Ctx, options: { authError?: string; showCode?: 
       : null,
     notice, error, form, codeSection,
     h('p', { class: 'muted small' }, 'Final standings are public. Detailed scores and feedback are private to signed-in team managers.'),
+    h('p', { class: 'muted small' }, 'Supports email sign-in codes and two-factor authentication via authenticator apps (TOTP).'),
   );
 }

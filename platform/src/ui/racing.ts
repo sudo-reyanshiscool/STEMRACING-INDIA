@@ -29,13 +29,82 @@ export async function racingScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
   const trackStatus = h('span', { class:'tag tag--todo' }, 'Not connected');
   const trackHelp = h('p', { class:'small muted' }, 'Connect the track laptop by Wi-Fi or Ethernet. Use the exact track IP address and keep internet access available for shared capture.');
   const capture = h('button', { class:'btn btn--ghost', type:'button', disabled:true }, 'Capture next track run');
+  const autoGenBtn = h('button', { class:'btn btn--primary', type:'button' }, 'Auto-generate heats');
+  const downloadReactionPdfBtn = h('button', { class:'btn btn--ghost', type:'button' }, 'Download reaction heats PDF');
+  const downloadKnockoutPdfBtn = h('button', { class:'btn btn--ghost', type:'button' }, 'Download knockout heats PDF');
   const teamName = (id: string) => { const t = teams.find(t => t.id === id); return t ? `#${t.number} ${t.name}` : 'Unavailable team'; };
   const table = (head: string[], rows: HTMLElement[]) => h('table', { class:'table' }, h('thead',null,h('tr',null,head.map(x => h('th',{scope:'col'},x)))),h('tbody',null,rows));
   const fail = (e: unknown) => reportActionError(ctx,error,e,{invalid:'Check the lane values and correction reason. Finished runs need total and reaction times; other statuses must have no times.',duplicate:'That track run has already been saved. Select its existing race record.'});
   const teamSelect = (value = '') => h('select',{},h('option',{value:''},'Select team'),teams.map(t => h('option',{value:t.id},`#${t.number} · ${t.name}`)));
   const field = (label: string, control: HTMLElement) => h('label',{class:'field'},h('span',{class:'field__label'},label),control);
   const changed = () => { dirty = true; armed = null; status.textContent = 'Unsaved changes'; updateTrack(); };
+  autoGenBtn.addEventListener('click', async () => {
+    if (autoGenBtn.disabled) return;
+    if (dirty && !window.confirm('Discard unsaved changes and auto-generate reaction heats?')) return;
+    const finish = buttonBusy(autoGenBtn, 'Generating heats…');
+    error.hidden = true;
+    try {
+      await ctx.api.queueReactionRaces(eventId);
+      if (!alive) return;
+      await refresh();
+      status.textContent = 'Reaction heats schedule automatically generated and saved.';
+    } catch (e) {
+      if (alive) fail(e);
+    } finally {
+      finish();
+    }
+  });
+
+  downloadReactionPdfBtn.addEventListener('click', async () => {
+    const reactionRaces = races.filter(r => r.phase === 'reaction');
+    if (downloadReactionPdfBtn.disabled || !reactionRaces.length) return;
+    const finish = buttonBusy(downloadReactionPdfBtn, 'Building PDF…');
+    error.hidden = true;
+    try {
+      const { buildHeatsPdf, heatsFileName } = await import('../pdf/heatsPdf');
+      const doc = buildHeatsPdf({
+        eventName: event.name,
+        startsOn: event.startsOn,
+        teams,
+        races,
+        phase: 'reaction',
+      });
+      doc.save(heatsFileName(event.name, 'reaction'));
+    } catch (e) {
+      if (alive) reportActionError(ctx, error, e);
+    } finally {
+      finish();
+    }
+  });
+
+  downloadKnockoutPdfBtn.addEventListener('click', async () => {
+    const knockoutRaces = races.filter(r => r.phase === 'knockout');
+    if (downloadKnockoutPdfBtn.disabled || !knockoutRaces.length) return;
+    const finish = buttonBusy(downloadKnockoutPdfBtn, 'Building PDF…');
+    error.hidden = true;
+    try {
+      const { buildHeatsPdf, heatsFileName } = await import('../pdf/heatsPdf');
+      const doc = buildHeatsPdf({
+        eventName: event.name,
+        startsOn: event.startsOn,
+        teams,
+        races,
+        phase: 'knockout',
+      });
+      doc.save(heatsFileName(event.name, 'knockout'));
+    } catch (e) {
+      if (alive) reportActionError(ctx, error, e);
+    } finally {
+      finish();
+    }
+  });
+
   const renderBoard = () => {
+    const hasReaction = races.some(r => r.phase === 'reaction');
+    const hasKnockout = races.some(r => r.phase === 'knockout');
+    autoGenBtn.hidden = !canEdit || hasReaction || teams.length < 2;
+    downloadReactionPdfBtn.hidden = !hasReaction;
+    downloadKnockoutPdfBtn.hidden = !hasKnockout;
     counters.replaceChildren(...[['Recorded heats',races.filter(raceRecorded).length],['Queued heats',races.filter(r => !raceRecorded(r)).length],['Teams entered',teams.length]].map(([label,value]) => h('div',null,h('strong',null,value),h('span',null,label))));
     queue.replaceChildren(h('h2',null,'Race queue'),...(races.length ? races.map(r => h('button',{type:'button',class:'race-queue-item', 'aria-pressed':selected?.id===r.id, onclick:() => select(r)},
       h('span',{class:'eyebrow'},`HEAT ${String(r.number).padStart(2,'0')} · ${r.phase === 'reaction' ? 'Reaction' : 'Knockout'}`),h('strong',null,r.label),h('span',{class:'small'},`${teamName(r.lane1.teamId)} / ${teamName(r.lane2.teamId)}`),h('span',{class:'small muted'},r.phase==='knockout'?'Knockout · see bracket outcome':outcome(r)))) : [h('p',{class:'muted'},'No heats yet. Add your first pairing below.')]));
@@ -155,8 +224,30 @@ export async function racingScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
   liveRefresh(ctx,refresh,fail);
   renderBoard();
   const first=races.find(r=>!raceRecorded(r))??races.at(-1);
-  if(first)select(first);else editor.append(h('p',{class:'eyebrow'},'Start line'),h('h2',null,'Set the first pairing.'),h('p',{class:'muted'},canEdit?'Choose the teams for both lanes, then add the heat to the queue.':'A race official will add the first pairing.'));
-  return h('div',{class:'race-screen stack stack--lg'},h('header',{class:'race-heading'},h('div',null,h('p',{class:'eyebrow'},event.name),h('h1',null,'Race control'),h('p',{class:'lead'},'Two lanes. Every run recorded.')),trackStatus),counters,
+  if(first)select(first);
+  else {
+    const emptyGen = h('button', { class: 'btn btn--primary', type: 'button' }, 'Auto-generate reaction heats');
+    emptyGen.onclick = () => autoGenBtn.click();
+    editor.append(
+      h('p', { class: 'eyebrow' }, 'Start line'),
+      h('h2', null, 'Set the first pairing.'),
+      h('p', { class: 'muted' }, canEdit
+        ? (teams.length >= 2 ? 'Generate the full 4-run reaction schedule automatically, or add individual pairings below.' : 'At least two teams are required to race.')
+        : 'A race official will add the first pairing.'
+      )
+    );
+    if (canEdit && teams.length >= 2 && !races.some(r => r.phase === 'reaction')) {
+      editor.append(emptyGen);
+    }
+  }
+  return h('div',{class:'race-screen stack stack--lg'},
+    h('header',{class:'race-heading'},
+      h('div',null,
+        h('p',{class:'eyebrow'},event.name),
+        h('h1',null,'Race control'),
+        h('p',{class:'lead'},'Two lanes. Every run recorded.')),
+      h('div',{class:'actions'},autoGenBtn,downloadReactionPdfBtn,downloadKnockoutPdfBtn,trackStatus)),
+    counters,
     event.resultsReleased?h('p',{class:'notice'},'Results are released. Race records are read-only.'):!canEdit?h('p',{class:'notice'},'Viewing race records. Only organisers, the Chair and race officials can enter results.'):null,
     error,status,h('div',{class:'race-workspace'},h('aside',{class:'stack'},queue,canEdit?addForm:null),editor),staff?competition.root:null,
     h('section',{class:'section stack'},h('div',{class:'row__head'},h('h2',null,'Denford timing'),capture),trackHelp,canEdit?h('div',{class:'inline-form'},field('Connection method',connectionMethod),field('Exact track address',gateUrl),pair):null,canEdit?connectionHelp:null,pairingHelp),

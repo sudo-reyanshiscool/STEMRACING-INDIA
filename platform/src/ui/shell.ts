@@ -39,7 +39,11 @@ export function mountShell(root: HTMLElement): Shell {
     setUser(session, onSignOut) {
       who.replaceChildren(
         ...(session
-          ? [h('span', { class: 'muted' }, session.email), h('button', { class: 'btn btn--ghost btn--small', type: 'button', onclick: onSignOut }, 'Sign out')]
+          ? [
+              h('span', { class: 'muted' }, session.email),
+              h('a', { class: 'btn btn--ghost btn--small', href: '#/security' }, 'Security'),
+              h('button', { class: 'btn btn--ghost btn--small', type: 'button', onclick: onSignOut }, 'Sign out'),
+            ]
           : []),
       );
     },

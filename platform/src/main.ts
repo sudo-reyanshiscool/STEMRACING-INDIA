@@ -21,6 +21,8 @@ import { resultsScreen } from './ui/results';
 import { scorecardScreen } from './ui/scorecard';
 import { inspectionScreen } from './ui/inspection';
 import { scoringScreen } from './ui/scoring';
+import { mfaChallengeScreen } from './ui/mfa-challenge';
+import { securityScreen } from './ui/security';
 import {drawLotsScreen} from './ui/draw-lots';
 import { parseHash, startRouter, type Route } from './ui/router';
 import { QueueHost } from './ui/queuehost';
@@ -99,7 +101,9 @@ async function boot(): Promise<void> {
       const session = await api.getSession();
       shell.setUser(session, () => void signOut());
       host.setUser(session?.userId ?? null); // idempotent; covers an auth event the adapter did not deliver
-      if (session) {
+      const mfa = session ? await api.getMfaStatus().catch(() => null) : null;
+      const requiresMfa = session && mfa && mfa.nextLevel === 'aal2' && mfa.currentLevel !== 'aal2';
+      if (session && !requiresMfa) {
         await api.claimInvitations().catch(() => 0);
         void host.flush(); // a fresh sign-in releases anything that waited for a session
       }
@@ -108,6 +112,17 @@ async function boot(): Promise<void> {
         emailToken = null; authError = undefined; void render({ name: 'home' });
       }, () => { emailToken = null; authError = undefined; showEmailCode = true; void render({ name: 'home' }); });
       else if (!session && route.name !== 'results') node = loginScreen(ctx, { authError, showCode: showEmailCode });
+      else if (requiresMfa && route.name !== 'results') {
+        const factorId = mfa?.factors.find((f) => f.status === 'verified')?.id;
+        node = mfaChallengeScreen(ctx, {
+          factorId,
+          onSuccess: () => {
+            void host.flush();
+            void render(route);
+          },
+          onCancel: () => void signOut(),
+        });
+      }
       else node = await screenFor(route, ctx);
       if (mine !== token) return;
       if ('eventId' in route && session) {
@@ -133,6 +148,7 @@ async function boot(): Promise<void> {
 async function screenFor(route: Route, ctx: Ctx): Promise<HTMLElement> {
   switch (route.name) {
     case 'home': return eventsScreen(ctx);
+    case 'security': return securityScreen(ctx);
     case 'event': return eventHomeScreen(ctx, route.eventId);
     case 'teams': return teamsScreen(ctx, route.eventId);
     case 'people': return peopleScreen(ctx, route.eventId);

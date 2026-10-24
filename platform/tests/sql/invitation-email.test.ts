@@ -11,6 +11,15 @@ const complete=async(id:string,ticket:string,status:string,failure:string|null=n
  try{return (await w.db.query<{done:boolean}>('select complete_invitation_email($1,$2,$3,$4) as done',[id,ticket,status,failure])).rows[0].done;}finally{await w.db.exec('reset role');}
 };
 describe('invitation email access and delivery',()=>{
+ it('records organiser invitation delivery without a human session while retaining role protection',async()=>{
+  const id=(await as(w.db,'organiser',q=>q("insert into invitations(event_id,email,role) values ($1,'organiser-delivery@x.test','organiser') returning id",[w.eventId]))).rows[0].id;
+  const job=await reserve(id);
+  await expect(as(w.db,'chair',q=>q("update invitations set email='changed@x.test' where id=$1",[id]))).rejects.toThrow();
+  await w.db.exec("set request.jwt.claims='{}'");
+  expect(await complete(id,job.attempt,'sent')).toBe(true);
+  expect(await state(id)).toMatchObject({email_status:'sent',email_failure:null});
+  await expect(as(w.db,'chair',q=>q("insert into invitations(event_id,email,role) values ($1,'forged@x.test','organiser')",[w.eventId]))).rejects.toThrow();
+ });
  it('starts unsent and restricts reservation to the event organiser or Chair',async()=>{
   const id=await invite();expect((await state(id)).email_status).toBe('not_sent');
   for(const who of ['judgeV','leadV','mgr1','outsider',null] as const)await expect(reserve(id,who)).rejects.toThrow();

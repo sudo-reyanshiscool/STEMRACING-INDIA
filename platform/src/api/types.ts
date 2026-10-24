@@ -58,6 +58,32 @@ export interface NewBroadcastInput {
 export interface PublicStandings { createdAt: string; rows: Array<Pick<RankRow, 'rank' | 'teamId' | 'number' | 'name' | 'total' | 'tied'>> }
 export interface SnapshotRow { id: string; eventId: string; createdAt: string; rulesetId: string; inputHash: string; rows: RankRow[]; released: boolean }
 export interface NewSnapshot { rulesetId: string; inputHash: string; inputs: unknown; rows: RankRow[] }
+
+export interface MfaFactor {
+  id: string;
+  factorType: 'totp';
+  status: 'verified' | 'unverified';
+  friendlyName?: string;
+  createdAt?: string;
+}
+
+export interface MfaEnrollResult {
+  id: string;
+  factorType: 'totp';
+  totp: {
+    qrCode: string;
+    secret: string;
+    uri: string;
+  };
+}
+
+export interface MfaStatus {
+  enabled: boolean;
+  factors: MfaFactor[];
+  currentLevel: 'aal1' | 'aal2' | null;
+  nextLevel: 'aal1' | 'aal2' | null;
+}
+
 /** 'unauthenticated': no valid session (signed out, token expired). The caller should sign in again; nothing was refused on merit. */
 export type ApiErrorCode = 'unauthenticated' | 'forbidden' | 'locked' | 'invalid' | 'duplicate' | 'conflict' | 'email-delivery' | 'rate-limited' | 'invalid-auth' | 'not-found' | 'network' | 'unknown';
 
@@ -77,6 +103,10 @@ export interface Api {
   verifyEmailLink(tokenHash: string): Promise<void>;
   signOut(): Promise<void>;
   onAuthChange(cb: (s: Session | null) => void): () => void;
+  getMfaStatus(): Promise<MfaStatus>;
+  enrollTotp(friendlyName?: string): Promise<MfaEnrollResult>;
+  verifyTotp(factorId: string, code: string): Promise<void>;
+  unenrollTotp(factorId: string): Promise<void>;
   claimInvitations(): Promise<number>;
   listEvents(): Promise<EventRow[]>;
   canCreateEvent(): Promise<boolean>;

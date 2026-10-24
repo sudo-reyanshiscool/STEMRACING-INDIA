@@ -6,7 +6,7 @@ import {
   toTeamRow,
 } from './mappers';
 import type { ResultMailState, ResultsPacket } from './result-mail';
-import type { Api, PlatformAccess, Session } from './types';
+import type { Api, MfaEnrollResult, MfaFactor, MfaStatus, PlatformAccess, Session } from './types';
 import { ApiError } from './types';
 import { blankReview } from './review';
 
@@ -169,6 +169,84 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
         setTimeout(() => cb(next), 0);
       });
       return () => data.subscription.unsubscribe();
+    },
+    async getMfaStatus(): Promise<MfaStatus> {
+      const sess = await session();
+      if (!sess) return { enabled: false, factors: [], currentLevel: null, nextLevel: null };
+      const [levelRes, factorsRes] = await Promise.all([
+        guard(() => sb.auth.mfa.getAuthenticatorAssuranceLevel()),
+        guard(() => sb.auth.mfa.listFactors()),
+      ]);
+      const factors: MfaFactor[] = (factorsRes.data?.all ?? [])
+        .filter((f) => f.factor_type === 'totp')
+        .map((f) => ({
+          id: f.id,
+          factorType: 'totp' as const,
+          status: f.status as 'verified' | 'unverified',
+          friendlyName: f.friendly_name,
+          createdAt: f.created_at,
+        }));
+      const verifiedFactors = factors.filter((f) => f.status === 'verified');
+      return {
+        enabled: verifiedFactors.length > 0,
+        factors,
+        currentLevel: (levelRes.data?.currentLevel ?? null) as 'aal1' | 'aal2' | null,
+        nextLevel: (levelRes.data?.nextLevel ?? null) as 'aal1' | 'aal2' | null,
+      };
+    },
+    async enrollTotp(friendlyName?: string): Promise<MfaEnrollResult> {
+      const sess = await session();
+      if (!sess) throw new ApiError('unauthenticated', 'Sign in first');
+
+      const factorsRes = await guard(() => sb.auth.mfa.listFactors());
+      const unverified = (factorsRes.data?.all ?? []).filter((f) => f.factor_type === 'totp' && f.status === 'unverified');
+      for (const f of unverified) {
+        await guard(() => sb.auth.mfa.unenroll({ factorId: f.id })).catch(() => {});
+      }
+
+      const { data, error } = await guard(() =>
+        sb.auth.mfa.enroll({
+          factorType: 'totp',
+          issuer: 'STEM Racing India',
+          friendlyName: friendlyName?.trim() || 'Authenticator App',
+        })
+      );
+      if (error) throw mapAuthError(error);
+      if (!data || data.type !== 'totp') throw new ApiError('unknown', 'Failed to enroll authenticator');
+
+      return {
+        id: data.id,
+        factorType: 'totp',
+        totp: {
+          qrCode: data.totp.qr_code,
+          secret: data.totp.secret,
+          uri: data.totp.uri,
+        },
+      };
+    },
+    async verifyTotp(factorId: string, code: string): Promise<void> {
+      const token = code.replace(/\s/g, '');
+      if (!/^\d{6}$/.test(token)) {
+        throw new ApiError('invalid', 'Enter a 6-digit verification code');
+      }
+      let targetFactorId = factorId;
+      if (!targetFactorId) {
+        const factorsRes = await guard(() => sb.auth.mfa.listFactors());
+        const verified = (factorsRes.data?.all ?? []).find((f) => f.factor_type === 'totp' && f.status === 'verified');
+        if (!verified) throw new ApiError('not-found', 'No verified authenticator app found');
+        targetFactorId = verified.id;
+      }
+      const { error } = await guard(() => sb.auth.mfa.challengeAndVerify({ factorId: targetFactorId, code: token }));
+      if (error) {
+        if (error.code === 'invalid_grant' || /invalid/i.test(error.message)) {
+          throw new ApiError('invalid-auth', 'Invalid authenticator code. Check your app and try again.');
+        }
+        throw mapAuthError(error);
+      }
+    },
+    async unenrollTotp(factorId: string): Promise<void> {
+      const { error } = await guard(() => sb.auth.mfa.unenroll({ factorId }));
+      if (error) throw mapAuthError(error);
     },
     async claimInvitations() {
       if (!(await session())) return 0;

@@ -11,6 +11,26 @@ describe('race interface',()=>{
  it('saves actual lane times, shows car time, and retains values after invalid entry',async()=>{const {api,ctx,ev}=await seed();const el=await racingScreen(ctx,ev.id);input(el,'Lane 1 total time','1.310');input(el,'Lane 1 reaction time','0.210');input(el,'Lane 2 total time','1.440');input(el,'Lane 2 reaction time','0.240');const form=el.querySelector<HTMLFormElement>('.race-console form')!;form.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));await vi.waitFor(async()=>expect((await api.listRaces(ev.id))[0].lane1.totalMs).toBe(1310));expect(text(el)).toContain('1.100 s');expect(text(el)).toContain('Lane 1 wins');});
  it('gives judges a read-only view and hides unreleased race data from managers',async()=>{const {api,ctx,ev}=await seed();await api.signIn(EMAILS.judge);const el=await racingScreen(ctx,ev.id);expect(el.querySelector('.race-add')).toBeNull();expect(el.querySelector<HTMLButtonElement>('.race-console button[type=submit]')!.disabled).toBe(true);await api.signIn(EMAILS.mgr);expect(text(await racingScreen(ctx,ev.id))).toContain('not available');});
  it('captures only the next complete Denford race and never saves it without review',async()=>{vi.useFakeTimers();const {api,ctx,ev}=await seed();let state:TimingState={connectionId:'c',expiresAt:new Date(Date.now()+3600000).toISOString(),lastSeenAt:new Date().toISOString(),payload:{raceid:'11'}};vi.spyOn(api,'getTiming').mockImplementation(async()=>state);const save=vi.spyOn(api,'saveRace');const el=await racingScreen(ctx,ev.id);await Promise.resolve();const capture=[...el.querySelectorAll('button')].find(b=>text(b)==='Capture next track run')!;expect(capture.disabled).toBe(false);capture.click();state={...state,payload:{raceid:'12',racestatus:'LANE 1 WINS!',player1TriggerTime:'210',player2TriggerTime:'240',player1RaceTime:'1100',player2RaceTime:'1200',player1CombinedTime:'1310',player2CombinedTime:'1440'}};await vi.advanceTimersByTimeAsync(2000);expect(el.querySelector<HTMLInputElement>('[aria-label="Lane 1 total time"]')!.value).toBe('1.310');expect(text(el)).toContain('Captured track run 12');expect(save).not.toHaveBeenCalled();});
+ it('allows auto-generating reaction heats and downloading heats PDF',async()=>{
+  const w = await world();
+  await w.api.signIn(EMAILS.org);
+  const {ctx, leaves} = makeCtx(w.api);
+  cleanups = leaves;
+  const el = await racingScreen(ctx, w.ev.id);
+  document.body.append(el);
+  const autoGen = [...el.querySelectorAll('button')].find(b => text(b) === 'Auto-generate heats')!;
+  expect(autoGen).toBeDefined();
+  expect(autoGen.disabled).toBe(false);
+  autoGen.click();
+  await vi.waitFor(async () => {
+    const races = await w.api.listRaces(w.ev.id);
+    expect(races.length).toBeGreaterThanOrEqual(4);
+  });
+  const pdfBtn = [...el.querySelectorAll('button')].find(b => text(b) === 'Download reaction heats PDF')!;
+  expect(pdfBtn).toBeDefined();
+  expect(pdfBtn.disabled).toBe(false);
+  expect(pdfBtn.hidden).toBe(false);
+ });
 });
 
 describe('qualification setup',()=>{

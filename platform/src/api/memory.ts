@@ -8,7 +8,8 @@ import type { OrganiserScope, PlatformAccess, NewTeam } from './types';
 import type {DrawLotsState,TeamNumberAssignment,JudgeLotAssignment} from './draw-lots';
 import { blankReview, validateReview, type CardReview, type FeedbackRow, type NominationRow } from './review';
 import {
-  ApiError, type Api, type BroadcastEmail, type CardRow, type ConflictRow, type EventRow, type InviteRow, type NewBroadcastInput, type NewSnapshot, type OverrideRow, type Panel,
+  ApiError, type Api, type BroadcastEmail, type CardRow, type ConflictRow, type EventRow, type InviteRow,
+  type MfaEnrollResult, type MfaFactor, type MfaStatus, type NewBroadcastInput, type NewSnapshot, type OverrideRow, type Panel,
   type PenaltyRow, type Role, type RoleRow, type Session, type SnapshotRow, type TeamRow,
 } from './types';
 import type { Car, Inspection, InspectionStatus, Measurements } from '../technical';
@@ -137,20 +138,103 @@ export class MemoryApi implements Api {
   private snapshotVersion = new Map<string, number>();
   /** Snapshot inputs live apart from the rows so no read path can leak them by accident. */
   private snapshotInputs = new Map<string, unknown>();
+  private mfaFactors = new Map<string, Array<{ id: string; factorType: 'totp'; status: 'verified' | 'unverified'; friendlyName?: string; createdAt: string; secret: string; uri: string }>>();
+  private mfaAssurance = new Map<string, { current: 'aal1' | 'aal2'; next: 'aal1' | 'aal2' }>();
 
   // ---- session
   async getSession() { return this.me ? { ...this.me } : null; }
   async signIn(email: string) {
     const e = email.trim().toLowerCase();
     if (!EMAIL.test(e)) throw new ApiError('invalid', 'Enter a valid email address');
-    this.setSession({ userId: `user:${e}`, email: e });
+    const userId = `user:${e}`;
+    this.setSession({ userId, email: e });
+    const factors = this.mfaFactors.get(userId) ?? [];
+    const hasVerified = factors.some((f) => f.status === 'verified');
+    this.mfaAssurance.set(userId, { current: 'aal1', next: hasVerified ? 'aal2' : 'aal1' });
   }
   async verifyEmailCode(_email: string, _code: string) { throw new ApiError('invalid-auth', 'Demo mode does not issue email codes'); }
   async verifyEmailLink(_tokenHash: string) { throw new ApiError('invalid-auth', 'Demo mode does not issue email links'); }
-  async signOut() { this.setSession(null); }
+  async signOut() {
+    if (this.me) this.mfaAssurance.delete(this.me.userId);
+    this.setSession(null);
+  }
   onAuthChange(cb: (s: Session | null) => void) {
     this.listeners.add(cb);
     return () => { this.listeners.delete(cb); };
+  }
+  async getMfaStatus(): Promise<MfaStatus> {
+    if (!this.me) return { enabled: false, factors: [], currentLevel: null, nextLevel: null };
+    const factors = (this.mfaFactors.get(this.me.userId) ?? []).map((f) => ({
+      id: f.id,
+      factorType: f.factorType,
+      status: f.status,
+      friendlyName: f.friendlyName,
+      createdAt: f.createdAt,
+    }));
+    const verified = factors.filter((f) => f.status === 'verified');
+    const level = this.mfaAssurance.get(this.me.userId) ?? { current: 'aal1', next: verified.length > 0 ? 'aal2' : 'aal1' };
+    return {
+      enabled: verified.length > 0,
+      factors,
+      currentLevel: level.current,
+      nextLevel: level.next,
+    };
+  }
+  async enrollTotp(friendlyName?: string): Promise<MfaEnrollResult> {
+    if (!this.me) throw new ApiError('unauthenticated', 'Sign in first');
+    const userId = this.me.userId;
+    const userFactors = this.mfaFactors.get(userId) ?? [];
+    const cleaned = userFactors.filter((f) => f.status === 'verified');
+    const id = `factor_${Math.random().toString(36).slice(2, 10)}`;
+    const secret = 'JBSWY3DPEHPK3PXP';
+    const uri = `otpauth://totp/STEM%20Racing%20India:${encodeURIComponent(this.me.email)}?secret=${secret}&issuer=STEM%20Racing%20India`;
+    const qrCode = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="200" height="200"><rect width="100" height="100" fill="#fff"/><rect x="10" y="10" width="30" height="30" fill="#000"/><rect x="60" y="10" width="30" height="30" fill="#000"/><rect x="10" y="60" width="30" height="30" fill="#000"/><rect x="45" y="45" width="10" height="10" fill="#000"/></svg>`;
+    cleaned.push({
+      id,
+      factorType: 'totp',
+      status: 'unverified',
+      friendlyName: friendlyName?.trim() || 'Authenticator App',
+      createdAt: new Date().toISOString(),
+      secret,
+      uri,
+    });
+    this.mfaFactors.set(userId, cleaned);
+    return {
+      id,
+      factorType: 'totp',
+      totp: {
+        qrCode,
+        secret,
+        uri,
+      },
+    };
+  }
+  async verifyTotp(factorId: string, code: string): Promise<void> {
+    if (!this.me) throw new ApiError('unauthenticated', 'Sign in first');
+    const token = code.replace(/\s/g, '');
+    if (!/^\d{6}$/.test(token)) {
+      throw new ApiError('invalid', 'Enter a 6-digit verification code');
+    }
+    const userId = this.me.userId;
+    const userFactors = this.mfaFactors.get(userId) ?? [];
+    let factor = factorId ? userFactors.find((f) => f.id === factorId) : userFactors.find((f) => f.status === 'verified');
+    if (!factor && !factorId && userFactors.length > 0) factor = userFactors[0];
+    if (!factor) throw new ApiError('not-found', 'Factor not found');
+    if (token === '000000') {
+      throw new ApiError('invalid-auth', 'Invalid authenticator code. Check your app and try again.');
+    }
+    factor.status = 'verified';
+    this.mfaAssurance.set(userId, { current: 'aal2', next: 'aal2' });
+  }
+  async unenrollTotp(factorId: string): Promise<void> {
+    if (!this.me) throw new ApiError('unauthenticated', 'Sign in first');
+    const userId = this.me.userId;
+    const userFactors = this.mfaFactors.get(userId) ?? [];
+    const next = userFactors.filter((f) => f.id !== factorId);
+    this.mfaFactors.set(userId, next);
+    if (!next.some((f) => f.status === 'verified')) {
+      this.mfaAssurance.set(userId, { current: 'aal1', next: 'aal1' });
+    }
   }
   private setSession(s: Session | null) {
     this.me = s;

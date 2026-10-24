@@ -26,10 +26,54 @@ export function competitionPanel(ctx: Ctx, eventId: string, get:()=>State, selec
     form.append(h('label',{class:'inline'},complete,' Reaction racing complete'),h('p',{class:'small muted'},'Confirm only after all reaction runs have been entered. Four runs per team: Car A and Car B in each lane. Once knockout heats are queued, reaction results and seed order lock.'),h('div',{class:'grid'},points.map((p,i)=>field(POINT_NAMES[i],p))),h('p',{class:'small muted'},'The supplied regulations do not define a complete top-64 points table. Fill the blank stages before final results can be released. Blank values remain pending.'),save);
     form.addEventListener('submit',e=>{e.preventDefault();void run(save,()=>ctx.api.saveRacingSetup(eventId,setup.revision,{seeds:complete.checked?setup.seeds:[],reactionComplete:complete.checked,points:points.map(p=>p.value===''?null:Number(p.value))}));});
     setupBox.append(form);section.append(setupBox);
+    const scheduleActions = h('div', { class: 'actions' });
     if(canConfigure&&!races.some(r=>r.phase==='reaction')) {
       const queue=h('button',{type:'button',class:'btn btn--ghost',disabled:teams.length<2},'Queue four reaction runs per team');
-      queue.onclick=()=>void run(queue,()=>ctx.api.queueReactionRaces(eventId));section.append(queue);
+      queue.onclick=()=>void run(queue,()=>ctx.api.queueReactionRaces(eventId));scheduleActions.append(queue);
     }
+    if(races.some(r=>r.phase==='reaction')) {
+      const downloadReactionPdf = h('button', { type: 'button', class: 'btn btn--ghost' }, 'Download reaction heats PDF');
+      downloadReactionPdf.onclick = async () => {
+        downloadReactionPdf.disabled = true;
+        try {
+          const { buildHeatsPdf, heatsFileName } = await import('../pdf/heatsPdf');
+          const doc = buildHeatsPdf({
+            eventName: 'STEM Racing Regional Finals',
+            teams,
+            races,
+            phase: 'reaction',
+          });
+          doc.save(heatsFileName('STEM-Racing-Regional-Finals', 'reaction'));
+        } catch (e) {
+          fail(e);
+        } finally {
+          downloadReactionPdf.disabled = false;
+        }
+      };
+      scheduleActions.append(downloadReactionPdf);
+    }
+    if(races.some(r=>r.phase==='knockout')) {
+      const downloadKnockoutPdf = h('button', { type: 'button', class: 'btn btn--ghost' }, 'Download knockout heats PDF');
+      downloadKnockoutPdf.onclick = async () => {
+        downloadKnockoutPdf.disabled = true;
+        try {
+          const { buildHeatsPdf, heatsFileName } = await import('../pdf/heatsPdf');
+          const doc = buildHeatsPdf({
+            eventName: 'STEM Racing Regional Finals',
+            teams,
+            races,
+            phase: 'knockout',
+          });
+          doc.save(heatsFileName('STEM-Racing-Regional-Finals', 'knockout'));
+        } catch (e) {
+          fail(e);
+        } finally {
+          downloadKnockoutPdf.disabled = false;
+        }
+      };
+      scheduleActions.append(downloadKnockoutPdf);
+    }
+    if(scheduleActions.childNodes.length) section.append(scheduleActions);
     if(!setup.seeds.length) {
       const candidates=raceStandings(races).filter(t=>t.totalMs!==null);
       const tie=candidates.some((t,i)=>i>0&&i<=64&&t.totalMs===candidates[i-1].totalMs);
@@ -57,7 +101,7 @@ export function competitionPanel(ctx: Ctx, eventId: string, get:()=>State, selec
         const matches=scores.bracket.filter(m=>m.round===round);
         const group=h('details',{open:matches.some(m=>m.team1&&m.team2&&!m.resolved)},h('summary',null,`${ROUND_NAMES[round-1]} · ${matches.filter(m=>m.resolved).length}/${matches.length} settled`));
         const rows=matches.filter(m=>m.team1||m.team2||m.reason!=='Empty bracket slot').map(m=>{
-          const label=`${ROUND_NAMES[round-1]} · Match ${m.slot}`;
+          const label=`KR-H${String(m.slot).padStart(2, '0')} · ${ROUND_NAMES[round-1]}`;
           const node=h('article',{class:'row stack'},h('strong',null,`${m.slot}. ${name(m.team1)} / ${name(m.team2)}`),h('span',{class:'small'},m.reason),m.winner?h('span',{class:'tag tag--pass'},`Advances: ${name(m.winner)}`):null);
           if(m.disqualified.length)node.append(h('p',{class:'alert'},`Disqualified: ${m.disqualified.map(id=>`${name(id)} (${(['A','B'] as const).flatMap(car=>{const c=carCheck(inspections,id,car);return [...c.performance.map(a=>`Car ${car} PERF ${a}`),...c.safety.map(a=>`Car ${car} SAF ${a}`)];}).join(', ')})`).join('; ')}`));
           if(m.heat) {
