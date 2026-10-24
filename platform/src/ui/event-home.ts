@@ -38,7 +38,9 @@ export async function eventHomeScreen(ctx: Ctx, eventId: string): Promise<HTMLEl
     !ctx.demo && canShowcase(event, roles) ? h('section', { class: 'showcase-entry' },
       h('div', { class: 'stack' }, h('h2', null, 'Showcase Test Event'),
         h('p', null, 'Explore every tab using the existing scores and results. Try changes freely; reloading resets your temporary copy.')),
-      h('a', { class: 'btn btn--primary', href: showcaseHref(event.id) }, 'Open showcase')) : null,
+      h('div', {class: 'actions'},
+        h('a', { class: 'btn btn--primary', href: showcaseHref(event.id) }, 'Open showcase'),
+        h('a', { class: 'btn btn--ghost', href: showcaseHref(event.id, true) }, 'Six-team example'))) : null,
     h('div', { class: 'tiles' }, tiles),
     has('organiser') ? deleteEventControl(ctx, event) : null,
   );

@@ -57,7 +57,7 @@ async function boot(): Promise<void> {
     shell.setLoading(true);
     try {
       const owner = await sharedApi.getSession();
-      api = await loadShowcase(sharedApi, showcaseId);
+      api = await loadShowcase(sharedApi, showcaseId, new URLSearchParams(location.search).get('examples') === '6');
       // An expired/shared sign-in must not leave a private presentation on screen.
       sharedApi.onAuthChange(session => {
         if (session?.userId !== owner?.userId) location.replace(exitShowcaseHref(location.pathname));

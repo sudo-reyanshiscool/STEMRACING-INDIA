@@ -20,6 +20,15 @@ queues and feedback drafts use no persistent storage. Reload or choose **Reset
 showcase** to discard edits and reload the saved Test Event. **Back to saved event**
 returns to the shared workspace; its withdrawn results remain withdrawn.
 
+**Six-team example** opens a fully populated fictional competition: six teams,
+84 submitted scorecards covering all five judging panels, 12 submitted car
+inspections, four reaction runs per team and a completed knockout bracket
+(17 finished heats altogether). Standings, racing points and confirmed sample
+awards are calculated from those records. All six manager contacts use
+`shubham@stempify.com`; sending remains simulated. This example is regenerated
+on reload and does not add teams to the saved event. The sample knockout stage
+points are editable practice values, not a change to the competition rules.
+
 This mode is restricted to the existing synthetic Test Event ID, requires a signed-in
 event organiser or Chair with completed MFA when configured, and does not grant
 additional shared permissions. Loading failure never falls back to shared writes.

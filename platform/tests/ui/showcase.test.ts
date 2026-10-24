@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { MemoryApi } from '../../src/api';
 import { SHOWCASE_EVENT_ID, exitShowcaseHref } from '../../src/api/showcase';
 import { showcaseSeed } from '../fixtures/showcase';
+import { buildShowcaseExamples } from '../../src/api/showcase-examples';
 import { makeCtx, text } from './helpers';
 import { eventHomeScreen } from '../../src/ui/event-home';
 import { teamsScreen } from '../../src/ui/teams';
@@ -19,8 +20,9 @@ import { eventNav } from '../../src/ui/event-nav';
 import { mountShowcaseBar } from '../../src/ui/showcase';
 
 describe('showcase navigation and presentation', () => {
-  it('exposes every event tab and renders each with populated temporary data', async () => {
-    const api = MemoryApi.forShowcase(showcaseSeed());
+  it.each([showcaseSeed, () => buildShowcaseExamples(showcaseSeed().event)])('exposes every event tab and renders each with populated temporary data: %s', async makeSeed => {
+    const seed = makeSeed();
+    const api = MemoryApi.forShowcase(seed);
     const nav = eventNav((await api.getEvent(SHOWCASE_EVENT_ID))!, await api.myRoles(SHOWCASE_EVENT_ID), 'event');
     expect([...nav.querySelectorAll('a')].map(text)).toEqual(['Event', 'Teams', 'People', 'Draw lots', 'Communications', 'Judge', 'Scores', 'Race control', 'Moderation', 'Rankings', 'Results']);
     for (const screen of [eventHomeScreen, teamsScreen, peopleScreen, drawLotsScreen, communicationsScreen,
@@ -30,7 +32,7 @@ describe('showcase navigation and presentation', () => {
       const node = await screen(ctx, SHOWCASE_EVENT_ID);
       expect(node.querySelector('h1'), screen.name).not.toBeNull();
       expect(text(node.querySelector('h1')!)).not.toMatch(/not found|unavailable/i);
-      if (screen === resultsScreen) expect(text(node)).toContain('Showcase Team');
+      if (screen === resultsScreen) for (const team of seed.teams) expect(text(node)).toContain(team.name);
       if (screen === communicationsScreen) expect(text(node)).toContain('Simulate announcement');
       if (screen === peopleScreen) expect(text(node)).toContain('Simulate invitation');
       if (screen === drawLotsScreen) expect(text(node)).not.toContain('SUPERCHARGED stays 001');
