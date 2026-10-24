@@ -8,7 +8,13 @@ import { ApiError } from '../../src/api';
 import { makeCtx, world } from './helpers';
 
 beforeEach(() => { localStorage.clear(); document.documentElement.removeAttribute('data-theme'); });
-afterEach(() => { vi.restoreAllMocks(); document.body.replaceChildren(); });
+afterEach(() => {
+  vi.restoreAllMocks(); vi.unstubAllGlobals(); document.body.replaceChildren();
+  Reflect.deleteProperty(document, 'startViewTransition');
+  Reflect.deleteProperty(document.documentElement, 'animate');
+  delete document.documentElement.dataset.magicuiThemeVt;
+  document.documentElement.style.removeProperty('--theme-reveal-start');
+});
 
 describe('device theme preference', () => {
   it('defaults to light, ignores invalid stored values, and restores an explicit dark choice', () => {
@@ -23,6 +29,62 @@ describe('device theme preference', () => {
     expect(localStorage.getItem(THEME_KEY)).toBe('light');
     expect(button.getAttribute('aria-checked')).toBe('false');
     expect(preferredTheme()).toBe('light');
+  });
+
+  it('uses an icon-only accessible control with the destination theme icon', () => {
+    const button = themeSwitcher();
+    expect(button.querySelector('svg')).not.toBeNull();
+    expect(button.getAttribute('aria-label')).toBe('Dark mode');
+    expect(button.title).toBe('Switch to dark mode');
+    button.click();
+    expect(button.querySelector('circle')).not.toBeNull();
+    expect(button.title).toBe('Switch to light mode');
+  });
+
+  it('uses an instant switch for reduced motion even when view transitions are supported', () => {
+    const start = vi.fn();
+    Object.defineProperty(document, 'startViewTransition', { configurable: true, value: start });
+    vi.stubGlobal('matchMedia', () => ({ matches: true }));
+    const button = themeSwitcher();
+    button.dispatchEvent(new MouseEvent('click', { detail: 1 }));
+    expect(document.documentElement.dataset.theme).toBe('dark');
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  it('guards rapid clicks during the reveal, then accepts the next toggle', async () => {
+    let finish!: () => void;
+    const cancel = vi.fn();
+    const animate = vi.fn(() => ({ cancel }));
+    Object.defineProperty(document.documentElement, 'animate', { configurable: true, value: animate });
+    Object.defineProperty(document, 'startViewTransition', { configurable: true, value: (change: () => void) => {
+      change();
+      return { ready: Promise.resolve(), finished: new Promise<void>(resolve => { finish = resolve; }) };
+    } });
+    const button = themeSwitcher();
+    button.dispatchEvent(new MouseEvent('click', { detail: 1 }));
+    button.dispatchEvent(new MouseEvent('click', { detail: 1 }));
+    expect(document.documentElement.dataset.theme).toBe('dark');
+    await vi.waitFor(() => expect(animate).toHaveBeenCalledOnce());
+    finish();
+    await vi.waitFor(() => expect(document.documentElement.dataset.magicuiThemeVt).toBeUndefined());
+    expect(cancel).toHaveBeenCalledOnce();
+    button.click(); // keyboard/programmatic activation stays immediate
+    expect(document.documentElement.dataset.theme).toBe('light');
+  });
+
+  it('still switches and removes the transition lock if the browser rejects a snapshot', async () => {
+    const skip = vi.fn();
+    Object.defineProperty(document, 'startViewTransition', { configurable: true, value: () => ({
+      ready: Promise.reject(new Error('Snapshot skipped')),
+      finished: Promise.resolve(), skipTransition: skip,
+    }) });
+    const button = themeSwitcher();
+    button.dispatchEvent(new MouseEvent('click', { detail: 1 }));
+    await vi.waitFor(() => expect(document.documentElement.dataset.theme).toBe('dark'));
+    expect(document.documentElement.dataset.magicuiThemeVt).toBeUndefined();
+    expect(skip).toHaveBeenCalledOnce();
+    button.click();
+    expect(document.documentElement.dataset.theme).toBe('light');
   });
 
   it('remains usable when device storage is blocked', () => {
