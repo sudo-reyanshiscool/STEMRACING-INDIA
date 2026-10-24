@@ -6,6 +6,24 @@ Online judging, scorecards, moderation, penalties and rankings for a STEM Racing
 
 ## Digital scorecards
 
+### Test Event showcase
+
+Organisers and the Chair can choose **Open showcase** beside Test Event or on its
+event page. The showcase loads an authorised copy of its saved teams, submitted
+scorecards, shared feedback, inspections, races, awards and published standings.
+Every event tab is available. Opening a scorecard creates a separate, prefilled
+presenter draft; the original submitted card remains intact.
+
+All showcase actions run in memory, including invitations, announcements, manager
+emails, publishing and releasing results. Email buttons simulate delivery. Score
+queues and feedback drafts use no persistent storage. Reload or choose **Reset
+showcase** to discard edits and reload the saved Test Event. **Back to saved event**
+returns to the shared workspace; its withdrawn results remain withdrawn.
+
+This mode is restricted to the existing synthetic Test Event ID, requires a signed-in
+event organiser or Chair with completed MFA when configured, and does not grant
+additional shared permissions. Loading failure never falls back to shared writes.
+
 Each criterion shows the four rubric bands and a button for every permitted score, with a numeric entry alternative.
 The full band descriptions come from the supplied Competition Regulations, pages 32–37, and live in
 `src/rulesets/rubrics.ts`. New events pin these descriptions alongside their scoring rules; existing events keep

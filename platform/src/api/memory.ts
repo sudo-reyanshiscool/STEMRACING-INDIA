@@ -26,11 +26,72 @@ const EMAIL = /^[^@\s]+@[^@\s]+$/;
 /** numeric(5,1) columns: the value must be representable with one decimal place. */
 const oneDecimal = (n: number) => Number.isFinite(n) && Math.abs(n * 10 - Math.round(n * 10)) < 1e-6;
 
+/** An authorised, read-only export used to start a disposable presentation. */
+export interface ShowcaseSeed {
+  event: EventRow;
+  teams: TeamRow[];
+  roles: RoleRow[];
+  invitations: InviteRow[];
+  cards: CardRow[];
+  feedback: FeedbackRow[];
+  nominations: NominationRow[];
+  conflicts: ConflictRow[];
+  exemptions: Array<{eventId:string;judgeId:string;teamId:string;reason:string}>;
+  overrides: OverrideRow[];
+  penalties: PenaltyRow[];
+  inspections: Inspection[];
+  races: RaceHeat[];
+  racingSetup: RacingSetup;
+  broadcasts: BroadcastEmail[];
+  contacts: TeamContact[];
+  mail: ResultMailState;
+  snapshot: SnapshotRow;
+  snapshotInputs: unknown;
+}
+
 /**
  * An in-memory backend mirroring the database permissions.
  * Used by tests. Where several rules could fail at once, permission is checked first.
  */
 export class MemoryApi implements Api {
+  private showcaseMode = false;
+
+  /** This instance has no reference to the shared backend or persistent browser storage. */
+  static forShowcase(source: ShowcaseSeed): MemoryApi {
+    const seed = copy(source);
+    const api = new MemoryApi();
+    api.me = { userId: `showcase:${crypto.randomUUID()}`, email: 'presenter@showcase.invalid' };
+    api.events = [{ ...seed.event, resultsReleased: false }];
+    api.teams = seed.teams;
+    api.roles = [...seed.roles, {
+      id: nid('showcase-role'), eventId: seed.event.id, userId: api.me.userId,
+      email: api.me.email, name: 'Showcase presenter', role: 'organiser', panel: null, teamId: null,
+    }];
+    api.invites = seed.invitations;
+    api.cards = seed.cards;
+    for (const {cardId, ...feedback} of seed.feedback) api.reviews.set(cardId, { ...blankReview(), ...feedback });
+    for (const n of seed.nominations) {
+      const review = api.reviews.get(n.cardId) ?? blankReview();
+      review.nominations = n.nominations;
+      api.reviews.set(n.cardId, review);
+    }
+    api.conflicts = seed.conflicts;
+    api.exemptions = seed.exemptions;
+    api.overrides = seed.overrides;
+    api.penalties = seed.penalties;
+    api.inspections = seed.inspections;
+    api.races = seed.races;
+    api.racingSetups.set(seed.event.id, seed.racingSetup);
+    api.broadcasts = seed.broadcasts;
+    for (const contact of seed.contacts) api.contacts.set(contact.teamId, contact);
+    api.awards = seed.mail.awards.map(a => ({ ...a, eventId: seed.event.id }));
+    api.mailSettings.set(seed.event.id, { confirmed: seed.mail.confirmed, version: seed.mail.version ?? nid('showcase-awards') });
+    api.snapshots = [{ ...seed.snapshot, released: true }];
+    api.snapshotInputs.set(seed.snapshot.id, seed.snapshotInputs);
+    api.snapshotVersion.set(seed.snapshot.id, api.version);
+    api.showcaseMode = true;
+    return api;
+  }
   private me: Session | null = null;
   private listeners = new Set<(s: Session | null) => void>();
   private events: EventRow[] = [];
@@ -437,6 +498,8 @@ export class MemoryApi implements Api {
     const cards=this.cards.filter(c=>c.eventId===eventId);
     const state={teams:this.teams.filter(t=>t.eventId===eventId),roles:this.roles.filter(r=>r.eventId===eventId),conflicts:this.conflicts.filter(c=>c.eventId===eventId),exemptions:this.exemptions.filter(x=>x.eventId===eventId),released:this.released(eventId),
       numberingLocked:this.released(eventId)||!!cards.length||this.inspections.some(i=>i.eventId===eventId)||this.races.some(r=>r.eventId===eventId)||this.snapshots.some(s=>s.eventId===eventId),lockedPanels:[...new Set([...cards.map(c=>c.panel),...(this.inspections.some(i=>i.eventId===eventId)?['scrutineering' as Panel]:[])])]};
+    // Presentation copies can demonstrate setup draws without clearing their completed results.
+    if (this.showcaseMode) { state.numberingLocked = state.released; state.lockedPanels = []; }
     return copy({...state,version:JSON.stringify(state)});
   }
   async applyTeamNumberDraw(eventId:string,version:string,assignments:TeamNumberAssignment[]){
@@ -661,6 +724,14 @@ export class MemoryApi implements Api {
     if (this.conflicted(eventId, teamId)) throw new ApiError('forbidden', 'You declared a conflict of interest with this team');
     this.frozen(eventId, 'scorecards');
     const card: CardRow = { id: nid('card'), eventId, teamId, areaId, panel: area.panel as Panel, judgeId: me!, status: 'draft', reopenedCount: 0, scores: {}, comments: {} };
+    if (this.showcaseMode) {
+      const template = this.cards.find(c => c.eventId === eventId && c.teamId === teamId && c.areaId === areaId && c.status === 'submitted');
+      if (template) {
+        card.scores = copy(template.scores);
+        card.comments = copy(template.comments);
+        this.reviews.set(card.id, copy(this.reviews.get(template.id) ?? blankReview()));
+      }
+    }
     this.cards.push(card);
     return copy(card);
   }

@@ -187,7 +187,8 @@ export async function communicationsScreen(ctx: Ctx, eventId: string): Promise<H
     updatePreview();
   });
 
-  const sendBtn = h('button', { type: 'submit', class: 'button' }, 'Send announcement');
+  const sendLabel = ctx.demo ? 'Simulate announcement' : 'Send announcement';
+  const sendBtn = h('button', { type: 'submit', class: 'button' }, sendLabel);
 
   const form = h('form', { class: 'stack', style: 'flex:1;' },
     h('div', { class: 'field' },
@@ -271,7 +272,7 @@ export async function communicationsScreen(ctx: Ctx, eventId: string): Promise<H
       };
 
       const result = await ctx.api.sendBroadcast(eventId, input);
-      showAlert(`Announcement sent successfully to ${result.recipientCount} recipient${result.recipientCount === 1 ? '' : 's'}!`, false);
+      showAlert(ctx.demo ? `Announcement simulated for ${result.recipientCount} recipients. No email was sent.` : `Announcement sent successfully to ${result.recipientCount} recipient${result.recipientCount === 1 ? '' : 's'}!`, false);
 
       // Reset form
       subjectInput.value = '';
@@ -291,7 +292,7 @@ export async function communicationsScreen(ctx: Ctx, eventId: string): Promise<H
       showAlert(err.message || 'Failed to send announcement');
     } finally {
       sendBtn.disabled = false;
-      sendBtn.textContent = 'Send announcement';
+      sendBtn.textContent = sendLabel;
     }
   });
 

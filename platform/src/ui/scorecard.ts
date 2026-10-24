@@ -97,7 +97,7 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
   const retryReview = h('button', { class: 'btn btn--ghost btn--small', type: 'button', hidden: true }, 'Save notes and feedback again');
   const reviewFields: Array<HTMLTextAreaElement | HTMLInputElement> = [];
   const scoreButtons = new Map<string, HTMLButtonElement[]>();
-  const review = new ReviewDraft(ctx.api, session.userId, card.id, card.reopenedCount, savedReview, area, false,
+  const review = new ReviewDraft(ctx.api, session.userId, card.id, card.reopenedCount, savedReview, area, !!ctx.demo,
     () => { if (alive) refresh(); }, !locked);
   const invalidate = () => { reviewed = false; reviewSummary.hidden = true; };
   let sessionNote = false;

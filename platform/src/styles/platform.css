@@ -324,3 +324,35 @@ html[data-magicui-theme-vt="active"] * { transition: none !important; }
 .mfa-secret { font-family: ui-monospace, monospace; font-size: 16px; letter-spacing: 0.12em; font-weight: 700; padding: 8px 12px; background: var(--input-bg); border: 1px solid var(--input-border); border-radius: var(--radius-button); }
 .mfa-steps { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 20px; }
 .mfa-steps li { display: flex; flex-direction: column; gap: 8px; }
+/* A race-control utility strip keeps the presentation boundary visible on every tab. */
+.showcase-bar {
+  background: var(--bg-subtle);
+  border-block-end: 1px solid var(--rule);
+  border-inline-start: 5px solid var(--heading-accent);
+}
+.showcase-bar__in {
+  max-width: var(--container);
+  margin-inline: auto;
+  padding: 1rem var(--gutter);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.showcase-bar__copy { flex: 1 1 24rem; }
+.showcase-bar__copy strong { font-family: var(--font-display); color: var(--heading-accent); letter-spacing: .06em; }
+.showcase-bar__copy p { margin: .35rem 0 0; font-size: .875rem; }
+.showcase-entry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  border: 1px solid var(--rule);
+  border-inline-start: 4px solid var(--heading-accent);
+  border-radius: var(--radius-card);
+  padding: 1.5rem;
+  background: var(--bg-raised);
+}
+.showcase-entry > .stack { flex: 1 1 24rem; }

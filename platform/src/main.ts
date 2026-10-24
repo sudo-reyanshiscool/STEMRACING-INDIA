@@ -3,8 +3,10 @@ import './styles/fonts.css';
 import './styles/base.css';
 import './styles/components.css';
 import './styles/platform.css';
-import { createSupabaseApi, localStorageKV, type Api } from './api';
-import { notFound, codeText } from './ui/common';
+import { createSupabaseApi, localStorageKV, memoryKV, type Api } from './api';
+import { loadShowcase, exitShowcaseHref } from './api/showcase';
+import { mountShowcaseBar } from './ui/showcase';
+import { notFound, codeText, errorText } from './ui/common';
 import type { Ctx } from './ui/ctx';
 import { h } from './ui/dom';
 import { errorScreen } from './ui/errorscreen';
@@ -47,13 +49,35 @@ async function boot(): Promise<void> {
   let authError = callback?.kind === 'invalid' ? codeText('invalid-auth') : undefined;
   if (callback && callback.kind !== 'legacy') clearEmailCallback();
   const shell = mountShell(document.getElementById('app')!);
-  const api: Api = createSupabaseApi(url, key, undefined, { schema: import.meta.env.VITE_SUPABASE_DB_SCHEMA ?? 'public' });
+  const sharedApi: Api = createSupabaseApi(url, key, undefined, { schema: import.meta.env.VITE_SUPABASE_DB_SCHEMA ?? 'public' });
+  let api: Api = sharedApi;
+  const showcaseId = new URLSearchParams(location.search).get('showcase');
+  const showcase = showcaseId !== null;
+  if (showcase) {
+    shell.setLoading(true);
+    try {
+      const owner = await sharedApi.getSession();
+      api = await loadShowcase(sharedApi, showcaseId);
+      // An expired/shared sign-in must not leave a private presentation on screen.
+      sharedApi.onAuthChange(session => {
+        if (session?.userId !== owner?.userId) location.replace(exitShowcaseHref(location.pathname));
+      });
+      mountShowcaseBar(shell.showcaseBar);
+    } catch (e) {
+      shell.main.replaceChildren(h('div', { class: 'stack' }, h('h1', null, 'Showcase unavailable'),
+        h('p', { class: 'alert', role: 'alert' }, errorText(e)),
+        h('a', { href: exitShowcaseHref(location.pathname) }, 'Back to saved event')));
+      shell.setLoading(false);
+      return; // Never fall back to the shared write API while showing a showcase URL.
+    }
+  }
 
   // One queue (and rejected ledger) per signed-in user, stored under that user's id. A signed-out device has no queue.
   const host = new QueueHost({
     api,
-    storage: (userId) => ({ queue: localStorageKV(`stem-racing-india-scores:${userId}`), rejected: localStorageKV(`stem-racing-india-scores-rejected:${userId}`) }),
-    lastUser: localStorageKV('stem-racing-india-last-user'),
+    storage: (userId) => showcase ? { queue: memoryKV(), rejected: memoryKV() } : ({ queue: localStorageKV(`stem-racing-india-scores:${userId}`), rejected: localStorageKV(`stem-racing-india-scores-rejected:${userId}`) }),
+    lastUser: showcase ? memoryKV() : localStorageKV('stem-racing-india-last-user'),
+    ...(showcase ? { locks: null } : {}),
   });
   await host.track();
   if (callback?.kind === 'legacy') {
@@ -66,7 +90,7 @@ async function boot(): Promise<void> {
   let token = 0;
   let leaves: Array<() => void | Promise<void>> = [];
   const ctx: Ctx = {
-    api, queue: host, enqueueScore: (i) => host.enqueueScore(i), flush: () => host.flush(), main: shell.main, demo: false,
+    api, queue: host, enqueueScore: (i) => host.enqueueScore(i), flush: () => host.flush(), main: shell.main, demo: showcase,
     rerender: () => void render(current),
     onLeave: (fn) => { leaves.push(fn); },
   };
@@ -79,6 +103,7 @@ async function boot(): Promise<void> {
   };
 
   const signOut = async () => {
+    if (showcase) { location.assign(exitShowcaseHref(location.pathname)); return; }
     try {
       changingSession = true; await finishScreen();
       await api.signOut();
@@ -99,7 +124,7 @@ async function boot(): Promise<void> {
     leaves = [];
     try {
       const session = await api.getSession();
-      shell.setUser(session, () => void signOut());
+      shell.setUser(session, () => void signOut(), showcase);
       host.setUser(session?.userId ?? null); // idempotent; covers an auth event the adapter did not deliver
       const mfa = session ? await api.getMfaStatus().catch(() => null) : null;
       const requiresMfa = session && mfa && mfa.nextLevel === 'aal2' && mfa.currentLevel !== 'aal2';

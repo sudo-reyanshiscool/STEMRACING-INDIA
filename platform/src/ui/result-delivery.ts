@@ -13,7 +13,7 @@ export async function resultDelivery(ctx:Ctx,event:EventRow):Promise<HTMLElement
  const message=h('p',{class:'notice',role:'status',hidden:true}),error=h('p',{class:'alert',role:'alert',hidden:true});
  const reload=h('button',{class:'btn btn--ghost',type:'button',hidden:true},'Reload website');
  reload.onclick=()=>{if(busy)return;busy=true;reload.disabled=true;void ctx.flush().then(()=>window.location.reload()).catch(e=>{busy=false;reload.disabled=false;reportActionError(ctx,error,e);});};
- const content=h('div',{class:'stack'});root.append(h('h2',null,'Results PDFs and manager emails'),message,error,reload,content);
+ const content=h('div',{class:'stack'});root.append(h('h2',null,'Results PDFs and manager emails'),...(ctx.demo?[h('p',{class:'notice'},'Showcase: email delivery is simulated. PDF downloads use this temporary copy.')]:[]),message,error,reload,content);
  const refresh=async()=>{[contacts,state]=await Promise.all([ctx.api.listTeamContacts(event.id),ctx.api.resultMailState(event.id)]);if(alive)draw();};
  const run=async(task:()=>Promise<void>)=>{
   if(busy)return;busy=true;error.hidden=true;message.hidden=true;reload.hidden=true;
@@ -79,7 +79,7 @@ export async function resultDelivery(ctx:Ctx,event:EventRow):Promise<HTMLElement
   }));
   const missing=teams.filter(t=>!contacts.some(c=>c.teamId===t.id)).length;
   const sent=teams.filter(t=>currentDelivery(t)?.status==='sent').length;
-  const send=h('button',{class:'btn btn--primary',type:'button',disabled:!event.resultsReleased||!state.confirmed||!state.snapshotId||!eligible.length},'Email results to managers');
+  const send=h('button',{class:'btn btn--primary',type:'button',disabled:!event.resultsReleased||!state.confirmed||!state.snapshotId||!eligible.length},ctx.demo?'Simulate results emails':'Email results to managers');
   const review=h('div',{class:'notice stack',hidden:true});
   const confirm=h('button',{class:'btn btn--primary',type:'button'},`Send ${eligible.length} results email${eligible.length===1?'':'s'}`);
   const cancel=h('button',{class:'btn btn--ghost',type:'button'},'Cancel');cancel.onclick=()=>{review.hidden=true;};

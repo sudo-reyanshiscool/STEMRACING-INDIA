@@ -172,7 +172,7 @@ export async function scoringScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
 
   return h('div', { class: 'stack stack--lg' },
     h('div', { class: 'stack' }, h('a', { class: 'back', href: eventHref }, event.name), h('h1', null, staff?'Judge':'My scorecards'), teamChooser,chooser,
-      h('p', { class: 'lead' }, staff?'Choose a team and panel. Your scores are recorded under your own account and count when submitted.':'Choose one of your assigned teams and an area. Scores save as you type and can be edited until you submit.'),
+      h('p', { class: 'lead' }, ctx.demo?'Choose a team and panel. Existing marks and feedback open in an editable showcase draft. Changes affect this temporary copy only.':staff?'Choose a team and panel. Your scores are recorded under your own account and count when submitted.':'Choose one of your assigned teams and an area. Scores save as you type and can be edited until you submit.'),
       event.resultsReleased?h('p',{class:'notice'},'Results are released. Existing scorecards are read-only; withdraw the release before adding or changing scores.'):null,
       h('p', { class: 'small muted' }, 'If you have a conflict of interest with a team, declare it. A declaration cannot be removed on this screen: ask the Chair.')),
     h('div', { class: 'actions' }, refresh, h('p', { class: 'small muted' }, 'Assignments update every 10 seconds and when you return to this page.')), error, body,

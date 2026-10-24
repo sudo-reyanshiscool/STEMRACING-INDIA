@@ -5,6 +5,7 @@ import { h } from './dom';
 import { PANEL_LABEL, ROLE_LABEL } from './labels';
 import { routeHref, type Route } from './router';
 import { deleteEventControl } from './delete-event';
+import { canShowcase, showcaseHref } from '../api/showcase';
 
 export async function eventHomeScreen(ctx: Ctx, eventId: string): Promise<HTMLElement> {
   const [event, roles] = await Promise.all([ctx.api.getEvent(eventId), ctx.api.myRoles(eventId)]);
@@ -24,7 +25,7 @@ export async function eventHomeScreen(ctx: Ctx, eventId: string): Promise<HTMLEl
   if (roles.some(r => r.role !== 'team_manager') || (has('team_manager') && event.resultsReleased)) tiles.push(tile('Race control', 'Pair teams, record lane times and follow Denford track readings.', { name: 'racing', eventId }));
   if (has('chair', 'lead_judge')) tiles.push(tile('Moderation', "Review judges' scores, override and reopen.", { name: 'moderate', eventId }));
   if (has('organiser', 'chair')) tiles.push(tile('Rankings', 'Combine scores, add penalties, publish and release.', { name: 'rankings', eventId }));
-  tiles.push(tile('Results', event.resultsReleased ? 'Results released.' : 'Not released yet.', { name: 'results', eventId }));
+  tiles.push(tile('Results', ctx.demo ? 'Explore the populated standings, awards and team PDFs.' : event.resultsReleased ? 'Results released.' : 'Not released yet.', { name: 'results', eventId }));
 
   const mine = [...new Set(roles.map((r) => (r.panel ? `${ROLE_LABEL[r.role]}: ${PANEL_LABEL[r.panel]}` : ROLE_LABEL[r.role])))];
   return h('div', { class: 'stack stack--lg' },
@@ -34,6 +35,10 @@ export async function eventHomeScreen(ctx: Ctx, eventId: string): Promise<HTMLEl
       h('h1', null, event.name),
       mine.length > 0 ? h('p', { class: 'lead' }, `You are: ${mine.join('; ')}`) : null,
     ),
+    !ctx.demo && canShowcase(event, roles) ? h('section', { class: 'showcase-entry' },
+      h('div', { class: 'stack' }, h('h2', null, 'Showcase Test Event'),
+        h('p', null, 'Explore every tab using the existing scores and results. Try changes freely; reloading resets your temporary copy.')),
+      h('a', { class: 'btn btn--primary', href: showcaseHref(event.id) }, 'Open showcase')) : null,
     h('div', { class: 'tiles' }, tiles),
     has('organiser') ? deleteEventControl(ctx, event) : null,
   );
