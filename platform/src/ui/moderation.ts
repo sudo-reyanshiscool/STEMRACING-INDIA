@@ -158,7 +158,7 @@ export async function moderationScreen(ctx: Ctx, eventId: string): Promise<HTMLE
       const submit = h('button', { class: 'btn btn--ghost btn--small', type: 'submit' }, row.override ? 'Change override' : 'Set override');
       const form = h('form', { class: 'inline-form', 'data-override': row.teamId, novalidate: true },
         h('label', { class: 'field' }, h('span', { class: 'field__label' }, `Score (0 to ${area.max})`), value),
-        h('label', { class: 'field' }, h('span', { class: 'field__label' }, 'Reason'), reason), submit);
+        h('label', { class: 'field' }, h('span', { class: 'field__label' }, ctx.demo ? 'Reason (optional)' : 'Reason'), reason), submit);
       form.addEventListener('submit', (e) => {
         e.preventDefault();
         if (busy) return;
@@ -169,7 +169,7 @@ export async function moderationScreen(ctx: Ctx, eventId: string): Promise<HTMLE
         const problem = n === null ? 'Enter the override as a number, for example 31 or 31.5.'
           : n < 0 || n > area.max ? `The override must be between 0 and ${area.max}.`
           : Math.abs(n * 10 - Math.round(n * 10)) > 1e-9 ? 'The override can have at most one decimal place.'
-          : why.length < 3 ? REASON_PROBLEM
+          : !ctx.demo && why.length < 3 ? REASON_PROBLEM
           : null;
         if (problem !== null || n === null) {
           error.textContent = problem ?? '';
@@ -201,7 +201,7 @@ export async function moderationScreen(ctx: Ctx, eventId: string): Promise<HTMLE
           drafts(r) > 0 ? h('li', { class: 'small' }, `${drafts(r)} card${drafts(r) === 1 ? '' : 's'} still in draft, not counted`) : null])),
         h('td', { class: 'num', 'data-label': 'Mean of submitted' }, r.mean === null ? '—' : String(r.mean)),
         h('td', { 'data-label': 'Chair override' },
-          r.override ? h('p', { class: 'small' }, `Override: ${r.override.value} (${r.override.reason})`) : null,
+          r.override ? h('p', { class: 'small' }, `Override: ${r.override.value}${r.override.reason ? ` (${r.override.reason})` : ''}`) : null,
           r.override ? h('p', { class: 'small muted' },
             r.mean === null ? "Override replaces the judges' scores: no submitted judge scores yet."
               : `Override replaces the judges' mean of ${r.mean}.`) : null,

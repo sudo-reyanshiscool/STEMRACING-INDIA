@@ -834,7 +834,7 @@ export class MemoryApi implements Api {
     if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > area.max) throw new ApiError('invalid', `Override must be between 0 and ${area.max}`);
     if (!oneDecimal(value)) throw new ApiError('invalid', 'Override can have at most one decimal place');
     const why = (typeof reason === 'string' ? reason : '').trim();
-    if (why.length < 3) throw new ApiError('invalid', 'A reason is required');
+    if (!this.showcaseMode && why.length < 3) throw new ApiError('invalid', 'A reason is required');
     this.teamOrThrow(eventId, teamId);
     const v = Math.round(value * 10) / 10;
     const existing = this.overrides.find((o) => o.eventId === eventId && o.teamId === teamId && o.areaId === areaId);

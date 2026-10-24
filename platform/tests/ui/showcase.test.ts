@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { MemoryApi } from '../../src/api';
 import { SHOWCASE_EVENT_ID, exitShowcaseHref } from '../../src/api/showcase';
 import { showcaseSeed } from '../fixtures/showcase';
@@ -20,6 +20,20 @@ import { eventNav } from '../../src/ui/event-nav';
 import { mountShowcaseBar } from '../../src/ui/showcase';
 
 describe('showcase navigation and presentation', () => {
+  it('saves a showcase override with a blank optional reason', async () => {
+    const api = MemoryApi.forShowcase(showcaseSeed());
+    const {ctx, leaves} = makeCtx(api);
+    ctx.demo = true;
+    const node = await moderationScreen(ctx, SHOWCASE_EVENT_ID);
+    expect(text(node)).toContain('Reason (optional)');
+    const form = node.querySelector('form[data-override]')!;
+    (form.querySelector('input[name=value]') as HTMLInputElement).value = '10';
+    (form.querySelector('input[name=reason]') as HTMLInputElement).value = '';
+    form.dispatchEvent(new Event('submit', {cancelable:true}));
+    await vi.waitFor(async () => expect(await api.listOverrides(SHOWCASE_EVENT_ID)).toEqual([expect.objectContaining({value:10,reason:''})]));
+    expect(text(node)).not.toContain('10 ()');
+    await Promise.all(leaves.map(leave => leave()));
+  });
   it.each([showcaseSeed, () => buildShowcaseExamples(showcaseSeed().event)])('exposes every event tab and renders each with populated temporary data: %s', async makeSeed => {
     const seed = makeSeed();
     const api = MemoryApi.forShowcase(seed);
