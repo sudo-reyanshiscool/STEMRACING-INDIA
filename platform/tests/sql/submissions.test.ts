@@ -46,3 +46,16 @@ it('checks automatic penalties on actual publication and release, and freezes re
  await expect(save(null,2)).rejects.toMatchObject({code:'55000'});
  await expect(upload()).rejects.toMatchObject({code:'55000'});
 });
+it('queues immutable receipts only after successful uploads, and keeps recipients service-only',async()=>{
+ await expect(as(db,'mgr1',q=>q('select reserve_submission_email($1,$2,$3,1)',[w.eventId,w.team1,'design_portfolio']))).rejects.toMatchObject({code:'55000'});
+ await upload();
+ const queued=(await db.query<{status:string;receipt:{filename:string}}>('select * from submission_email_deliveries where event_id=$1',[w.eventId])).rows;expect(queued).toHaveLength(1);expect(queued[0].status).toBe('pending');expect(queued[0].receipt.filename).toBe('portfolio.pdf');
+ await expect(as(db,'mgr2',q=>q('select reserve_submission_email($1,$2,$3,1)',[w.eventId,w.team1,'design_portfolio']))).rejects.toMatchObject({code:'42501'});
+ const job=(await as(db,'mgr1',q=>q('select reserve_submission_email($1,$2,$3,1) as j',[w.eventId,w.team1,'design_portfolio']))).rows[0].j;expect(job.status).toBe('reserved');expect(job.email).toBeUndefined();
+ await expect(as(db,'mgr1',q=>q('select submission_email_payload($1,$2)',[job.jobId,job.attempt]))).rejects.toMatchObject({code:'42501'});
+ expect((await as(db,'mgr1',q=>q('select reserve_submission_email($1,$2,$3,1) as j',[w.eventId,w.team1,'design_portfolio']))).rows[0].j.status).toBe('busy');
+ expect((await db.query<{ok:boolean}>('select complete_submission_email($1,$2,$3) as ok',[job.jobId,job.attempt,'sent'])).rows[0].ok).toBe(true);
+ expect((await as(db,'mgr1',q=>q('select reserve_submission_email($1,$2,$3,1) as j',[w.eventId,w.team1,'design_portfolio']))).rows[0].j.status).toBe('already_sent');
+ expect((await state()).rows[0].s.rows.find((r:any)=>r.kind==='design_portfolio').confirmation).toBe('sent');
+ await upload(1);expect((await db.query('select id from submission_email_deliveries where event_id=$1',[w.eventId])).rows).toHaveLength(2);
+});

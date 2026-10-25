@@ -64,6 +64,11 @@ export class MemoryApi implements Api {
     const time=this.released(eventId)?Date.parse(this.snapshots.filter(s=>s.eventId===eventId).at(-1)?.createdAt??new Date().toISOString()):Date.now();
     return {...copy(state),rows:this.teams.filter(t=>t.eventId===eventId).flatMap(t=>state.rules.map(r=>submissionRow(t.id,r,this.submittedTimes.get(`${eventId}:${t.id}:${r.kind}`)??null,time)))};
   }
+  async sendSubmissionConfirmation(eventId:string,teamId:string,kind:import('./submissions').PortfolioKind,revision:number) {
+    this.require(eventId,'organiser','chair','team_manager');
+    if(!this.has(eventId,'organiser','chair')&&!this.rolesOf(eventId).some(r=>r.role==='team_manager'&&r.teamId===teamId))throw new ApiError('forbidden','Only your own team');
+    if(!this.teamFiles.some(f=>f.eventId===eventId&&f.teamId===teamId&&f.kind===kind&&f.revision===revision))throw new ApiError('locked','Successful portfolio upload required');
+  }
   async submissionState(eventId:string) {
     this.require(eventId,'organiser','chair','spectator','team_manager');
     const state=this.submissionRows(eventId);

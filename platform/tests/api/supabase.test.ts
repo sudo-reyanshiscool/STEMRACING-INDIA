@@ -502,3 +502,19 @@ describe('platform organiser adapter',()=>{
     expect(anon.calls).toHaveLength(0);
   });
 });
+
+describe('portfolio confirmation delivery',()=>{
+ it('requests a receipt only after a successful portfolio upload, without sending a client recipient',async()=>{
+  const {api,calls}=fake(()=>({data:null}));
+  const input={kind:'design_portfolio' as const,name:'design.pdf',mime:'application/pdf',base64:'JVBERi0='};
+  await api.uploadTeamFile('event','team',2,input);
+  expect(calls).toMatchObject([{kind:'rpc',name:'upload_team_file'},{kind:'function',name:'send-submission',args:{body:{eventId:'event',teamId:'team',kind:'design_portfolio',revision:3}}}]);
+ });
+ it('keeps successful uploads successful when email delivery fails, and never emails failed uploads',async()=>{
+  const saved=fake(c=>c.kind==='function'?{error:{message:'Email unavailable'}}:{data:null});
+  await expect(saved.api.uploadTeamFile('event','team',0,{kind:'enterprise_portfolio',name:'enterprise.pdf',mime:'application/pdf',base64:'JVBERi0='})).resolves.toBeUndefined();
+  const refused=fake(()=>({error:{code:'42501',message:'Forbidden'}}));
+  await expect(refused.api.uploadTeamFile('event','team',0,{kind:'enterprise_portfolio',name:'enterprise.pdf',mime:'application/pdf',base64:'JVBERi0='})).rejects.toMatchObject({code:'forbidden'});
+  expect(refused.calls).toHaveLength(1);
+ });
+});

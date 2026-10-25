@@ -3,7 +3,7 @@ import type {TeamFileKind} from './team-files';
 export type PortfolioKind=Exclude<TeamFileKind,'logo'>;
 export const PORTFOLIOS:PortfolioKind[]=['design_portfolio','enterprise_portfolio','project_portfolio'];
 export interface SubmissionRule {kind:PortfolioKind;deadline:string|null;pointsPerHour:number}
-export interface SubmissionRow {teamId:string;kind:PortfolioKind;submittedAt:string|null;deadline:string|null;points:number;status:'not_open'|'pending'|'overdue'|'on_time'|'late'}
+export interface SubmissionRow {confirmation?:'pending'|'sending'|'sent'|'failed'|'uncertain'|'unavailable';revision?:number;teamId:string;kind:PortfolioKind;submittedAt:string|null;deadline:string|null;points:number;status:'not_open'|'pending'|'overdue'|'on_time'|'late'}
 export interface SubmissionState {revision:number;rules:SubmissionRule[];rows:SubmissionRow[]}
 export function validateSubmissionRules(rules:SubmissionRule[]) {
  if(rules.length!==3||new Set(rules.map(r=>r.kind)).size!==3||rules.some(r=>!PORTFOLIOS.includes(r.kind)||!Number.isFinite(r.pointsPerHour)||r.pointsPerHour<0||r.pointsPerHour>1000||Math.round(r.pointsPerHour*10)!==r.pointsPerHour*10||(r.deadline!==null&&!Number.isFinite(Date.parse(r.deadline)))))throw new ApiError('invalid','Set a valid deadline and hourly penalty for each portfolio.');

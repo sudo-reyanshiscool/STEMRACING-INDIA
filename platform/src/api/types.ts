@@ -105,6 +105,7 @@ export interface TeamConcern {
 }
 export interface InspectionScope {revision: number; articles: string[] | null; locked: boolean}
 export interface Api {
+  sendSubmissionConfirmation(eventId:string,teamId:string,kind:import('./submissions').PortfolioKind,revision:number):Promise<void>;
   submissionState(eventId:string):Promise<SubmissionState>;
   saveSubmissionRules(eventId:string,revision:number,rules:SubmissionRule[]):Promise<void>;
   listTeamFiles(eventId: string): Promise<TeamFile[]>;

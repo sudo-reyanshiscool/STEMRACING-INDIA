@@ -415,3 +415,6 @@ verify_jwt = true
 
 [functions.send-results]
 verify_jwt = true
+
+[functions.send-submission]
+verify_jwt = true

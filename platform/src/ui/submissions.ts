@@ -28,7 +28,9 @@ export async function submissionsScreen(ctx:Ctx,eventId:string):Promise<HTMLElem
  const list=h('div',{class:'stack'});
  const render=()=>list.replaceChildren(...state.rows.filter(r=>!team.value||r.teamId===team.value).map(row=>{
   const t=teams.find(t=>t.id===row.teamId),rule=state.rules.find(r=>r.kind===row.kind)!;
-  return h('article',{class:'row stack'},h('h3',null,`${t?.number} · ${t?.name} · ${FILE_KINDS[row.kind]}`),h('strong',null,labels[row.status]),h('p',null,`Deadline: ${when(row.deadline)}`),row.submittedAt?h('p',null,`First submitted: ${when(row.submittedAt)}`):null,h('p',null,`Late penalty: ${row.points} points · ${rule.pointsPerHour} points/hour`));
+  const mailLabels={pending:'Not sent yet',sending:'Sending',sent:'Sent',failed:'Failed — your portfolio is saved',uncertain:'Unconfirmed — check your inbox',unavailable:'Unavailable — no recipient email'};
+  const retry=h('button',{type:'button',class:'btn btn--ghost',onclick:async()=>{retry.disabled=true;try{await ctx.api.sendSubmissionConfirmation(eventId,row.teamId,row.kind,row.revision!);ctx.rerender();}catch(err){status.textContent=errorText(err);}finally{retry.disabled=false;}}},'Retry confirmation email');
+  return h('article',{class:'row stack'},h('h3',null,`${t?.number} · ${t?.name} · ${FILE_KINDS[row.kind]}`),h('strong',null,labels[row.status]),h('p',null,`Deadline: ${when(row.deadline)}`),row.submittedAt?h('p',null,`First submitted: ${when(row.submittedAt)}`):null,h('p',null,`Late penalty: ${row.points} points · ${rule.pointsPerHour} points/hour`),row.confirmation?h('p',null,`Confirmation email: ${mailLabels[row.confirmation]}`):null,roles.some(r=>r.role!=='spectator')&&row.revision&&['pending','failed'].includes(row.confirmation??'')?retry:null);
  }));team.onchange=render;render();root.append(h('h2',null,'Submission status'),h('label',{class:'field'},'Team',team),list);
  const refresh=h('button',{type:'button',class:'btn btn--ghost',onclick:()=>ctx.rerender()},'Refresh submission status');root.append(refresh);
  return root;
