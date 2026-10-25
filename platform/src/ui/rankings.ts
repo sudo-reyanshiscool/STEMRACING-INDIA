@@ -101,7 +101,7 @@ export async function rankingsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
   if (!first) return notFound('That event was not found.', '#/', 'All events');
   const eventHref = routeHref({ name: 'event', eventId });
   const isChair = roles.some((r) => r.role === 'chair');
-  if (!isChair && !roles.some((r) => r.role === 'organiser')) return notFound('Only the organiser or chair can see the ranking.', eventHref, first.name);
+  if (!isChair && !roles.some((r) => r.role === 'organiser'||r.role==='spectator')) return notFound('Only the organiser or chair can see the ranking.', eventHref, first.name);
 
   let alive = true;
   ctx.onLeave(() => { alive = false; });

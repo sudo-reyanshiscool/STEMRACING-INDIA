@@ -59,14 +59,14 @@ export class MemoryApi implements Api {
   private showcaseMode = false;
   private teamFiles: Array<TeamFile & {base64:string}> = [];
   private readsTeamFile(file: TeamFile): boolean {
-    if(this.has(file.eventId,'organiser','chair'))return true;
+    if(this.has(file.eventId,'organiser','chair','spectator'))return true;
     if(this.rolesOf(file.eventId).some(r=>r.role==='team_manager' && r.teamId===file.teamId))return true;
     if(this.conflicted(file.eventId,file.teamId)||this.exemptions.some(x=>x.eventId===file.eventId&&x.teamId===file.teamId&&x.judgeId===this.me?.userId))return false;
     const panel=FILE_PANEL[file.kind];
     return panel===null ? this.rolesOf(file.eventId).some(r=>r.role!=='team_manager') : this.canScore(file.eventId,panel,file.teamId)||this.rolesOf(file.eventId).some(r=>r.role==='lead_judge'&&r.panel===panel);
   }
   async listTeamFiles(eventId:string) {
-    this.require(eventId,'organiser','chair','judge','lead_judge','scrutineer','race_official','team_manager');
+    this.require(eventId,'organiser','chair','spectator','judge','lead_judge','scrutineer','race_official','team_manager');
     return copy(this.teamFiles.filter(f=>f.eventId===eventId&&this.readsTeamFile(f)).map(({base64,...metadata})=>metadata));
   }
   async uploadTeamFile(eventId:string,teamId:string,revision:number,input:TeamFileInput) {
@@ -83,7 +83,7 @@ export class MemoryApi implements Api {
   }
   private scopes = new Map<string, InspectionScope>();
   async getInspectionScope(eventId: string): Promise<InspectionScope> {
-    this.require(eventId,'organiser','chair','judge','lead_judge','scrutineer','race_official','team_manager');
+    this.require(eventId,'organiser','chair','spectator','judge','lead_judge','scrutineer','race_official','team_manager');
     return copy({...this.scopes.get(eventId)??{revision:0,articles:null},locked:this.inspections.some(i=>i.eventId===eventId)});
   }
   async saveInspectionScope(eventId: string, revision: number, articles: string[] | null) {
@@ -96,8 +96,8 @@ export class MemoryApi implements Api {
   }
   private concerns: TeamConcern[] = [];
   async listTeamConcerns(eventId: string) {
-    this.require(eventId, 'organiser', 'chair', 'team_manager');
-    const staff = this.has(eventId, 'organiser', 'chair');
+    this.require(eventId, 'organiser', 'chair', 'spectator', 'team_manager');
+    const staff = this.has(eventId, 'organiser', 'chair', 'spectator');
     const teams = this.rolesOf(eventId).filter(r => r.role === 'team_manager').map(r => r.teamId);
     return copy(this.concerns.filter(c => c.eventId === eventId && (staff || teams.includes(c.teamId))).slice().reverse());
   }
@@ -173,33 +173,43 @@ export class MemoryApi implements Api {
   private penalties: PenaltyRow[] = [];
   private snapshots: SnapshotRow[] = [];
   private inspections: Inspection[] = [];
-  private globalOrganisers: Array<{userId:string;email:string;scope:OrganiserScope;permanent:false}>=[];
+  private globalOrganisers: Array<{userId:string;email:string;scope:OrganiserScope;permanent:false;name?:string;identityRestricted?:boolean;contactRestricted?:boolean}>=[];
   private organiserInvites: PlatformAccess['invitations']=[];
   private globalManager() { return this.me?.email==='reyanshg11111@gmail.com' || this.globalOrganisers.some(r=>r.userId===this.me?.userId && r.scope==='platform'); }
+  private visibleIdentity(userId:string,email?:string|null) {return this.me?.email==='reyanshg11111@gmail.com'||(!this.globalOrganisers.some(p=>p.identityRestricted&&(p.userId===userId||p.email===email))&&!this.organiserInvites.some(i=>i.identityRestricted&&i.email===email));}
   private requireGlobal() { if(!this.globalManager()) throw new ApiError('forbidden','Only Platform Organisers can manage organiser access'); }
   async platformAccess(): Promise<PlatformAccess> {
     return copy({kind:this.me?.email==='reyanshg11111@gmail.com'?'admin':this.globalOrganisers.find(r=>r.userId===this.me?.userId)?.scope??null,
       ownerEmail:'reyanshg11111@gmail.com',canManage:this.globalManager(),
-      organisers:this.globalManager()?[{userId:'user:reyanshg11111@gmail.com',email:'reyanshg11111@gmail.com',scope:'admin',permanent:true},...this.globalOrganisers]:[],
-      invitations:this.globalManager()?this.organiserInvites:[]});
+      viewerId:this.me?.userId??null,ownerId:'user:reyanshg11111@gmail.com',organisers:(this.globalManager()||this.globalOrganisers.some(p=>p.userId===this.me?.userId&&p.scope==='spectator'))?[{userId:'user:reyanshg11111@gmail.com',email:'reyanshg11111@gmail.com',scope:'admin',permanent:true},...this.globalOrganisers.filter(p=>!p.identityRestricted||this.me?.email==='reyanshg11111@gmail.com')]:[],
+      invitations:this.globalManager()?this.organiserInvites.filter(i=>this.me?.email==='reyanshg11111@gmail.com'||(!i.identityRestricted&&i.scope!=='spectator')):[]});
   }
-  async inviteOrganiser(email: string,scope: OrganiserScope) {
+  async inviteOrganiser(email: string,scope: OrganiserScope,options?:{name?:string;hidden?:boolean}) {
     this.requireGlobal();email=email.trim().toLowerCase();
-    if(!EMAIL.test(email)||!['competition','platform'].includes(scope))throw new ApiError('invalid','Choose a valid email and scope');
+    if((options?.hidden||scope==='spectator')&&this.me?.email!=='reyanshg11111@gmail.com')throw new ApiError('forbidden','Only Platform Admin');
+    if(options?.hidden&&!options.name?.trim())throw new ApiError('invalid','Name required for hidden account');
+    if(!EMAIL.test(email)||!['competition','platform','spectator'].includes(scope))throw new ApiError('invalid','Choose a valid email and scope');
     if(email==='reyanshg11111@gmail.com')throw new ApiError('forbidden','The permanent platform administrator cannot be changed');
     if(this.organiserInvites.some(i=>i.email===email)||this.globalOrganisers.some(i=>i.email===email))throw new ApiError('duplicate','Organiser already invited or assigned');
-    this.organiserInvites.push({id:nid('organiser-invite'),email,scope,emailStatus:'sent'});
+    this.organiserInvites.push({id:nid('organiser-invite'),email,scope,emailStatus:'sent',name:options?.name?.trim()??'',identityRestricted:options?.hidden??false});
+  }
+  async setOrganiserVisibility(userId:string,name:string,hidden:boolean) {
+    if(this.me?.email!=='reyanshg11111@gmail.com')throw new ApiError('forbidden','Only Platform Admin');
+    const person=this.globalOrganisers.find(p=>p.userId===userId);
+    if(!person||name.trim().length>100||(hidden&&!name.trim()))throw new ApiError('invalid','Choose a valid organiser and name');
+    person.name=name.trim();person.identityRestricted=hidden;person.contactRestricted=hidden;
   }
   async removeOrganiser(userId:string) {
     this.requireGlobal();if(userId==='user:reyanshg11111@gmail.com')throw new ApiError('forbidden','The permanent platform administrator cannot be removed');
+    const person=this.globalOrganisers.find(r=>r.userId===userId);if((person?.identityRestricted||person?.scope==='spectator')&&this.me?.email!=='reyanshg11111@gmail.com')throw new ApiError('forbidden','Only Platform Admin');
     this.globalOrganisers=this.globalOrganisers.filter(r=>r.userId!==userId);
   }
-  async withdrawOrganiserInvitation(id:string) { this.requireGlobal();this.organiserInvites=this.organiserInvites.filter(i=>i.id!==id); }
+  async withdrawOrganiserInvitation(id:string) { this.requireGlobal();const invitation=this.organiserInvites.find(i=>i.id===id);if((invitation?.identityRestricted||invitation?.scope==='spectator')&&this.me?.email!=='reyanshg11111@gmail.com')throw new ApiError('forbidden','Only Platform Admin');this.organiserInvites=this.organiserInvites.filter(i=>i.id!==id); }
   private contacts=new Map<string,TeamContact>();
   private awards:Array<EventAward & {eventId:string}>=[];
   private mailSettings=new Map<string,{confirmed:boolean;version:string}>();
   private mailDeliveries:Array<ResultMailState['deliveries'][number] & {eventId:string;snapshotId:string;version:string}>=[];
-  async listTeamContacts(eventId:string) {this.require(eventId,'chair','organiser');return copy([...this.contacts.values()].filter(c=>this.teams.some(t=>t.id===c.teamId && t.eventId===eventId)));}
+  async listTeamContacts(eventId:string) {this.require(eventId,'chair','organiser','spectator');return copy([...this.contacts.values()].filter(c=>this.teams.some(t=>t.id===c.teamId && t.eventId===eventId)));}
   private storeContact(eventId:string,teamId:string,email:string) {
     if(!email){this.contacts.delete(teamId);return;}
     this.contacts.set(teamId,{teamId,managerEmail:email});
@@ -211,7 +221,7 @@ export class MemoryApi implements Api {
     this.storeContact(eventId,teamId,email);
   }
   async resultMailState(eventId:string):Promise<ResultMailState> {
-    this.require(eventId,'chair','organiser');const setting=this.mailSettings.get(eventId);const snapshot=this.snapshots.filter(s=>s.eventId===eventId).at(-1);
+    this.require(eventId,'chair','organiser','spectator');const setting=this.mailSettings.get(eventId);const snapshot=this.snapshots.filter(s=>s.eventId===eventId).at(-1);
     return copy({confirmed:setting?.confirmed??false,version:setting?.version??null,snapshotId:snapshot?.id??null,awards:this.awards.filter(a=>a.eventId===eventId).map(({id,title,teamId})=>({id,title,teamId})),deliveries:this.mailDeliveries.filter(d=>d.eventId===eventId && d.snapshotId===snapshot?.id && d.version===setting?.version).map(({teamId,email,status,sentAt})=>({teamId,email,status,sentAt}))});
   }
   async saveAward(eventId:string,title:string,teamId:string) {
@@ -223,7 +233,7 @@ export class MemoryApi implements Api {
   async removeAward(id:string) {const a=this.awards.find(a=>a.id===id);if(!a)throw new ApiError('forbidden','Award unavailable');this.require(a.eventId,'chair','organiser');this.awards=this.awards.filter(x=>x.id!==id);this.mailSettings.set(a.eventId,{confirmed:false,version:this.mailSettings.get(a.eventId)?.version??nid('awards-version')});}
   async confirmAwards(eventId:string) {this.require(eventId,'chair','organiser');const old=this.mailSettings.get(eventId);this.mailSettings.set(eventId,{confirmed:true,version:old?.confirmed?old.version:nid('awards-version')});}
   async previewResultsPacket(eventId:string,teamId:string):Promise<ResultsPacket> {
-    this.require(eventId,'chair','organiser');const event=this.eventOrThrow(eventId),team=this.teamOrThrow(eventId,teamId);const snapshot=this.snapshots.filter(s=>s.eventId===eventId).at(-1);const row=snapshot?.rows.find(r=>r.teamId===teamId);
+    this.require(eventId,'chair','organiser','spectator');const event=this.eventOrThrow(eventId),team=this.teamOrThrow(eventId,teamId);const snapshot=this.snapshots.filter(s=>s.eventId===eventId).at(-1);const row=snapshot?.rows.find(r=>r.teamId===teamId);
     if(!snapshot||!row)throw new ApiError('locked','Publish a ranking containing this team first');
     return copy({released:event.resultsReleased,awardsConfirmed:this.mailSettings.get(eventId)?.confirmed??false,eventName:event.name,eventId,snapshotId:snapshot.id,createdAt:snapshot.createdAt,ruleset:event.ruleset,team,teamResult:row,
       standings:snapshot.rows.map(({rank,teamId,number,name,total})=>({rank,teamId,number,name,total,school:this.teams.find(t=>t.id===teamId)?.school??''})),
@@ -371,7 +381,7 @@ export class MemoryApi implements Api {
     for(const i of globals) if(me.email!=='reyanshg11111@gmail.com') {
       const old=this.globalOrganisers.find(r=>r.userId===me.userId);
       if(old) {if(old.scope!=='platform')old.scope=i.scope;}
-      else this.globalOrganisers.push({userId:me.userId,email:me.email,scope:i.scope,permanent:false});
+      else this.globalOrganisers.push({userId:me.userId,email:me.email,scope:i.scope,permanent:false,name:i.name,identityRestricted:i.identityRestricted,contactRestricted:i.identityRestricted});
     }
     this.organiserInvites=this.organiserInvites.filter(i=>!globals.includes(i));
     const mine = this.invites.filter((i) => i.email === me.email && !this.deletedEvents.has(i.eventId));
@@ -387,6 +397,7 @@ export class MemoryApi implements Api {
   // ---- helpers
   private rolesOf(eventId: string): RoleRow[] {
     if(!this.me || this.deletedEvents.has(eventId) || !this.events.some(e=>e.id===eventId))return [];
+    if(this.globalOrganisers.some(r=>r.userId===this.me?.userId&&r.scope==='spectator'))return [{id:`spectator:${eventId}`,eventId,userId:this.me.userId,email:this.me.email,role:'spectator' as const,panel:null,teamId:null}];
     const rows=this.roles.filter(r=>r.eventId===eventId && r.userId===this.me!.userId);
     if(this.globalManager() || rows.some(r=>r.role==='organiser')) for(const role of ['organiser','chair'] as const) {
       if(role==='organiser' && !this.globalManager())continue;
@@ -432,7 +443,8 @@ export class MemoryApi implements Api {
   }
   async canCreateEvent(): Promise<boolean> {
     if (!this.me) return false;
-    if (this.globalManager() || this.globalOrganisers.some(r=>r.userId===this.me!.userId)) return true;
+    if(this.globalOrganisers.some(r=>r.userId===this.me?.userId&&r.scope==='spectator'))return false;
+    if (this.globalManager() || this.globalOrganisers.some(r=>r.userId===this.me!.userId&&r.scope!=='spectator')) return true;
     if (this.events.some((e) => !this.deletedEvents.has(e.id) && this.roles.some((r) => r.eventId === e.id && r.userId === this.me!.userId && r.role === 'organiser'))) {
       return true;
     }
@@ -500,10 +512,10 @@ export class MemoryApi implements Api {
   // ---- roles and invitations
   async myRoles(eventId: string) { return copy(this.rolesOf(eventId)); }
   async listRoles(eventId: string) {
-    return copy(this.has(eventId, 'chair', 'organiser') ? this.roles.filter((r) => r.eventId === eventId) : this.rolesOf(eventId));
+    return copy((this.has(eventId, 'chair', 'organiser', 'spectator') ? this.roles.filter((r) => r.eventId === eventId) : this.rolesOf(eventId)).filter(r=>this.visibleIdentity(r.userId,r.email)));
   }
   async listInvitations(eventId: string) {
-    return copy(this.has(eventId, 'chair', 'organiser') ? this.invites.filter((i) => i.eventId === eventId) : []);
+    return copy(this.has(eventId, 'chair', 'organiser', 'spectator') ? this.invites.filter((i) => i.eventId === eventId&&this.visibleIdentity('',i.email)) : []);
   }
   async invite(eventId: string, i: { name?: string; email: string; role: Role; panel?: Panel; teamId?: string }) {
     if (i.role === 'organiser') {
@@ -556,9 +568,9 @@ export class MemoryApi implements Api {
     return (this.has(eventId,'organiser','chair') || this.rolesOf(eventId).some(r=>r.role==='judge' && r.panel===panel && (r.teamId===null || r.teamId===teamId))) && !this.exemptions.some(x=>x.eventId===eventId && x.judgeId===this.me?.userId && x.teamId===teamId);
   }
   async drawLotsState(eventId:string):Promise<DrawLotsState>{
-    this.require(eventId,'organiser','chair');
+    this.require(eventId,'organiser','chair','spectator');
     const cards=this.cards.filter(c=>c.eventId===eventId);
-    const state={teams:this.teams.filter(t=>t.eventId===eventId),roles:this.roles.filter(r=>r.eventId===eventId),conflicts:this.conflicts.filter(c=>c.eventId===eventId),exemptions:this.exemptions.filter(x=>x.eventId===eventId),released:this.released(eventId),
+    const state={teams:this.teams.filter(t=>t.eventId===eventId),roles:this.roles.filter(r=>r.eventId===eventId&&this.visibleIdentity(r.userId,r.email)),conflicts:this.conflicts.filter(c=>c.eventId===eventId),exemptions:this.exemptions.filter(x=>x.eventId===eventId),released:this.released(eventId),
       numberingLocked:this.released(eventId)||!!cards.length||this.inspections.some(i=>i.eventId===eventId)||this.races.some(r=>r.eventId===eventId)||this.snapshots.some(s=>s.eventId===eventId),lockedPanels:[...new Set([...cards.map(c=>c.panel),...(this.inspections.some(i=>i.eventId===eventId)?['scrutineering' as Panel]:[])])]};
     // Presentation copies can demonstrate setup draws without clearing their completed results.
     if (this.showcaseMode) { state.numberingLocked = state.released; state.lockedPanels = []; }
@@ -625,7 +637,7 @@ export class MemoryApi implements Api {
     for(const input of reactionPairings(ids))await this.saveRace(eventId,crypto.randomUUID(),0,input);
   }
   async getRacingSetup(eventId: string): Promise<RacingSetup> {
-    this.require(eventId,'organiser','chair','judge','lead_judge','scrutineer','race_official');
+    this.require(eventId,'organiser','chair','spectator','judge','lead_judge','scrutineer','race_official');
     return copy({...this.racingSetups.get(eventId) ?? defaultRacingSetup(),version:JSON.stringify({setup:this.racingSetups.get(eventId),races:this.races.filter(r=>r.eventId===eventId),inspections:this.inspections.filter(i=>i.eventId===eventId)})});
   }
   async saveRacingSetup(eventId:string,revision:number,input:RacingSetupInput):Promise<RacingSetup> {
@@ -776,7 +788,7 @@ export class MemoryApi implements Api {
   }
   async listConflicts(eventId: string): Promise<ConflictRow[]> {
     if (!this.me || this.deletedEvents.has(eventId)) return [];
-    const staff = this.has(eventId, 'chair', 'organiser');
+    const staff = this.has(eventId, 'chair', 'organiser', 'spectator');
     return this.conflicts.filter((c) => c.eventId === eventId && (staff || c.judgeId === this.me!.userId))
       .map((c) => ({ eventId: c.eventId, judgeId: c.judgeId, teamId: c.teamId }));
   }
@@ -784,6 +796,7 @@ export class MemoryApi implements Api {
     return this.conflicts.some((c) => c.eventId === eventId && c.teamId === teamId && !!this.me && c.judgeId === this.me.userId);
   }
   private myCard(cardId: string) {
+    if(this.globalOrganisers.some(r=>r.userId===this.me?.userId&&r.scope==='spectator'))throw new ApiError('forbidden','Read-only account');
     const c = this.cards.find((x) => x.id === cardId);
     if (!this.me) throw new ApiError('unauthenticated', 'Sign in first');
     if (!c || c.judgeId !== this.me.userId) throw new ApiError('forbidden', 'That scorecard is not yours');
@@ -852,7 +865,7 @@ export class MemoryApi implements Api {
     return review;
   }
   private canReadPrivate(c: CardRow) {
-    return c.judgeId === this.me?.userId || this.has(c.eventId, 'chair')
+    return c.judgeId === this.me?.userId || this.has(c.eventId, 'chair','spectator')
       || this.rolesOf(c.eventId).some((r) => r.role === 'lead_judge' && r.panel === c.panel);
   }
   async saveReview(cardId: string, review: CardReview) {
@@ -872,7 +885,7 @@ export class MemoryApi implements Api {
   }
   async listNominations(eventId: string): Promise<NominationRow[]> {
     return this.cards.filter((c) => c.eventId === eventId && c.status === 'submitted'
-      && (this.has(eventId, 'chair') || this.rolesOf(eventId).some((r) => r.role === 'lead_judge' && r.panel === c.panel)))
+      && (this.has(eventId, 'chair','spectator') || this.rolesOf(eventId).some((r) => r.role === 'lead_judge' && r.panel === c.panel)))
       .map((c) => ({ cardId: c.id, teamId: c.teamId, panel: c.panel, judgeId: c.judgeId, nominations: copy(this.reviews.get(c.id)?.nominations ?? []) }));
   }
   async reopenCard(cardId: string, reason: string) {
@@ -889,7 +902,7 @@ export class MemoryApi implements Api {
   async listCards(eventId: string) {
     if (!this.me || this.deletedEvents.has(eventId)) return [];
     const me = this.me.userId;
-    const staff = this.has(eventId, 'chair', 'organiser');
+    const staff = this.has(eventId, 'chair', 'organiser', 'spectator');
     const released = this.released(eventId);
     const mine = this.rolesOf(eventId);
     const leadPanels = mine.filter((r) => r.role === 'lead_judge').map((r) => r.panel);
@@ -903,7 +916,7 @@ export class MemoryApi implements Api {
 
   // ---- overrides, penalties, snapshots
   async listOverrides(eventId: string) {
-    return copy(this.has(eventId, 'chair', 'organiser') ? this.overrides.filter((o) => o.eventId === eventId) : []);
+    return copy(this.has(eventId, 'chair', 'organiser', 'spectator') ? this.overrides.filter((o) => o.eventId === eventId) : []);
   }
   async setOverride(eventId: string, teamId: string, areaId: string, value: number, reason: string) {
     this.require(eventId, 'chair');
@@ -930,7 +943,7 @@ export class MemoryApi implements Api {
     this.version += 1;
   }
   async listPenalties(eventId: string) {
-    if (this.has(eventId, 'chair', 'organiser')) return copy(this.penalties.filter((p) => p.eventId === eventId));
+    if (this.has(eventId, 'chair', 'organiser', 'spectator')) return copy(this.penalties.filter((p) => p.eventId === eventId));
     if (!this.released(eventId)) return [];
     const managed = this.rolesOf(eventId).filter((r) => r.role === 'team_manager').map((r) => r.teamId);
     return copy(this.penalties.filter((p) => p.eventId === eventId && managed.includes(p.teamId)));
@@ -971,7 +984,7 @@ export class MemoryApi implements Api {
     return copy(row);
   }
   async latestSnapshot(eventId: string) {
-    const staff = this.has(eventId, 'chair', 'organiser');
+    const staff = this.has(eventId, 'chair', 'organiser', 'spectator');
     const visible = this.snapshots.filter((s) => s.eventId === eventId && staff);
     return visible.length === 0 ? null : copy(visible[visible.length - 1]);
   }
@@ -990,14 +1003,14 @@ export class MemoryApi implements Api {
   async getSnapshotInputs(snapshotId: string) {
     const s = this.snapshots.find((x) => x.id === snapshotId);
     // An unknown id is indistinguishable from a forbidden one, as in snapshot_inputs().
-    if (!s || !this.has(s.eventId, 'chair', 'organiser')) throw new ApiError('forbidden', 'Snapshot inputs are restricted to the Chair and Organiser');
+    if (!s || !this.has(s.eventId, 'chair', 'organiser', 'spectator')) throw new ApiError('forbidden', 'Snapshot inputs are restricted to the Chair and Organiser');
     return copy(this.snapshotInputs.get(snapshotId));
   }
   async listInspections(eventId: string) {
     if (this.rolesOf(eventId).length === 0) throw new ApiError('forbidden', 'You do not have permission to do that');
-    const isStaff = this.has(eventId, 'chair', 'organiser');
+    const isStaff = this.has(eventId, 'chair', 'organiser', 'spectator');
     const isReleased = this.events.find((e) => e.id === eventId)?.resultsReleased ?? false;
-    const isJudgeOrStaff = this.rolesOf(eventId).some((r) => r.role === 'judge' || r.role === 'scrutineer' || r.role === 'lead_judge' || r.role === 'chair' || r.role === 'organiser');
+    const isJudgeOrStaff = this.rolesOf(eventId).some((r) => r.role === 'judge' || r.role === 'scrutineer' || r.role === 'lead_judge' || r.role === 'chair' || r.role === 'organiser' || r.role==='spectator');
     const myTeams = new Set(this.rolesOf(eventId).filter((r) => r.role === 'team_manager' && r.teamId).map((r) => r.teamId!));
 
     return copy(this.inspections.filter((i) => {
@@ -1014,9 +1027,9 @@ export class MemoryApi implements Api {
     if (this.rolesOf(eventId).length === 0) throw new ApiError('forbidden', 'You do not have permission to do that');
     const found = this.inspections.find((i) => i.eventId === eventId && i.teamId === teamId && i.car === car);
     if (!found) return null;
-    const isStaff = this.has(eventId, 'chair', 'organiser');
+    const isStaff = this.has(eventId, 'chair', 'organiser', 'spectator');
     const isReleased = this.events.find((e) => e.id === eventId)?.resultsReleased ?? false;
-    const isJudgeOrStaff = this.rolesOf(eventId).some((r) => r.role === 'judge' || r.role === 'scrutineer' || r.role === 'lead_judge' || r.role === 'chair' || r.role === 'organiser');
+    const isJudgeOrStaff = this.rolesOf(eventId).some((r) => r.role === 'judge' || r.role === 'scrutineer' || r.role === 'lead_judge' || r.role === 'chair' || r.role === 'organiser' || r.role==='spectator');
     const myTeams = new Set(this.rolesOf(eventId).filter((r) => r.role === 'team_manager' && r.teamId).map((r) => r.teamId!));
     if (isStaff || found.inspectorId === this.me?.userId) return copy(found);
     if (found.status === 'submitted') {
@@ -1107,7 +1120,7 @@ export class MemoryApi implements Api {
     this.version += 1;
   }
   async listBroadcasts(eventId: string): Promise<BroadcastEmail[]> {
-    if (!this.has(eventId, 'chair', 'organiser')) {
+    if (!this.has(eventId, 'chair', 'organiser', 'spectator')) {
       throw new ApiError('forbidden', 'Broadcasts are restricted to the Chair and Organiser');
     }
     return copy(this.broadcasts.filter((b) => b.eventId === eventId));

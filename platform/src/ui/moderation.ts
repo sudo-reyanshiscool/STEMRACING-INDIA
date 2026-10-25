@@ -44,14 +44,15 @@ export async function moderationScreen(ctx: Ctx, eventId: string): Promise<HTMLE
   const [first, roles] = await Promise.all([ctx.api.getEvent(eventId), ctx.api.myRoles(eventId)]);
   if (!first) return notFound('That event was not found.', '#/', 'All events');
   const eventHref = routeHref({ name: 'event', eventId });
+  const spectator=roles.some(r=>r.role==='spectator');
   const isChair = roles.some((r) => r.role === 'chair');
   const leadPanels = roles.filter((r) => r.role === 'lead_judge').map((r) => r.panel as Panel);
-  if (!isChair && leadPanels.length === 0) return notFound('Only the Chair and lead judges can moderate.', eventHref, first.name);
+  if (!isChair && !spectator && leadPanels.length === 0) return notFound('Only the Chair and lead judges can moderate.', eventHref, first.name);
 
   let alive = true;
   ctx.onLeave(() => { alive = false; });
 
-  const areas = first.ruleset.areas.filter((a) => a.kind === 'scorecard' && (isChair || leadPanels.includes(a.panel as Panel)));
+  const areas = first.ruleset.areas.filter((a) => a.kind === 'scorecard' && (isChair || spectator || leadPanels.includes(a.panel as Panel)));
   const select = h('select', { name: 'area', 'aria-label': 'Area' }, areas.map((a) => h('option', { value: a.id }, a.name)));
   const error = h('p', { class: 'alert', role: 'alert', hidden: true });
   const status = h('p', { class: 'notice', role: 'status', hidden: true });
@@ -261,7 +262,7 @@ export async function moderationScreen(ctx: Ctx, eventId: string): Promise<HTMLE
 
   return h('div', { class: 'stack stack--lg' },
     h('div', { class: 'stack' }, h('a', { class: 'back', href: eventHref }, first.name), h('h1', null, 'Moderation'),
-      h('p', { class: 'lead' }, isChair
+      h('p', { class: 'lead' }, spectator?'Read-only overview of judging scores and nominations.':isChair
         ? "Review each judge's total, reopen a card with a reason, or override an area score."
         : "Review your panel's scores. Only the Chair can change them.")),
     releasedNote, error, status,

@@ -1,3 +1,4 @@
+import {spectatorOnly,spectatorReadScreen} from './ui/spectator';
 import { judgePageAllowed } from './ui/judge-access';
 import './styles/tokens.css';
 import './styles/fonts.css';
@@ -178,6 +179,10 @@ async function boot(): Promise<void> {
 
 /** Later tasks add one case per screen. */
 async function screenFor(route: Route, ctx: Ctx): Promise<HTMLElement> {
+  if('eventId' in route && spectatorOnly(await ctx.api.myRoles(route.eventId))) {
+    if(['teams','people','draw','communications','team-feedback'].includes(route.name))return spectatorReadScreen(ctx,route.eventId,route.name);
+    if(['score','scorecard'].includes(route.name))return notFound('Platform Spectators can view scorecards under Scores, but cannot judge or edit them.',`#/event/${encodeURIComponent(route.eventId)}/scores`,'View scores');
+  }
   if('eventId' in route && !judgePageAllowed(await ctx.api.myRoles(route.eventId),route.name)) return notFound('Your judge workspace includes Event, My scorecards, Scores and Results.',`#/event/${encodeURIComponent(route.eventId)}`,'Back to event');
   switch (route.name) {
     case 'home': return eventsScreen(ctx);

@@ -60,7 +60,7 @@ export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
   return h('div', { class: 'stack stack--lg' },
     h('div', { class: 'stack' }, h('p', { class: 'eyebrow' }, 'STEM Racing India · Nationals & Regionals'), h('h1', null, 'Events'),
       h('p', { class: 'lead' }, 'Judging, racing and results for each event, in one place.'),
-      access.kind ? h('p', {class:'tag tag--pass'},access.kind==='admin'?'Platform Admin · permanent access to every event':access.kind==='platform'?'Platform Organiser · all events':'Competition Organiser · assigned events') : null),
+      access.kind ? h('p', {class:'tag tag--pass'},access.kind==='admin'?'Platform Admin · permanent access to every event':access.kind==='platform'?'Platform Organiser · all events':access.kind==='spectator'?'Platform Spectator · read-only':'Competition Organiser · assigned events') : null),
     h('section', { class: 'section' },
       events.length === 0
         ? h('p', { class: 'muted' }, canCreate ? 'No events yet. Create one, or ask an organiser to invite you.' : 'No events yet. Ask an organiser to invite you to an event.')
@@ -70,6 +70,6 @@ export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
               showcaseAvailable && e.id === SHOWCASE_EVENT_ID ? h('a', { class: 'btn btn--ghost btn--small', href: showcaseHref(e.id) }, 'Open showcase') : null)))),
     canCreate ? h('section', { class: 'section' }, h('h2', null, 'New event'), error, form) : null,
     deleted.length ? deletedSection : null,
-    access.canManage ? organiserControls(ctx,access,viewer?.userId) : null,
+    (access.canManage||access.kind==='spectator') ? organiserControls(ctx,access,viewer?.userId) : null,
   );
 }

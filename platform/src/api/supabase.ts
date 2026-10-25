@@ -268,10 +268,11 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
       if(after?.userId!==before.userId || (access.viewerId!==undefined && access.viewerId!==after.userId)) throw new ApiError('unauthenticated','The account changed while loading organiser access');
       return access;
     },
-    async inviteOrganiser(email, scope) {
-      const id = ok(await guard(() => sb.rpc('invite_organiser', {p_email: email.trim().toLowerCase(), p_scope: scope}))) as string;
+    async inviteOrganiser(email, scope, options) {
+      const id = ok(await guard(() => sb.rpc('invite_platform_member', {p_email: email.trim().toLowerCase(), p_scope: scope,p_name:options?.name??'',p_hidden:options?.hidden??false}))) as string;
       await sendInvitation(id);
     },
+    async setOrganiserVisibility(userId,name,hidden){ok(await guard(()=>sb.rpc('set_organiser_visibility',{p_user:userId,p_name:name,p_hidden:hidden})));},
     async removeOrganiser(userId) { ok(await guard(() => sb.rpc('remove_organiser', {p_user: userId}))); },
     async withdrawOrganiserInvitation(id) { ok(await guard(() => sb.rpc('withdraw_organiser_invitation', {p_invitation: id}))); },
     async createEvent(i) {
@@ -309,7 +310,10 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
     async myRoles(eventId) {
       const s = await session();
       if (!s) return [];
-      return (await pages<never>((a, b) => sb.rpc('effective_event_roles', {p_event: eventId}).order('id').range(a, b))).map(toRoleRow);
+      const roles=(await pages<never>((a, b) => sb.rpc('effective_event_roles', {p_event: eventId}).order('id').range(a, b))).map(toRoleRow);
+      const access=ok(await guard(()=>sb.rpc('platform_access'))) as PlatformAccess;
+      if(access.kind==='spectator')return [{id:`spectator:${eventId}`,eventId,userId:s.userId,email:s.email,role:'spectator',panel:null,teamId:null}];
+      return roles;
     },
     async listRoles(eventId) {
       if (!(await session())) return [];
@@ -467,7 +471,7 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
       const s = await session();
       if (!s) return [];
       const roles = await pages<Record<string, any>>((a, b) => sb.rpc('list_event_people',{p_event:eventId}).eq('user_id', s.userId).order('id').range(a, b));
-      const chair = roles.some((r) => r.role === 'chair');
+      const chair = roles.some((r) => r.role === 'chair') || (ok(await guard(()=>sb.rpc('platform_access'))) as PlatformAccess).kind==='spectator';
       const panels = roles.filter((r) => r.role === 'lead_judge').map((r) => r.panel);
       if (!chair && panels.length === 0) return [];
       const rows = await pages<Record<string, any>>((a, b) => sb.from('scorecard_private_reviews')

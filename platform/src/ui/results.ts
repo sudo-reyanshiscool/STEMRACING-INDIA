@@ -53,22 +53,23 @@ export async function resultsScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
   const [event, roles] = await Promise.all([ctx.api.getEvent(eventId), ctx.api.myRoles(eventId)]);
   if (!event) return notFound('These results have not been released, or the event was not found.', '#/', 'All events');
   const isStaff = roles.some((r) => r.role === 'organiser' || r.role === 'chair');
+  const readStaff=isStaff||roles.some(r=>r.role==='spectator');
   const delivery=isStaff?await resultDelivery(ctx,event):null;
   const managed = [...new Set(roles.filter((r) => r.role === 'team_manager' && r.teamId).map((r) => r.teamId as string))];
-  const latest = isStaff ? await ctx.api.latestSnapshot(eventId) : await ctx.api.publicStandings(eventId);
+  const latest = readStaff ? await ctx.api.latestSnapshot(eventId) : await ctx.api.publicStandings(eventId);
   const eventHref = signedIn ? routeHref({ name: 'event', eventId }) : '#/';
 
   // The Api already withholds unreleased snapshots from everyone but staff; checked again so a lax backend leaks nothing.
-  const snapshot = latest && (isStaff || event.resultsReleased) ? latest : null;
+  const snapshot = latest && (readStaff || event.resultsReleased) ? latest : null;
   const releasedLive = event.resultsReleased && snapshot !== null;
 
   const head = h('div', { class: 'stack' },
     h('a', { class: 'back', href: eventHref }, signedIn ? event.name : 'Sign in'),
     event.startsOn ? h('p', { class: 'eyebrow' }, event.startsOn) : null,
     h('h1', null, `${event.name}: results`),
-    isStaff && snapshot && !releasedLive ? h('p', { class: 'notice', role: 'status' }, 'Not released. Only you can see this ranking.') : null);
+    readStaff && snapshot && !releasedLive ? h('p', { class: 'notice', role: 'status' }, 'Not released. Visible only to authorised staff and spectators.') : null);
 
-  if (!event.resultsReleased && !isStaff) {
+  if (!event.resultsReleased && !readStaff) {
     return h('div', { class: 'stack stack--lg' }, head, h('p', { class: 'lead' }, 'Results have not been released yet.'));
   }
   if (!snapshot) {

@@ -13,7 +13,7 @@ describe('organiser access on Events',()=>{
   expect(text(el)).not.toContain('Revoke organiser access');
   const email=el.querySelector<HTMLInputElement>('input[name=organiserEmail]')!;
   const scope=el.querySelector<HTMLSelectElement>('select[name=organiserScope]')!;
-  expect([...scope.options].map(o=>o.text)).toEqual(['Competition Organiser','Platform Organiser']);
+  expect([...scope.options].map(o=>o.text)).toEqual(['Competition Organiser','Platform Organiser','Platform Spectator']);
   email.value='platform@x.test';scope.value='platform';
   email.closest('form')!.dispatchEvent(new Event('submit',{cancelable:true}));
   await vi.waitFor(()=>expect(ctx.rerender).toHaveBeenCalledOnce());

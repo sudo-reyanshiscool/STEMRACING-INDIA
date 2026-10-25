@@ -6,16 +6,16 @@ import type { RaceHeat, RaceInput, TimingState, TimingPair } from '../racing';
 import type { PanelId, RankRow, Ruleset } from '../engine';
 import type { CardReview, FeedbackRow, NominationRow } from './review';
 
-export type OrganiserScope = 'competition' | 'platform';
+export type OrganiserScope = 'competition' | 'platform' | 'spectator';
 export interface PlatformAccess {
   viewerId?: string | null; ownerId?: string;
   kind: 'admin' | OrganiserScope | null;
   ownerEmail: string;
   canManage: boolean;
   organisers: Array<{userId: string; name?: string; emailHidden?: boolean; contactRestricted?: boolean; identityRestricted?: boolean; email: string | null; scope: 'admin' | OrganiserScope; permanent: boolean}>;
-  invitations: Array<{id: string; email: string; scope: OrganiserScope; emailStatus: EmailStatus}>;
+  invitations: Array<{id: string; name?: string; identityRestricted?: boolean; email: string; scope: OrganiserScope; emailStatus: EmailStatus}>;
 }
-export type Role = 'organiser' | 'chair' | 'lead_judge' | 'judge' | 'scrutineer' | 'race_official' | 'team_manager';
+export type Role = 'organiser' | 'chair' | 'lead_judge' | 'judge' | 'scrutineer' | 'race_official' | 'team_manager' | 'spectator';
 export type Panel = PanelId;
 export interface Session { userId: string; email: string }
 export interface EventRow { id: string; name: string; startsOn: string | null; ruleset: Ruleset; resultsReleased: boolean }
@@ -127,7 +127,8 @@ export interface Api {
   listEvents(): Promise<EventRow[]>;
   canCreateEvent(): Promise<boolean>;
   platformAccess(): Promise<PlatformAccess>;
-  inviteOrganiser(email: string, scope: OrganiserScope): Promise<void>;
+  inviteOrganiser(email: string, scope: OrganiserScope, options?: {name?: string; hidden?: boolean}): Promise<void>;
+  setOrganiserVisibility(userId: string, name: string, hidden: boolean): Promise<void>;
   removeOrganiser(userId: string): Promise<void>;
   withdrawOrganiserInvitation(invitationId: string): Promise<void>;
   createEvent(i: { name: string; startsOn?: string }): Promise<EventRow>;

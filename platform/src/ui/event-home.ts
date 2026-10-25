@@ -1,3 +1,4 @@
+import {spectatorOnly,SPECTATOR_PAGES} from './spectator';
 import { judgePageAllowed } from './judge-access';
 import { inspectionScopeControl } from './inspection-scope';
 import type { Role } from '../api';
@@ -31,6 +32,7 @@ export async function eventHomeScreen(ctx: Ctx, eventId: string): Promise<HTMLEl
   if (has('organiser', 'chair', 'team_manager')) tiles.push(tile('Team feedback', 'Report judging concerns and follow organiser responses.', {name:'team-feedback', eventId}));
   tiles.push(tile('Results', ctx.demo ? 'Explore the populated standings, awards and team PDFs.' : event.resultsReleased ? 'Results released.' : 'Not released yet.', { name: 'results', eventId }));
 
+  if(spectatorOnly(roles)) {tiles.length=0;for(const [label,name] of SPECTATOR_PAGES.filter(([,name])=>name!=='event'))tiles.push(tile(label,`View ${label.toLowerCase()} without making changes.`,{name,eventId} as Route));}
   const mine = [...new Set(roles.map((r) => (r.panel ? `${ROLE_LABEL[r.role]}: ${PANEL_LABEL[r.panel]}` : ROLE_LABEL[r.role])))];
   return h('div', { class: 'stack stack--lg' },
     h('div', { class: 'stack' },

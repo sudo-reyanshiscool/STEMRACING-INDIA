@@ -1,0 +1,60 @@
+import {beforeAll,beforeEach,afterAll,describe,it,expect} from 'vitest';
+import {randomUUID} from 'node:crypto';
+import {as,makeDb,seedWorld,ids,EMAIL,type World} from './harness';
+import type {PGlite} from '@electric-sql/pglite';
+let db:PGlite,w:World;
+beforeAll(async()=>{db=await makeDb();});
+beforeEach(async()=>{await db.query('delete from platform_organisers where user_id=$1',[ids.outsider]);await db.query('delete from organiser_invitations where email=$1',[EMAIL.outsider]);w=await seedWorld(db);});
+afterAll(async()=>db.close());
+const invite=(scope:string,hidden=false)=>as(db,'admin',q=>q('select invite_platform_member($1,$2,$3,$4) as id',[EMAIL.outsider,scope,'Private observer',hidden]));
+const claim=()=>as(db,'outsider',q=>q('select claim_invitations() as count'));
+const access=(who:'admin'|'invitee'|'outsider')=>as(db,who,q=>q('select platform_access() as access'));
+describe('administrator-owned platform members',()=>{
+ it('restricts hidden accounts and spectator assignments to the permanent owner',async()=>{
+  await db.query("update platform_organisers set scope='platform' where user_id=$1",[ids.invitee]);
+  for(const [scope,hidden] of [['platform',true],['spectator',false]] as const)await expect(as(db,'invitee',q=>q('select invite_platform_member($1,$2,$3,$4)',[EMAIL.outsider,scope,'Name',hidden]))).rejects.toMatchObject({code:'42501'});
+  await expect(as(db,'invitee',q=>q("select invite_organiser($1,'spectator')",[EMAIL.outsider]))).rejects.toMatchObject({code:'42501'});
+  const id=(await invite('platform',true)).rows[0].id;
+  expect(JSON.stringify((await access('invitee')).rows)).not.toContain(EMAIL.outsider);
+  await expect(as(db,'invitee',q=>q('select reserve_invitation_email($1)',[id]))).rejects.toMatchObject({code:'42501'});
+  await expect(as(db,'invitee',q=>q('select withdraw_organiser_invitation($1)',[id]))).rejects.toMatchObject({code:'42501'});
+  expect((await claim()).rows[0].count).toBe(1);
+  expect((await as(db,'outsider',q=>q('select platform_manager() as allowed'))).rows[0].allowed).toBe(true);
+  expect(JSON.stringify((await access('invitee')).rows)).not.toContain('Private observer');
+  await expect(as(db,'invitee',q=>q("select set_organiser_visibility($1,'Visible',false)",[ids.outsider]))).rejects.toMatchObject({code:'42501'});
+  await as(db,'admin',q=>q("select set_organiser_visibility($1,'Visible organiser',false)",[ids.outsider]));
+  expect(JSON.stringify((await access('invitee')).rows)).toContain('Visible organiser');
+ });
+ it('claims a hidden spectator invite, retains read access and grants no management role',async()=>{
+  await invite('spectator',true);expect((await claim()).rows[0].count).toBe(1);
+  expect((await access('outsider')).rows[0].access).toMatchObject({kind:'spectator',canManage:false});
+  expect(JSON.stringify((await access('outsider')).rows)).not.toContain('Private observer');
+  expect((await as(db,'outsider',q=>q('select can_create_event() as allowed,platform_manager() as manager'))).rows[0]).toEqual({allowed:false,manager:false});
+  expect((await as(db,'outsider',q=>q('select id from events where id=$1',[w.eventId]))).rows).toHaveLength(1);
+  expect((await as(db,'outsider',q=>q('select id from teams where event_id=$1',[w.eventId]))).rows).toHaveLength(2);
+  await expect(as(db,'outsider',q=>q("select create_event('Forbidden',null,'{}')"))).rejects.toMatchObject({code:'42501'});
+  await expect(as(db,'outsider',q=>q("select invite_organiser('someone@x.test','platform')"))).rejects.toMatchObject({code:'42501'});
+  expect((await claim()).rows[0].count).toBe(0);
+ });
+ it('blocks data changes even if the spectator has an older organiser assignment',async()=>{
+  await as(db,'admin',q=>q("insert into event_roles(event_id,user_id,role,email) values($1,$2,'organiser',$3)",[w.eventId,ids.outsider,EMAIL.outsider]));
+  await invite('spectator');await claim();
+  await expect(as(db,'outsider',q=>q("update teams set name='Changed' where id=$1 returning id",[w.team1]))).rejects.toMatchObject({code:'42501'});
+  await expect(as(db,'outsider',q=>q("insert into teams(event_id,number,name) values($1,'99','Changed')",[w.eventId]))).rejects.toMatchObject({code:'42501'});
+  await expect(as(db,'outsider',q=>q('delete from teams where id=$1 returning id',[w.team1]))).rejects.toMatchObject({code:'42501'});
+  await expect(as(db,'outsider',q=>q("select save_racing_setup($1,0,'{\"seeds\":[],\"reactionComplete\":false,\"points\":[0,0,0,0,0,0,0,0]}')",[w.eventId]))).rejects.toMatchObject({code:'42501'});
+  expect((await as(db,'outsider',q=>q('select can_create_event() as allowed'))).rows[0].allowed).toBe(false);
+  expect((await db.query<{name:string}>('select name from teams where id=$1',[w.team1])).rows[0].name).toBe('Team One');
+ });
+ it('reads unreleased scorecards and notes, while preserving hidden organiser identities',async()=>{
+  const card=randomUUID();
+  await db.query("insert into scorecards(id,event_id,team_id,area_id,panel,judge_id,status) values($1,$2,$3,'verbal-technique','verbal',$4,'draft')",[card,w.eventId,w.team1,ids.judgeV]);
+  await db.query("insert into scorecard_private_reviews(scorecard_id,internal_notes) values($1,'Recorded judging note')",[card]);
+  await invite('spectator');await claim();
+  expect((await as(db,'outsider',q=>q('select id from scorecards where event_id=$1',[w.eventId]))).rows).toHaveLength(1);
+  expect((await as(db,'outsider',q=>q('select internal_notes from scorecard_private_reviews where scorecard_id=$1',[card]))).rows[0].internal_notes).toBe('Recorded judging note');
+  expect((await as(db,'outsider',q=>q('select * from list_event_people($1)',[w.eventId]))).rows.length).toBeGreaterThan(0);
+  expect((await as(db,'outsider',q=>q('select draw_lots_state($1) as draw',[w.eventId]))).rows[0].draw.teams).toHaveLength(2);
+  await expect(as(db,'outsider',q=>q("update scorecard_private_reviews set internal_notes='Changed' where scorecard_id=$1",[card]))).rejects.toThrow();
+ });
+});

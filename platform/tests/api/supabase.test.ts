@@ -489,9 +489,9 @@ describe('platform organiser adapter',()=>{
     expect(calls[0]).toMatchObject({kind:'rpc',name:'effective_event_roles',args:{p_event:'event'}});
   });
   it('invites through the protected scope RPC and sends only its returned invitation id',async()=>{
-    const {api,calls}=fake(c=>({data:c.name==='invite_organiser'?'server-id':{status:'sent'}}));
+    const {api,calls}=fake(c=>({data:c.name==='invite_platform_member'?'server-id':{status:'sent'}}));
     await api.inviteOrganiser(' Invited@X.test ','platform');
-    expect(calls).toMatchObject([{kind:'rpc',name:'invite_organiser',args:{p_email:'invited@x.test',p_scope:'platform'}},{kind:'function',name:'send-invitation',args:{body:{invitationId:'server-id'}}}]);
+    expect(calls).toMatchObject([{kind:'rpc',name:'invite_platform_member',args:{p_email:'invited@x.test',p_scope:'platform',p_name:'',p_hidden:false}},{kind:'function',name:'send-invitation',args:{body:{invitationId:'server-id'}}}]);
   });
   it('does not send when the scope grant is refused and does not request private controls anonymously',async()=>{
     const f=fake(()=>({error:{code:'42501',message:'only platform organisers'}}));
