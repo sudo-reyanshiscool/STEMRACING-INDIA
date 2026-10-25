@@ -16,3 +16,9 @@ it('allows the administrator only when response and current viewer identities bo
  expect(organiserControls(makeCtx(new MemoryApi()).ctx,access,'admin').textContent).toContain('nelson-private@x.test');
  expect(organiserControls(makeCtx(new MemoryApi()).ctx,access,'other').textContent).not.toContain('nelson-private@x.test');
 });
+it('omits a private organiser entirely for a non-administrator, including from stale administrator data',()=>{
+ const access={kind:'admin' as const,viewerId:'admin',ownerId:'admin',ownerEmail:'owner@x.test',canManage:true,invitations:[],organisers:[{userId:'nelson',name:'Nelson',email:'nelson-private@x.test',identityRestricted:true,scope:'platform' as const,permanent:false}]};
+ const hidden=organiserControls(makeCtx(new MemoryApi()).ctx,access,'other');
+ expect(hidden.textContent).not.toContain('Nelson');expect(hidden.textContent).not.toContain('nelson-private@x.test');expect(hidden.textContent).not.toContain('Revoke organiser access');
+ expect(organiserControls(makeCtx(new MemoryApi()).ctx,access,'admin').textContent).toContain('Nelson');
+});

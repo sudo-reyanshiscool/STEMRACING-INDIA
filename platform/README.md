@@ -392,3 +392,9 @@ The home-page organiser response includes its viewer and owner identities. Restr
 contacts are shown only when both match the current administrator. Account changes
 clear the outgoing page immediately, and the organiser list refreshes its privacy state.
 Migration 0033 adds this response binding without changing account permissions.
+
+Migration 0034 adds administrator-only visibility of an entire organiser identity.
+Private organisers are omitted from non-admin organiser, People and invitation
+responses; matching direct directory rows and historical records are also filtered.
+The hidden organiser’s access remains active. The home-page display independently
+filters private identities when the current viewer does not match the administrator.

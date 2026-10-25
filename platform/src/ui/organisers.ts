@@ -35,7 +35,7 @@ export function organiserControls(ctx: Ctx, access: PlatformAccess, viewerId?: s
     h('label', {class:'field'}, h('span', {class:'field__label'}, 'Organiser email'), email),
     h('label', {class:'field'}, h('span', {class:'field__label'}, 'Access level'), scope), send);
   form.addEventListener('submit', e => { e.preventDefault(); void run(send, () => ctx.api.inviteOrganiser(email.value,scope.value as OrganiserScope)); });
-  const peopleList=(access:PlatformAccess,viewerId?:string)=>h('ul', {class:'list'}, access.organisers.map(person => {
+  const peopleList=(access:PlatformAccess,viewerId?:string)=>h('ul', {class:'list'}, access.organisers.filter(person=>!person.identityRestricted || (access.kind==='admin' && !!viewerId && viewerId===access.ownerId && access.viewerId===viewerId)).map(person => {
     const adminViewer=access.kind==='admin' && !!viewerId && viewerId===access.ownerId && access.viewerId===viewerId;
     const hidden=!!person.emailHidden || (!!person.contactRestricted && !adminViewer) || (access.viewerId!==undefined && access.viewerId!==viewerId);
     const address=hidden?null:person.email;

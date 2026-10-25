@@ -12,7 +12,7 @@ export interface PlatformAccess {
   kind: 'admin' | OrganiserScope | null;
   ownerEmail: string;
   canManage: boolean;
-  organisers: Array<{userId: string; name?: string; emailHidden?: boolean; contactRestricted?: boolean; email: string | null; scope: 'admin' | OrganiserScope; permanent: boolean}>;
+  organisers: Array<{userId: string; name?: string; emailHidden?: boolean; contactRestricted?: boolean; identityRestricted?: boolean; email: string | null; scope: 'admin' | OrganiserScope; permanent: boolean}>;
   invitations: Array<{id: string; email: string; scope: OrganiserScope; emailStatus: EmailStatus}>;
 }
 export type Role = 'organiser' | 'chair' | 'lead_judge' | 'judge' | 'scrutineer' | 'race_official' | 'team_manager';

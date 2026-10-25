@@ -41,3 +41,22 @@ it('redacts a named organiser address at the API boundary while retaining privat
  await expect(as(w.db,'chair',q=>q('select email from invitations where event_id=$1',[w.eventId]))).rejects.toThrow();
  expect((await as(w.db,'outsider',q=>q('select platform_manager() as allowed'))).rows[0].allowed).toBe(true);
 });
+it('hides the entire organiser identity from everyone except the permanent administrator without revoking access',async()=>{
+ await w.db.query('update platform_organisers set hide_identity=true where user_id=$1',[ids.outsider]);
+ for(const who of ['outsider','invitee','organiser','chair'] as const){
+  const access=await as(w.db,who,q=>q('select platform_access() as access'));
+  const people=await as(w.db,who,q=>q('select * from list_event_people($1)',[w.eventId]));
+  const invites=await as(w.db,who,q=>q('select * from list_event_invitations($1)',[w.eventId]));
+  const roles=await as(w.db,who,q=>q('select display_name,user_id from event_roles where event_id=$1',[w.eventId]));
+  const pending=await as(w.db,who,q=>q('select display_name from invitations where event_id=$1',[w.eventId]));
+  const audits=await as(w.db,who,q=>q('select actor,entity_id,detail from audit_log where event_id=$1',[w.eventId]));
+  const output=JSON.stringify([access.rows,people.rows,invites.rows,roles.rows,pending.rows,audits.rows]);
+  expect(output).not.toContain('Nelson');expect(output).not.toContain('nelson-private@x.test');
+  // viewerId may be the hidden organiser himself, so inspect directory entries separately.
+  expect(people.rows.some((r:any)=>r.user_id===ids.outsider)).toBe(false);
+ }
+ const owner=await as(w.db,'admin',q=>q('select platform_access() as access'));
+ expect(owner.rows[0].access.organisers.find((p:any)=>p.userId===ids.outsider)).toMatchObject({name:'Nelson',identityRestricted:true});
+ expect((await as(w.db,'admin',q=>q('select * from list_event_invitations($1)',[w.eventId]))).rows).toHaveLength(1);
+ expect((await as(w.db,'outsider',q=>q('select platform_manager() as allowed'))).rows[0].allowed).toBe(true);
+});
