@@ -391,6 +391,8 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
     async publishSchedule(eventId,revision) {ok(await guard(()=>sb.rpc('publish_schedule',{p_event:eventId,p_revision:revision})));},
     async mySchedule(eventId) {return ok(await guard(()=>sb.rpc('my_schedule',{p_event:eventId})));},
     async sendSubmissionConfirmation(eventId,teamId,kind,revision) {ok(await guard(()=>sb.functions.invoke('send-submission',{body:{eventId,teamId,kind,revision}})));},
+    async submissionGuideState(eventId) { return ok(await guard(() => sb.rpc('submission_guide_state', {p_event:eventId}))); },
+    async recordSubmissionGuideProgress(eventId, position) { return ok(await guard(() => sb.rpc('record_submission_guide_progress', {p_event:eventId,p_position:position}))); },
     async submissionState(eventId) {return ok(await guard(()=>sb.rpc('submission_state',{p_event:eventId})));},
     async saveSubmissionRules(eventId,revision,rules) {ok(await guard(()=>sb.rpc('save_submission_rules',{p_event:eventId,p_revision:revision,p_rules:rules})));},
     async listTeamFiles(eventId) {return await pages<any>((a,b)=>sb.rpc('list_team_files',{p_event:eventId}).order('id').range(a,b));},
@@ -666,6 +668,8 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
       return res;
     },
     async uploadTeamPhoto(eventId, teamId, revision, input) {
+      const guide = ok(await guard(() => sb.rpc('submission_guide_state', {p_event:eventId})));
+      if (guide.required && !guide.complete) throw new ApiError('guide-required','Watch the full submission guide before uploading.');
       const res = ok(await guard(() => sb.rpc('upload_team_photo', { p_event: eventId, p_team: teamId, p_revision: revision, p_input: input }))) as any;
       return res;
     },
@@ -738,6 +742,8 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
       return computeCompulsoryAssetStatus(eventId, teamId, raw);
     },
     async saveTeamColours(eventId, teamId, colours) {
+      const guide = ok(await guard(() => sb.rpc('submission_guide_state', {p_event:eventId})));
+      if (guide.required && !guide.complete) throw new ApiError('guide-required','Watch the full submission guide before uploading.');
       const valid = validateTeamColours(colours);
       const key = `${eventId}:${teamId}`;
       const stored = getCompulsoryItem(key);
@@ -750,6 +756,8 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
       return valid;
     },
     async saveTeamMemberPortraits(eventId, teamId, members) {
+      const guide = ok(await guard(() => sb.rpc('submission_guide_state', {p_event:eventId})));
+      if (guide.required && !guide.complete) throw new ApiError('guide-required','Watch the full submission guide before uploading.');
       if (!Array.isArray(members)) throw new ApiError('invalid', 'Provide a list of team members.');
       const key = `${eventId}:${teamId}`;
       const stored = getCompulsoryItem(key);
@@ -762,6 +770,8 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
       return members;
     },
     async uploadCompulsoryAsset(eventId, teamId, assetKey, file) {
+      const guide = ok(await guard(() => sb.rpc('submission_guide_state', {p_event:eventId})));
+      if (guide.required && !guide.complete) throw new ApiError('guide-required','Watch the full submission guide before uploading.');
       const key = `${eventId}:${teamId}`;
       const stored = getCompulsoryItem(key);
       let raw: Partial<TeamCompulsoryAssets> = {};

@@ -1,3 +1,4 @@
+import {submissionGuide,type SubmissionGuideGate} from './submission-guide';
 import {managerOnly,garageHeader,submissionProgress} from './team-garage';
 import type {Ctx} from './ctx';
 import {FILE_KINDS,type SubmissionRule} from '../api';
@@ -26,9 +27,13 @@ export async function submissionsScreen(ctx:Ctx,eventId:string):Promise<HTMLElem
   }catch(err){status.textContent=errorText(err);}finally{save.disabled=false;}}},fields.map(f=>h('fieldset',{class:'stack'},h('legend',null,FILE_KINDS[f.rule.kind]),h('label',{class:'field'},'Deadline (IST; blank disables penalties)',f.deadline),h('label',{class:'field'},'Penalty points per started hour',f.rate))),save);
   root.append(h('details',null,h('summary',null,'Submission deadlines and penalties'),form));
  }
- root.append(await teamFilesScreen(ctx,eventId,true));
- root.append(await teamPhotoUploadSection(ctx, eventId, teams, roles.filter(r => r.role === 'team_manager').map(r => r.teamId).filter((id): id is string => Boolean(id)), staff));
- root.append(await compulsoryAssetsSection(ctx, eventId, teams, roles.filter(r => r.role === 'team_manager').map(r => r.teamId).filter((id): id is string => Boolean(id)), staff));
+ const gate:SubmissionGuideGate|undefined=!staff&&roles.some(r=>r.role==='team_manager')&&!event.resultsReleased?await submissionGuide(ctx,eventId):undefined;
+ if(gate)root.append(gate.element);
+ root.append(await teamFilesScreen(ctx,eventId,true,gate));
+ const photoSection=await teamPhotoUploadSection(ctx, eventId, teams, roles.filter(r => r.role === 'team_manager').map(r => r.teamId).filter((id): id is string => Boolean(id)), staff);
+ gate?.guard(photoSection);root.append(photoSection);
+ const assetSection=await compulsoryAssetsSection(ctx, eventId, teams, roles.filter(r => r.role === 'team_manager').map(r => r.teamId).filter((id): id is string => Boolean(id)), staff);
+ gate?.guard(assetSection);root.append(assetSection);
  const labels={not_open:'Deadline not set',pending:'Awaiting submission',overdue:'Overdue · not submitted',on_time:'Submitted on time',late:'Submitted late'};
  const team=h('select',{'aria-label':'Filter submissions by team'},h('option',{value:''},'All available teams'),teams.filter(t=>state.rows.some(r=>r.teamId===t.id)).map(t=>h('option',{value:t.id},`${t.number} · ${t.name}`)));
  const list=h('div',{class:manager?'garage-submission-grid':'stack'});

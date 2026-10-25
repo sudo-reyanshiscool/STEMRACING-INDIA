@@ -1,3 +1,4 @@
+import {watchGuide} from '../guide-helper';
 import { describe, expect, it } from 'vitest';
 import { MemoryApi } from '../../src/api';
 import { extractDimensions, checkResolution } from '../../src/api/team-photos';
@@ -46,6 +47,7 @@ describe('team photos memory backend', () => {
     await api.claimInvitations();
 
     // Upload requires media consent
+    await watchGuide(api, event.id);
     await expect(api.uploadTeamPhoto(event.id, team.id, 0, {
       name: 'team.png',
       mime: 'image/png',

@@ -408,3 +408,11 @@ those screens load. Assigned scorecards and specification inspection detail page
 remain reachable as part of My scorecards. This controls the judge interface;
 existing scorecard ownership, assignment and feedback permissions remain enforced
 by the API. Lead Judges have those same four sections plus Moderation. Separately assigned organiser, Chair and operational roles retain their workspaces.
+
+### Required submission guide
+
+Team managers must complete the 13:04 submission guide before using portfolio, photograph or compulsory-media submission controls. Completion is tied to the signed-in user and `SUBMISSION_GUIDE_VERSION`, and follows the account across devices and events. Organisers and the Chair retain support access without this onboarding gate; released-result downloads remain available.
+
+The player permits rewinding, limits playback to normal speed, pauses when the tab is hidden, and saves contiguous progress every ten seconds and on pause/end. Network failures pause playback and retain the last server-confirmed point. Portfolio upload acceptance is also guarded in Postgres; guide progress tables are private and heartbeats cannot jump past elapsed server time. Playback tracking establishes completion of the video, not a person's attention.
+
+The supplied MOV was transcoded without cutting content to H.264/AAC, 1080p/24fps with fast start. Its versioned MP4 is served from `/guides/submission-guide-2026-10-26.mp4`, outside Supabase file storage. Replacing the guide requires a new video URL/version and matching server duration/version constants so previous completion cannot unlock different content.

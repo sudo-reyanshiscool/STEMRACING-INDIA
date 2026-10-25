@@ -35,6 +35,7 @@ const EXPIRED = /jwt expired/i;
 const NETWORK = /failed to fetch|networkerror|network request failed|load failed|fetch failed|econnrefused|enotfound/i;
 
 export function mapPgError(e: { message: string; code?: string }): ApiError {
+  if (e.code === '55000' && e.message === 'watch the full submission guide before uploading') return new ApiError('guide-required', e.message);
   const known = e.code && Object.prototype.hasOwnProperty.call(PG_ERROR_CODES, e.code) ? PG_ERROR_CODES[e.code] : undefined;
   if (known) return new ApiError(known, e.message);
   if (EXPIRED.test(e.message)) return new ApiError('unauthenticated', e.message);

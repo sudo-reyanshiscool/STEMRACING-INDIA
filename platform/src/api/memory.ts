@@ -1,3 +1,4 @@
+import {SUBMISSION_GUIDE_VERSION,SUBMISSION_GUIDE_DURATION,type SubmissionGuideState} from './submission-guide';
 import {emptySchedule,validateSchedule,teamActivities,type ScheduleDoc,type ScheduleState} from '../scheduling';
 import {PORTFOLIOS,submissionRow,validateSubmissionRules,type SubmissionRule} from './submissions';
 import {FILE_PANEL, validateTeamFile, type TeamFile, type TeamFileInput} from './team-files';
@@ -93,6 +94,27 @@ export class MemoryApi implements Api {
     this.require(eventId,'team_manager');const state=this.schedules.get(eventId),doc=state?.published;
     return {timezone:doc?.timezone??'Asia/Kolkata',publishedAt:state?.publishedAt??null,teams:this.teams.filter(t=>t.eventId===eventId&&this.rolesOf(eventId).some(r=>r.role==='team_manager'&&r.teamId===t.id)).map(t=>({teamId:t.id,stream:doc?.streams.find(s=>doc.allocations.some(a=>a.teamId===t.id&&a.streamId===s.id))?.name??null,activities:doc?teamActivities(doc,t.id).map(a=>({...copy(a),teamIds:a.scope==='teams'?[t.id]:[],resourceNames:a.resourceIds.map(id=>doc.resources.find(r=>r.id===id)?.name??'Resource')})):[]}))};
   }
+  private guideProgress = new Map<string, {watched: number; at: number; complete: boolean}>();
+  async submissionGuideState(eventId: string): Promise<SubmissionGuideState> {
+    this.require(eventId,'organiser','chair','team_manager');
+    const progress = this.guideProgress.get(this.me!.userId);
+    return {version:SUBMISSION_GUIDE_VERSION,duration:SUBMISSION_GUIDE_DURATION,watchedSeconds:progress?.watched??0,complete:progress?.complete??false,required:!this.has(eventId,'organiser','chair')};
+  }
+  async recordSubmissionGuideProgress(eventId: string, position: number): Promise<SubmissionGuideState> {
+    await this.submissionGuideState(eventId);
+    if (!Number.isFinite(position) || position<0 || position>SUBMISSION_GUIDE_DURATION) throw new ApiError('invalid','Invalid guide position');
+    const id=this.me!.userId, now=Date.now();
+    const progress=this.guideProgress.get(id)??{watched:0,at:now,complete:false};
+    if (!progress.complete && position>=progress.watched && position-progress.watched<=Math.min((now-progress.at)/1000,15)+0.5) {
+      progress.at=Math.max(now,progress.at+(position-progress.watched)*1000);progress.watched=position;progress.complete=position>=SUBMISSION_GUIDE_DURATION-0.001;
+    }
+    this.guideProgress.set(id,progress);
+    return this.submissionGuideState(eventId);
+  }
+  private async requireSubmissionGuide(eventId:string) {
+    const state=await this.submissionGuideState(eventId);
+    if(state.required&&!state.complete)throw new ApiError('guide-required','Watch the full submission guide before uploading.');
+  }
   private submissionRules=new Map<string,{revision:number;rules:SubmissionRule[]}>();
   private submittedTimes=new Map<string,string>();
   private submissionRows(eventId:string) {
@@ -139,6 +161,7 @@ export class MemoryApi implements Api {
   async uploadTeamFile(eventId:string,teamId:string,revision:number,input:TeamFileInput) {
     this.require(eventId,'organiser','chair','team_manager');this.frozen(eventId,'team files');this.teamOrThrow(eventId,teamId);
     if(!this.has(eventId,'organiser','chair')&&!this.rolesOf(eventId).some(r=>r.role==='team_manager'&&r.teamId===teamId))throw new ApiError('forbidden','Only your own team');
+    await this.requireSubmissionGuide(eventId);
     const size=validateTeamFile(input),old=this.teamFiles.find(f=>f.eventId===eventId&&f.teamId===teamId&&f.kind===input.kind);
     if((old?.revision??0)!==revision)throw new ApiError('conflict','File changed');
     const file={...copy(input),name:input.name.trim(),id:old?.id??nid('file'),eventId,teamId,size,revision:revision+1,updatedAt:new Date().toISOString()};
@@ -1424,6 +1447,7 @@ export class MemoryApi implements Api {
     const isMgr = this.rolesOf(eventId).some(r => r.role === 'team_manager' && r.teamId === teamId);
     if (!isStaff && !isMgr) throw new ApiError('forbidden', 'Only your team or event staff may upload team photographs');
 
+    await this.requireSubmissionGuide(eventId);
     const { size, mime } = validatePhotoUpload(input);
     const existing = this.teamPhotos.find(p => p.eventId === eventId && p.teamId === teamId);
     if ((existing?.revision ?? 0) !== revision) throw new ApiError('conflict', 'Photograph was modified; reload');
@@ -1755,6 +1779,7 @@ export class MemoryApi implements Api {
   }
 
   async saveTeamColours(eventId: string, teamId: string, colours: TeamColours): Promise<TeamColours> {
+    await this.requireSubmissionGuide(eventId);
     this.require(eventId, 'organiser', 'chair', 'team_manager');
     this.frozen(eventId, 'team colours');
     const valid = validateTeamColours(colours);
@@ -1767,6 +1792,7 @@ export class MemoryApi implements Api {
   }
 
   async saveTeamMemberPortraits(eventId: string, teamId: string, members: TeamMemberPortrait[]): Promise<TeamMemberPortrait[]> {
+    await this.requireSubmissionGuide(eventId);
     this.require(eventId, 'organiser', 'chair', 'team_manager');
     this.frozen(eventId, 'member portraits');
     if (!Array.isArray(members)) throw new ApiError('invalid', 'Provide a list of team members.');
@@ -1784,6 +1810,7 @@ export class MemoryApi implements Api {
     assetKey: CompulsoryAssetKey,
     file: { name: string; mime: string; base64: string }
   ): Promise<StoredCompulsoryFile> {
+    await this.requireSubmissionGuide(eventId);
     this.require(eventId, 'organiser', 'chair', 'team_manager');
     this.frozen(eventId, 'compulsory assets');
     const key = `${eventId}:${teamId}`;

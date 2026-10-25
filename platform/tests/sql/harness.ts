@@ -90,6 +90,8 @@ export async function seedWorld(db: PGlite): Promise<World> {
     );
   }
   await db.query("insert into platform_organisers(user_id,email,scope,granted_by) values ($1,$2,'competition',$3) on conflict do nothing", [ids.invitee,EMAIL.invitee.toLowerCase(),ids.admin]);
+  // Existing workflow fixtures are trained users; dedicated guide tests explicitly clear this completion.
+  await db.query("insert into submission_guide_progress(user_id,version,watched_seconds,completed_at) select id,'submission-guide-2026-10-26-v1',784.04,clock_timestamp() from auth.users on conflict do nothing");
   return { db, eventId, team1, team2 };
 }
 

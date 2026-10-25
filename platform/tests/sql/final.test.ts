@@ -271,13 +271,13 @@ describe('hardening across the whole schema after 0004', () => {
       'list_team_concerns', 'list_team_files', 'list_team_photo_history', 'list_team_photos', 'my_schedule',
       'organiser_identity_visible', 'pair_race_timing', 'platform_access', 'platform_manager', 'platform_spectator',
       'publish_schedule', 'queue_bulk_photo_processing', 'queue_photo_processing', 'queue_race_followup',
-      'queue_reaction_races', 'race_timing_state', 'racing_state', 'reject_team_photo', 'release_results',
+      'queue_reaction_races', 'race_timing_state', 'racing_state', 'record_submission_guide_progress', 'reject_team_photo', 'release_results',
       'released_results', 'remove_event_award', 'remove_organiser', 'reopen_inspection', 'reopen_scorecard',
       'reserve_invitation_email', 'reserve_submission_email', 'reserve_team_results_email', 'resolve_team_concern',
       'restore_event', 'restore_team_photo_version', 'result_mail_state', 'save_card_review', 'save_event_award',
       'save_inspection_scope', 'save_race', 'save_racing_setup', 'save_schedule', 'save_submission_rules',
       'scheduling_state', 'set_judge_assignment', 'set_judge_exemption', 'set_judge_name', 'set_organiser_visibility',
-      'set_team_contact', 'snapshot_inputs', 'specification_visible', 'submission_state', 'submit_inspection',
+      'set_team_contact', 'snapshot_inputs', 'specification_visible', 'submission_guide_state', 'submission_state', 'submit_inspection',
       'submit_team_concern', 'team_results_packet', 'upload_corrected_team_photo', 'upload_team_file',
       'upload_team_photo', 'withdraw_organiser_invitation', 'withdraw_results'
     ]);

@@ -16,3 +16,5 @@ export * from './sample-cutout';
 export * from './compulsory-assets';
 
 export * from './submissions';
+
+export * from './submission-guide';

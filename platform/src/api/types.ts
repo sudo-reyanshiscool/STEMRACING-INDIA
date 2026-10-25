@@ -164,7 +164,7 @@ export interface MfaStatus {
 }
 
 /** 'unauthenticated': no valid session (signed out, token expired). The caller should sign in again; nothing was refused on merit. */
-export type ApiErrorCode = 'unauthenticated' | 'forbidden' | 'locked' | 'invalid' | 'duplicate' | 'conflict' | 'email-delivery' | 'rate-limited' | 'invalid-auth' | 'not-found' | 'network' | 'unknown';
+export type ApiErrorCode = 'guide-required' | 'unauthenticated' | 'forbidden' | 'locked' | 'invalid' | 'duplicate' | 'conflict' | 'email-delivery' | 'rate-limited' | 'invalid-auth' | 'not-found' | 'network' | 'unknown';
 
 export class ApiError extends Error {
   constructor(public code: ApiErrorCode, message: string) {
@@ -181,6 +181,8 @@ export interface TeamConcern {
 }
 export interface InspectionScope {revision: number; articles: string[] | null; locked: boolean}
 export interface Api {
+  submissionGuideState(eventId: string): Promise<import('./submission-guide').SubmissionGuideState>;
+  recordSubmissionGuideProgress(eventId: string, position: number): Promise<import('./submission-guide').SubmissionGuideState>;
   schedulingState(eventId:string):Promise<ScheduleState>;
   saveSchedule(eventId:string,revision:number,document:ScheduleDoc):Promise<void>;
   publishSchedule(eventId:string,revision:number):Promise<void>;

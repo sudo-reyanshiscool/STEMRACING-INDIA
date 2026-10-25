@@ -1,3 +1,4 @@
+import {watchGuide} from '../guide-helper';
 // @vitest-environment jsdom
 import {it,expect,vi} from 'vitest';
 import {eventHomeScreen} from '../../src/ui/event-home';
@@ -5,6 +6,7 @@ import {submissionsScreen} from '../../src/ui/submissions';
 import {world,makeCtx,EMAILS} from './helpers';
 it('shows actual team submission progress and excludes other teams from the garage',async()=>{
  const {api,ev,t1}=await world();
+ await watchGuide(api,ev.id);
  await api.uploadTeamFile(ev.id,t1.id,0,{kind:'design_portfolio',name:'design.pdf',mime:'application/pdf',base64:btoa('%PDF-1.4\n%%EOF')});
  const {ctx}=makeCtx(api),root=await eventHomeScreen(ctx,ev.id);
  expect(root.querySelector('.garage-bib')?.textContent).toContain('1');expect(root.querySelector('h1')?.textContent).toBe('One');

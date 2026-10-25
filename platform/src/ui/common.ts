@@ -3,6 +3,7 @@ import { h } from './dom';
 
 /** Plain-language text for every error code. The Record type makes a new code a compile error until it is covered. */
 const CODE_TEXT: Record<ApiErrorCode, string> = {
+  'guide-required': 'Watch the full submission guide before uploading. Your progress is saved to your account.',
   unauthenticated: 'Sign in again — your scores are safe',
   forbidden: 'You do not have permission to do that.',
   locked: 'This has been submitted and is locked. Ask the Chair of Judges to reopen it.',

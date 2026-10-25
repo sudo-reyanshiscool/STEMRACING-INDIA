@@ -1,3 +1,4 @@
+import {watchGuide} from '../guide-helper';
 // @vitest-environment jsdom
 import {Blob as NodeBlob} from 'node:buffer';
 import {unzipSync,strFromU8} from 'fflate';
@@ -12,7 +13,7 @@ afterEach(()=>{cleanup.forEach(f=>f());cleanup=[];vi.restoreAllMocks();vi.unstub
 const button=(root:HTMLElement,label:string)=>[...root.querySelectorAll('button')].find(b=>b.textContent===label)!;
 describe('2027 event workflows',()=>{
  it('uploads a portfolio for the manager’s own team and displays the saved file',async()=>{
-  const {api,ev,t1}=await world();const {ctx}=makeCtx(api);const root=await teamFilesScreen(ctx,ev.id);document.body.append(root);
+  const {api,ev,t1}=await world();await watchGuide(api,ev.id);const {ctx}=makeCtx(api);const root=await teamFilesScreen(ctx,ev.id);document.body.append(root);
   const team=root.querySelector<HTMLSelectElement>('[aria-label="Upload team"]')!;expect([...team.options].map(o=>o.value)).toEqual([t1.id]);
   const category=root.querySelector<HTMLSelectElement>('[aria-label="File category"]')!;category.value='design_portfolio';category.dispatchEvent(new Event('change'));
   const bytes=new TextEncoder().encode('%PDF-1.7\nTest\n%%EOF');
