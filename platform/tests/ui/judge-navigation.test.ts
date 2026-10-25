@@ -9,3 +9,5 @@ it('matches the requested three-tab judge navigation before and after results re
   expect([...nav.querySelectorAll('a')].map(a=>a.textContent)).toEqual(['Event','My scorecards','Scores']);
  }
 });
+
+it('keeps Moderation as the fourth tab for Lead Judges',async()=>{const {api,ev}=await world();await api.signIn(EMAILS.lead);const nav=eventNav(ev,await api.myRoles(ev.id),'moderate');expect([...nav.querySelectorAll('a')].map(a=>a.textContent)).toEqual(['Event','My scorecards','Scores','Moderation']);});

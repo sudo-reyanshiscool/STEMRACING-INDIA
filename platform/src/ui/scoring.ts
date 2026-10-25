@@ -19,6 +19,7 @@ export async function scoringScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
     ...roles.filter((r) => r.role === 'judge' && r.panel).map((r) => r.panel as Panel),
     ...(roles.some((r) => r.role === 'scrutineer') ? ['scrutineering' as Panel] : []),
   ])];
+  if(panels.length===0 && roles.some(r=>r.role==='lead_judge')) return h('div',{class:'stack'},h('h1',null,'My scorecards'),h('p',null,'You have no individual judging assignments. Review your panel’s scorecards in Moderation.'),h('a',{href:routeHref({name:'moderate',eventId})},'Open Moderation'));
   if (panels.length === 0) return notFound('You are not a judge on any panel for this event.', eventHref, event.name);
 
   let alive = true;

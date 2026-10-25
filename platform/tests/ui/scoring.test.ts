@@ -112,7 +112,7 @@ describe('scoringScreen', () => {
     const { api, ev } = await world();
     await api.signIn(EMAILS.lead);
     const { ctx } = makeCtx(api);
-    expect(text(await scoringScreen(ctx, ev.id))).toContain('not a judge on any panel');
+    const screen=await scoringScreen(ctx,ev.id);expect(text(screen)).toContain('no individual judging assignments');expect(screen.querySelector('a')?.getAttribute('href')).toBe(`#/event/${ev.id}/moderate`);
   });
 });
 

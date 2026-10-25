@@ -7,6 +7,7 @@ import { routeHref, type Route } from './router';
 export function eventNav(event: EventRow, roles: RoleRow[], current: Route['name']): HTMLElement {
   if(judgeOnly(roles)) {
     const items:Array<[string,Route]>=[['Event',{name:'event',eventId:event.id}],['My scorecards',{name:'score',eventId:event.id}],['Scores',{name:'scores',eventId:event.id}]];
+    if(roles.some(r=>r.role==='lead_judge'))items.push(['Moderation',{name:'moderate',eventId:event.id}]);
     return h('nav',{class:'event-nav','aria-label':`${event.name} navigation`},items.map(([label,route])=>h('a',{href:routeHref(route),'aria-current':route.name===current||(route.name==='score'&&['scorecard','inspection'].includes(current))?'page':null},label)));
   }
   const has = (...names: RoleRow['role'][]) => roles.some((r) => names.includes(r.role));

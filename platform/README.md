@@ -407,4 +407,4 @@ scorecard and scores tiles. Direct navigation to other event pages is refused be
 those screens load. Assigned scorecards and specification inspection detail pages
 remain reachable as part of My scorecards. This controls the judge interface;
 existing scorecard ownership, assignment and feedback permissions remain enforced
-by the API. Separately assigned leadership or operational roles retain their workspaces.
+by the API. Lead Judges have those same three sections plus Moderation. Separately assigned organiser, Chair and operational roles retain their workspaces.
