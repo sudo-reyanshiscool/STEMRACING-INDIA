@@ -98,7 +98,7 @@ export class MemoryApi implements Api {
   async submissionGuideState(eventId: string): Promise<SubmissionGuideState> {
     this.require(eventId,'organiser','chair','team_manager');
     const progress = this.guideProgress.get(this.me!.userId);
-    return {version:SUBMISSION_GUIDE_VERSION,duration:SUBMISSION_GUIDE_DURATION,watchedSeconds:progress?.watched??0,complete:progress?.complete??false,required:!this.has(eventId,'organiser','chair')};
+    return {version:SUBMISSION_GUIDE_VERSION,duration:SUBMISSION_GUIDE_DURATION,watchedSeconds:progress?.watched??0,complete:progress?.complete??false,required:!this.has(eventId,'organiser','chair')&&this.me!.email.trim().toLowerCase()!=='supercharged@british-school.org'};
   }
   async recordSubmissionGuideProgress(eventId: string, position: number): Promise<SubmissionGuideState> {
     await this.submissionGuideState(eventId);

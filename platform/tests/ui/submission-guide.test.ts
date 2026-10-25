@@ -67,3 +67,14 @@ it('unlocks guarded controls only after the complete normal-speed playback and s
  expect(gate.element.textContent).toContain('Your submission controls are now unlocked');
  leaves.forEach(f=>f());
 });
+
+it('hides the guide and unlocks uploads for the exempt account while other managers remain gated',async()=>{
+ const api=new MemoryApi();await api.signIn('reyanshg11111@gmail.com');const event=await api.createEvent({name:'Exemption test'});
+ await api.createTeam(event.id,{number:'001',name:'Supercharged',managerEmail:'supercharged@british-school.org'});
+ await api.createTeam(event.id,{number:'002',name:'Other team',managerEmail:'other@x.test'});
+ await api.signIn('supercharged@british-school.org');await api.claimInvitations();
+ const {ctx}=makeCtx(api),screen=await teamFilesScreen(ctx,event.id);
+ expect(screen.querySelector('video')).toBeNull();expect(screen.querySelector('form')?.hidden).toBe(false);
+ expect(await api.submissionGuideState(event.id)).toMatchObject({required:false,complete:false,watchedSeconds:0});
+ await api.signIn('other@x.test');await api.claimInvitations();expect((await api.submissionGuideState(event.id)).required).toBe(true);
+});

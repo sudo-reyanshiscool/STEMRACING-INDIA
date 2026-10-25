@@ -411,7 +411,7 @@ by the API. Lead Judges have those same four sections plus Moderation. Separatel
 
 ### Required submission guide
 
-Team managers must complete the 13:04 submission guide before using portfolio, photograph or compulsory-media submission controls. Completion is tied to the signed-in user and `SUBMISSION_GUIDE_VERSION`, and follows the account across devices and events. Organisers and the Chair retain support access without this onboarding gate; released-result downloads remain available.
+Team managers must complete the 13:04 submission guide before using portfolio, photograph or compulsory-media submission controls. Completion is tied to the signed-in user and `SUBMISSION_GUIDE_VERSION`, and follows the account across devices and events. Organisers and the Chair retain support access without this onboarding gate; released-result downloads remain available. The verified account `supercharged@british-school.org` also has an explicit video-only exemption. Exemptions stay private in `submission_guide_exemptions` and do not grant event access or record fake watched progress.
 
 The player permits rewinding, limits playback to normal speed, pauses when the tab is hidden, and saves contiguous progress every ten seconds and on pause/end. Network failures pause playback and retain the last server-confirmed point. Portfolio upload acceptance is also guarded in Postgres; guide progress tables are private and heartbeats cannot jump past elapsed server time. Playback tracking establishes completion of the video, not a person's attention.
 
