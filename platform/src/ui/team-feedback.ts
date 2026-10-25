@@ -1,3 +1,4 @@
+import {managerOnly,garageHeader} from './team-garage';
 import type { Ctx } from './ctx';
 import type { Panel } from '../api';
 import { h } from './dom';
@@ -10,7 +11,7 @@ export async function teamFeedbackScreen(ctx: Ctx, eventId: string): Promise<HTM
   const managed = roles.filter(r => r.role === 'team_manager').map(r => r.teamId);
   if (!staff && !managed.length) return notFound('Team feedback is available to team managers, organisers and the Chair.');
   const [teams, concerns] = await Promise.all([ctx.api.listTeams(eventId), ctx.api.listTeamConcerns(eventId)]);
-  const root = h('div', {class: 'stack stack--lg'}, h('h1', null, 'Team feedback'),
+  const root = h('div', {class: managerOnly(roles)?'garage garage-feedback stack stack--lg':'stack stack--lg'}, managerOnly(roles)?garageHeader('Your team / Support','Team feedback','A direct line to the organisers. Share what happened and follow the response.'):h('h1', null, 'Team feedback'),
     h('p', {class:'lead'}, staff ? 'Review concerns raised after judging sessions and respond to the team.' : 'Tell the organisers about interrupted presentations, procedural issues or other judging concerns.'));
   const alert = h('p', {role:'status', 'aria-live':'polite'});
   root.append(alert);

@@ -1,3 +1,4 @@
+import {managerOnly} from './team-garage';
 import { buttonBusy } from './button-busy';
 import { organiserControls } from './organisers';
 import type { Ctx } from './ctx';
@@ -12,6 +13,7 @@ export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
   const [events, deleted, canCreate, access, viewer] = await Promise.all([ctx.api.listEvents(), ctx.api.listDeletedEvents(), ctx.api.canCreateEvent(), ctx.api.platformAccess(), ctx.api.getSession()]);
   const showcaseEvent = !ctx.demo ? events.find(e => e.id === SHOWCASE_EVENT_ID) : undefined;
   const showcaseAvailable = showcaseEvent ? canShowcase(showcaseEvent, await ctx.api.myRoles(showcaseEvent.id)) : false;
+  const teamView=!canCreate&&!access.kind&&events.length>0&&(await Promise.all(events.map(e=>ctx.api.myRoles(e.id)))).some(managerOnly);
   let alive = true;
   ctx.onLeave(() => { alive = false; });
   const error = h('p', { class: 'alert', role: 'alert', hidden: true });
@@ -57,9 +59,9 @@ export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
       finish();
     }
   });
-  return h('div', { class: 'stack stack--lg' },
+  return h('div', { class: teamView?'garage garage-calendar stack stack--lg':'stack stack--lg' },
     h('div', { class: 'stack' }, h('p', { class: 'eyebrow' }, 'STEM Racing India · Nationals & Regionals'), h('h1', null, 'Events'),
-      h('p', { class: 'lead' }, 'Judging, racing and results for each event, in one place.'),
+      h('p', { class: 'lead' }, teamView?'Your competition journey starts here. Open an event to enter your team garage.':'Judging, racing and results for each event, in one place.'),
       access.kind ? h('p', {class:'tag tag--pass'},access.kind==='admin'?'Platform Admin · permanent access to every event':access.kind==='platform'?'Platform Organiser · all events':access.kind==='spectator'?'Platform Spectator · read-only':'Competition Organiser · assigned events') : null),
     h('section', { class: 'section' },
       events.length === 0

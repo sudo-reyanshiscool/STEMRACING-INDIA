@@ -1,3 +1,4 @@
+import {managerOnly,garageHeader} from './team-garage';
 import { ApiError, type CardRow, type FeedbackRow, type PenaltyRow, type TeamRow } from '../api';
 import type { RankRow, Ruleset } from '../engine';
 import { errorText, notFound, tag } from './common';
@@ -21,19 +22,20 @@ function teamSection(ruleset: Ruleset, team: TeamRow, row: RankRow | undefined, 
   const mine = cards.filter((c) => c.teamId === team.id && c.status === 'submitted');
   const areas = ruleset.areas.filter((a) => a.kind === 'scorecard' && (mine.some((c) => c.areaId === a.id) || row?.areas[a.id] != null));
   const ownPenalties = penalties.filter((p) => p.teamId === team.id);
-  return h('article', { class: 'card stack' },
+  return h('article', { class: 'card garage-scorecard stack' },
     h('h3', { class: 'results-team' }, `Team ${team.number} · ${team.name}`),
     row
       ? h('p', null, `Rank ${row.rank}${row.tied ? ' (tied)' : ''}. Total ${num(row.total)} judged points`
         + (row.penalties > 0 ? `, after ${num(row.penalties)} penalty points.` : '.'))
       : h('p', { class: 'muted' }, 'Your team is not in this ranking.'),
+    row?h('div',{class:'garage-score-metrics'},h('div',null,h('span',null,'Overall rank'),h('strong',null,`#${row.rank}`)),h('div',null,h('span',null,'Total points'),h('strong',null,num(row.total)))):null,
     areas.length === 0 ? h('p', { class: 'muted' }, 'No scorecards have been submitted for your team yet.') : null,
     ...areas.map((a) => {
       const list = mine.filter((c) => c.areaId === a.id).sort((x, y) => byText(x.judgeId, y.judgeId));
       const score = row?.areas[a.id];
       return h('section', { class: 'stack' },
         h('h4', null, a.name),
-        h('p', null, score === null || score === undefined ? 'Not judged yet.' : `Area score: ${num(score)} of ${a.max}`),
+        h('p', null, score === null || score === undefined ? 'Not judged yet.' : `Area score: ${num(score)} of ${a.max}`),score!=null?h('meter',{class:'garage-score-meter',min:0,max:a.max,value:Math.max(0,Math.min(a.max,score)),'aria-label':`${a.name}: ${num(score)} of ${a.max}`}):null,
         ...list.map((c, i) => h('div', { class: 'stack' },
           h('p', { class: 'small muted' }, `Judge ${i + 1}`),
           h('ul', { class: 'list' }, a.criteria.map((cr) => h('li', null,
@@ -63,14 +65,15 @@ export async function resultsScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
   const snapshot = latest && (readStaff || event.resultsReleased) ? latest : null;
   const releasedLive = event.resultsReleased && snapshot !== null;
 
+  const manager=managerOnly(roles);
   const head = h('div', { class: 'stack' },
     h('a', { class: 'back', href: eventHref }, signedIn ? event.name : 'Sign in'),
     event.startsOn ? h('p', { class: 'eyebrow' }, event.startsOn) : null,
-    h('h1', null, `${event.name}: results`),
+    manager?garageHeader('Your team / The finish line','Results',event.name):h('h1', null, `${event.name}: results`),
     readStaff && snapshot && !releasedLive ? h('p', { class: 'notice', role: 'status' }, 'Not released. Visible only to authorised staff and spectators.') : null);
 
   if (!event.resultsReleased && !readStaff) {
-    return h('div', { class: 'stack stack--lg' }, head, h('p', { class: 'lead' }, 'Results have not been released yet.'));
+    return h('div', { class: manager?'garage garage-results stack stack--lg':'stack stack--lg' }, head,h('section',{class:manager?'garage-results-wait stack':'stack'},manager?h('span',{class:'garage-finish','aria-hidden':'true'},'FINISH LINE'):null,h('h2',null,'Results have not been released yet.'),h('p',{class:'muted'},'Your scores and judging feedback will appear here once the organisers release the results.'),manager?h('a',{class:'btn btn--primary',href:routeHref({name:'event',eventId})},'Back to your team garage'):null));
   }
   if (!snapshot) {
     return h('div', { class: 'stack stack--lg' }, head,
@@ -112,7 +115,7 @@ export async function resultsScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
     }
   }
 
-  return h('div', { class: 'stack stack--lg results' }, head,
+  return h('div', { class: manager?'garage garage-results stack stack--lg results':'stack stack--lg results' }, head,
     h('p', { class: 'notice' }, 'Final standings show total points only. Team managers can sign in to view their own teams’ detailed scores and feedback.'),
     anyTied ? h('p', { class: 'notice' }, 'Tied teams share a rank: they have equal total points and an equal tie-break score.') : null,
     h('p', { class: 'muted small' }, `Snapshot taken ${when(snapshot.createdAt)}.`),

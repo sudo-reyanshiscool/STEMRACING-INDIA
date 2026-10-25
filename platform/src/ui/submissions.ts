@@ -1,3 +1,4 @@
+import {managerOnly,garageHeader,submissionProgress} from './team-garage';
 import type {Ctx} from './ctx';
 import {FILE_KINDS,type SubmissionRule} from '../api';
 import {h} from './dom';
@@ -10,7 +11,8 @@ export async function submissionsScreen(ctx:Ctx,eventId:string):Promise<HTMLElem
  const staff=roles.some(r=>r.role==='organiser'||r.role==='chair');
  if(!event||!roles.some(r=>['organiser','chair','spectator','team_manager'].includes(r.role)))return notFound('Submissions are available to teams and event organisers.');
  const [state,teams]=await Promise.all([ctx.api.submissionState(eventId),ctx.api.listTeams(eventId)]);
- const root=h('div',{class:'stack stack--lg'},h('h1',null,'Submissions'),h('p',{class:'lead'},'Submit your portfolios and track deadlines, receipts and automatic late penalties.'));
+ const manager=managerOnly(roles);
+ const root=h('div',{class:manager?'garage garage-submissions stack stack--lg':'stack stack--lg'},manager?garageHeader('Your team / Portfolios','Submissions','Build it. Document it. Submit it. Track every portfolio from upload to receipt.'):h('h1',null,'Submissions'),manager?submissionProgress(state):h('p',{class:'lead'},'Submit your portfolios and track deadlines, receipts and automatic late penalties.'));
  const status=h('p',{role:'status','aria-live':'polite'});root.append(status);
  root.append(h('p',{class:'notice'},'Deadlines use India Standard Time (IST). Each started late hour counts. The first successful upload stops the clock; replacement uploads keep that original receipt. Missing portfolios continue accruing penalties until submitted. Published results lock submissions.'));
  if(staff&&!event.resultsReleased) {
@@ -25,12 +27,12 @@ export async function submissionsScreen(ctx:Ctx,eventId:string):Promise<HTMLElem
  root.append(await teamFilesScreen(ctx,eventId,true));
  const labels={not_open:'Deadline not set',pending:'Awaiting submission',overdue:'Overdue · not submitted',on_time:'Submitted on time',late:'Submitted late'};
  const team=h('select',{'aria-label':'Filter submissions by team'},h('option',{value:''},'All available teams'),teams.filter(t=>state.rows.some(r=>r.teamId===t.id)).map(t=>h('option',{value:t.id},`${t.number} · ${t.name}`)));
- const list=h('div',{class:'stack'});
+ const list=h('div',{class:manager?'garage-submission-grid':'stack'});
  const render=()=>list.replaceChildren(...state.rows.filter(r=>!team.value||r.teamId===team.value).map(row=>{
   const t=teams.find(t=>t.id===row.teamId),rule=state.rules.find(r=>r.kind===row.kind)!;
   const mailLabels={pending:'Not sent yet',sending:'Sending',sent:'Sent',failed:'Failed — your portfolio is saved',uncertain:'Unconfirmed — check your inbox',unavailable:'Unavailable — no recipient email'};
   const retry=h('button',{type:'button',class:'btn btn--ghost',onclick:async()=>{retry.disabled=true;try{await ctx.api.sendSubmissionConfirmation(eventId,row.teamId,row.kind,row.revision!);ctx.rerender();}catch(err){status.textContent=errorText(err);}finally{retry.disabled=false;}}},'Retry confirmation email');
-  return h('article',{class:'row stack'},h('h3',null,`${t?.number} · ${t?.name} · ${FILE_KINDS[row.kind]}`),h('strong',null,labels[row.status]),h('p',null,`Deadline: ${when(row.deadline)}`),row.submittedAt?h('p',null,`First submitted: ${when(row.submittedAt)}`):null,h('p',null,`Late penalty: ${row.points} points · ${rule.pointsPerHour} points/hour`),row.confirmation?h('p',null,`Confirmation email: ${mailLabels[row.confirmation]}`):null,roles.some(r=>r.role!=='spectator')&&row.revision&&['pending','failed'].includes(row.confirmation??'')?retry:null);
+  return h('article',{class:manager?`garage-submission stack ${row.submittedAt?'is-submitted':row.status==='overdue'?'is-overdue':''}`:'row stack'},manager?h('span',{class:'garage-submission__index','aria-hidden':'true'},row.kind==='design_portfolio'?'01':row.kind==='enterprise_portfolio'?'02':'03'):null,h('h3',null,manager?FILE_KINDS[row.kind]:`${t?.number} · ${t?.name} · ${FILE_KINDS[row.kind]}`),manager?h('p',{class:'muted small'},`${t?.number} · ${t?.name}`):null,h('strong',{class:manager?'garage-status':null},labels[row.status]),h('p',null,`Deadline: ${when(row.deadline)}`),row.submittedAt?h('p',null,`First submitted: ${when(row.submittedAt)}`):null,h('p',null,`Late penalty: ${row.points} points · ${rule.pointsPerHour} points/hour`),row.confirmation?h('p',null,`Confirmation email: ${mailLabels[row.confirmation]}`):null,roles.some(r=>r.role!=='spectator')&&row.revision&&['pending','failed'].includes(row.confirmation??'')?retry:null);
  }));team.onchange=render;render();root.append(h('h2',null,'Submission status'),h('label',{class:'field'},'Team',team),list);
  const refresh=h('button',{type:'button',class:'btn btn--ghost',onclick:()=>ctx.rerender()},'Refresh submission status');root.append(refresh);
  return root;

@@ -1,3 +1,4 @@
+import {managerOnly,garageHeader} from './team-garage';
 import type { Ctx } from './ctx';
 import { FILE_KINDS, validateTeamFile, type TeamFileKind, type TeamFileInput } from '../api';
 import { h } from './dom';
@@ -11,7 +12,8 @@ export async function teamFilesScreen(ctx: Ctx, eventId: string, portfoliosOnly=
   const staff=roles.some(r=>r.role==='chair'||r.role==='organiser');
   const managed=roles.filter(r=>r.role==='team_manager').map(r=>r.teamId);
   const uploadTeams=teams.filter(t=>staff||managed.includes(t.id));
-  const root=h('div',{class:'stack stack--lg'},h(portfoliosOnly?'h2':'h1',null,portfoliosOnly?'Upload and download portfolios':'Team files'),h('p',{class:'lead'},portfoliosOnly?'PDF portfolios, up to 12 MB each. Access follows judging assignments and declared conflicts.':'Upload team artwork and portfolios. Portfolio access follows judging assignments and declared conflicts.'));
+  const manager=managerOnly(roles);
+  const root=h('div',{class:manager?`garage ${portfoliosOnly?'garage-upload':'garage-files'} stack stack--lg`:'stack stack--lg'},manager&&!portfoliosOnly?garageHeader('Your team / Files','Team files','Your team identity and competition documents, ready for the judges.'):h(portfoliosOnly?'h2':'h1',null,portfoliosOnly?'Upload and download portfolios':'Team files'),h('p',{class:'lead'},portfoliosOnly?'PDF portfolios, up to 12 MB each. Access follows judging assignments and declared conflicts.':'Upload team artwork and portfolios. Portfolio access follows judging assignments and declared conflicts.'));
   const status=h('p',{role:'status','aria-live':'polite'});root.append(status);
   if(uploadTeams.length&&!event.resultsReleased) {
     const team=h('select',{'aria-label':'Upload team'},uploadTeams.map(t=>h('option',{value:t.id},`${t.number} · ${t.name}`)));

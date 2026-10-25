@@ -1,3 +1,4 @@
+import {managerOnly} from './team-garage';
 import {spectatorOnly,SPECTATOR_PAGES} from './spectator';
 import { judgeOnly } from './judge-access';
 import type { EventRow, RoleRow } from '../api';
@@ -31,6 +32,6 @@ export function eventNav(event: EventRow, roles: RoleRow[], current: Route['name
   if (roles.length) items.push(['Team files', {name:'team-files', eventId:event.id}]);
   if (has('organiser', 'chair', 'team_manager')) items.push(['Team feedback', {name:'team-feedback', eventId:event.id}]);
   items.push(['Results', { name: 'results', eventId: event.id }]);
-  return h('nav', { class: 'event-nav', 'aria-label': `${event.name} navigation` }, items.map(([name, route]) =>
+  return h('nav', { class: managerOnly(roles)?'event-nav event-nav--garage':'event-nav', 'aria-label': `${event.name} navigation` }, items.map(([name, route]) =>
     h('a', { href: routeHref(route), 'aria-current': route.name === current || (route.name === 'score' && (current === 'scorecard' || current === 'inspection')) ? 'page' : null }, name)));
 }

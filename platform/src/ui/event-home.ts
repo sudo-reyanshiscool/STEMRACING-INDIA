@@ -1,3 +1,4 @@
+import {managerOnly,teamGarage} from './team-garage';
 import {spectatorOnly,SPECTATOR_PAGES} from './spectator';
 import { judgePageAllowed } from './judge-access';
 import { inspectionScopeControl } from './inspection-scope';
@@ -13,6 +14,7 @@ import { canShowcase, showcaseHref } from '../api/showcase';
 export async function eventHomeScreen(ctx: Ctx, eventId: string): Promise<HTMLElement> {
   const [event, roles] = await Promise.all([ctx.api.getEvent(eventId), ctx.api.myRoles(eventId)]);
   if (!event) return notFound('That event was not found, or its results have not been released.', '#/', 'All events');
+  if(managerOnly(roles))return teamGarage(ctx,event,roles);
   const has = (...r: Role[]) => roles.some((x) => r.includes(x.role));
 
   const tile = (title: string, body: string, route: Route) =>
