@@ -104,7 +104,7 @@ describe('roles and invitations', () => {
 
   it('shows a judge only their own role row, and the Organiser everyone', async () => {
     const own = await as(w.db, 'judgeV', async (q) => (await q('select user_id from event_roles where event_id = $1', [w.eventId])).rows);
-    expect(own).toEqual([{ user_id: ids.judgeV }]);
+    expect(own).toEqual([{ user_id: ids.judgeV },{ user_id: ids.judgeV }]);
     const all = await as(w.db, 'organiser', async (q) => (await q('select user_id from event_roles where event_id = $1', [w.eventId])).rows);
     expect(all.length).toBeGreaterThanOrEqual(7);
   });

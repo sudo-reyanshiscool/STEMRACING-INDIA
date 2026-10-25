@@ -45,7 +45,7 @@ describe('team deletion', () => {
     await as(db,'judgeV',q=>q("insert into scorecard_scores(scorecard_id,criterion_id,score) values($1,'engagement-presentation-dynamics',14),($1,'team-contribution',14)",[c]));
     await as(db,'judgeV',q=>q("update scorecards set status='submitted' where id=$1",[c]));
     await expect(remove()).rejects.toMatchObject({code:'55000'});
-    expect((await db.query('select id from event_roles where team_id=$1',[w.team1])).rows).toHaveLength(1);
+    expect((await db.query('select id from event_roles where team_id=$1',[w.team1])).rows).toHaveLength(3);
     expect((await db.query('select score from scorecard_scores where scorecard_id=$1',[c])).rows).toHaveLength(2);
     await as(db,'chair',q=>q('select reopen_scorecard($1,$2)',[c,'Duplicate team']));
     await remove();expect((await db.query('select id from teams where id=$1',[w.team1])).rows).toEqual([]);

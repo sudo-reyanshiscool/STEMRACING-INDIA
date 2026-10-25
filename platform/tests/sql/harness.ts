@@ -75,8 +75,10 @@ export async function seedWorld(db: PGlite): Promise<World> {
   const roles: [Who, string, string | null, string | null][] = [
     ['organiser', 'organiser', null, null],
     ['chair', 'chair', null, null],
-    ['judgeV', 'judge', 'verbal', null],
-    ['judgeD', 'judge', 'design_engineering', null],
+    ['judgeV', 'judge', 'verbal', team1],
+    ['judgeV', 'judge', 'verbal', team2],
+    ['judgeD', 'judge', 'design_engineering', team1],
+    ['judgeD', 'judge', 'design_engineering', team2],
     ['leadV', 'lead_judge', 'verbal', null],
     ['mgr1', 'team_manager', null, team1],
     ['mgr2', 'team_manager', null, team2],

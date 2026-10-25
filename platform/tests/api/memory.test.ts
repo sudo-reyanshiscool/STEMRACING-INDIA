@@ -23,6 +23,7 @@ async function world() {
     await api.signIn(e);
     expect(await api.claimInvitations()).toBe(1);
   }
+  await api.signIn(JUDGE);const assignedJudge=(await api.getSession())!.userId;await api.signIn(ORG);await api.setJudgeAssignment(ev.id,assignedJudge,'verbal',null);await api.signIn(MGR);
   return { api, ev, t1, t2 };
 }
 const code = async (p: Promise<unknown>) => {
@@ -69,7 +70,7 @@ describe('events, teams and roles', () => {
   it('shows a judge only their own role, and a team manager only their team', async () => {
     const { api, ev, t1 } = await world();
     await api.signIn(JUDGE);
-    expect((await api.listRoles(ev.id)).map((r) => r.userId)).toEqual(['user:judge@x.test']);
+    expect((await api.listRoles(ev.id)).map((r) => r.userId)).toEqual(['user:judge@x.test','user:judge@x.test']);
     expect((await api.listInvitations(ev.id))).toEqual([]);
     await api.signIn(MGR);
     expect((await api.listTeams(ev.id)).map((t) => t.id)).toEqual([t1.id]);
@@ -228,7 +229,7 @@ describe('judging details', () => {
   it('gives each judge their own card for the same team and area', async () => {
     const { api, ev, t1 } = await world();
     await api.signIn(ORG);
-    await api.invite(ev.id, { email: JUDGE2, name: JUDGE2, role: 'judge', panel: 'verbal' });
+    await api.invite(ev.id, { email: JUDGE2, name: JUDGE2, role: 'judge', panel: 'verbal',teamId:t1.id });
     await api.signIn(JUDGE);
     const a = await api.openCard(ev.id, t1.id, 'verbal-technique');
     await api.signIn(JUDGE2);
@@ -606,7 +607,7 @@ describe('technical inspections', () => {
     const { api, ev, t1 } = await world();
     const SCRUT = 'scrut@x.test';
     await api.signIn(ORG);
-    await api.invite(ev.id, { email: SCRUT, name: SCRUT, role: 'judge', panel: 'scrutineering' });
+    await api.invite(ev.id, { email: SCRUT, name: SCRUT, role: 'judge', panel: 'scrutineering',teamId:t1.id });
     await api.signIn(SCRUT);
     await api.claimInvitations();
 

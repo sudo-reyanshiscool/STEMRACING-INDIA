@@ -21,6 +21,7 @@ export async function eventHomeScreen(ctx: Ctx, eventId: string): Promise<HTMLEl
     h('a', { class: 'tile', href: routeHref(route) }, h('h3', null, title), h('p', { class: 'muted' }, body));
 
   const tiles: HTMLElement[] = [];
+  if(has('organiser','chair'))tiles.push(tile('Scheduling & Streams','Allocate streams, build the master timeline and publish team schedules.',{name:'schedule',eventId}));
   if (has('organiser', 'chair')) tiles.push(tile('Teams', 'Add and review the teams entered.', { name: 'teams', eventId }));
   if (has('organiser', 'chair')) tiles.push(tile('People', 'Invite judges, officials and team managers.', { name: 'people', eventId }));
   if (has('organiser', 'chair')) tiles.push(tile('Draw lots', 'Preview random team numbers and balanced judge assignments.', {name:'draw',eventId}));

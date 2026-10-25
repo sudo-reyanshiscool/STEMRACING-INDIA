@@ -104,7 +104,7 @@ describe('peopleScreen', () => {
     expect(byEmail('chair@x.test').querySelector('button')).toBeNull();
     (byEmail('judge@x.test').querySelector('button') as HTMLButtonElement).click();
     await wait();
-    expect(text(el.querySelector('[data-section=people]')!)).not.toContain('judge@x.test');
+    expect(text(el.querySelector('[data-section=people]')!)).toContain('judge@x.test');expect(el.querySelectorAll('[data-section=people] li').length).toBe(rows.length-1);
   });
 
   it('names Remove and Withdraw buttons after the person', async () => {

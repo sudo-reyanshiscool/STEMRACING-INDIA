@@ -27,8 +27,7 @@ export async function inspectionScreen(ctx: Ctx, eventId: string, teamId: string
 
   const isStaff = roles.some((r) => r.role === 'chair' || r.role === 'organiser');
   const canInspect = isStaff || roles.some((r) =>
-    (r.role === 'scrutineer' || (r.role === 'judge' && r.panel === 'scrutineering')) &&
-    (r.teamId === null || r.teamId === teamId),
+    (r.role === 'scrutineer' && (r.teamId===null||r.teamId===teamId)) || (r.role === 'judge' && r.panel === 'scrutineering' && r.teamId===teamId),
   );
 
   let insp: Inspection = existing ?? {

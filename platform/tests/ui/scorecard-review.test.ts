@@ -176,7 +176,7 @@ describe('review fixes: worklist and sync bar', () => {
     const card = await api.openCard(ev.id, t1.id, 'verbal-technique');
     await api.saveScore(card.id, ENGAGE_ID, 5);
     await api.signIn(EMAILS.org);
-    await api.invite(ev.id, { email: EMAILS.lead, name:'Test Judge',role: 'judge', panel: 'verbal' });
+    await api.invite(ev.id, { email: EMAILS.lead, name:'Test Judge',role: 'judge', panel: 'verbal',teamId:t1.id });
     await api.signIn(EMAILS.lead);
     await api.claimInvitations();
     expect((await api.listCards(ev.id)).length).toBe(1); // the lead can see the other judge's card

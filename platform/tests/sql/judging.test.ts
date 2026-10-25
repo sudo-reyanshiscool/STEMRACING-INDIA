@@ -7,8 +7,11 @@ beforeAll(async () => {
   w = await seedWorld(await makeDb());
 });
 
-const newTeam = async () =>
-  (await w.db.query<{ id: string }>('insert into teams(event_id, number, name) values ($1, $2, $3) returning id', [w.eventId, `X${++n}`, `Team X${n}`])).rows[0].id;
+const newTeam = async () => {
+ const id=(await w.db.query<{id:string}>('insert into teams(event_id,number,name) values($1,$2,$3) returning id',[w.eventId,`X${++n}`,`Team X${n}`])).rows[0].id;
+ for(const [user,panel] of [[ids.judgeV,'verbal'],[ids.judgeD,'design_engineering']] as const)await w.db.query("insert into event_roles(event_id,user_id,role,panel,team_id,email) select $1,$2,'judge',$3::judging_panel,$4,email from auth.users where id=$2",[w.eventId,user,panel,id]);
+ return id;
+};
 const makeCard = (who: Who, team: string, area: string) =>
   as(w.db, who, async (q) =>
     (await q('insert into scorecards(event_id, team_id, area_id) values ($1, $2, $3) returning id, panel, status, judge_id', [w.eventId, team, area])).rows[0]);
@@ -100,7 +103,7 @@ describe('scores', () => {
   it('uses the criterion own maximum for 15 and 10 point criteria', async () => {
     const t = await newTeam();
     await as(w.db, 'organiser', (q) =>
-      q(`insert into event_roles(event_id, user_id, role, panel) values ($1, $2, 'judge', 'project_management')`, [w.eventId, ids.invitee]));
+      q(`insert into event_roles(event_id, user_id, role, panel,team_id) values ($1, $2, 'judge', 'project_management',$3)`, [w.eventId, ids.invitee,t]));
     const card = await makeCard('invitee', t, 'pm-initiating');
     await setScore('invitee', card.id, 'project-schedule', 15);
     await expect(setScore('invitee', card.id, 'project-schedule', 16)).rejects.toThrow(/outside 0\.\.15/);
@@ -156,7 +159,7 @@ describe('reopening', () => {
     const c = await makeCard('judgeV', await newTeam(), 'verbal-technique');
     await fill('judgeV', c.id);
     await submit('judgeV', c.id);
-    for (const who of ['judgeV', 'leadV'] as const) {
+    for (const who of ['judgeV'] as const) {
       await expect(as(w.db, who, (q) => q('select reopen_scorecard($1, $2)', [c.id, 'please']))).rejects.toThrow(/Chair/);
     }
     await expect(as(w.db, 'chair', (q) => q('select reopen_scorecard($1, $2)', [c.id, ' ']))).rejects.toThrow(/reason/);

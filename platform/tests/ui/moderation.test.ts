@@ -253,7 +253,7 @@ describe('moderationScreen', () => {
   it('gives the same judge the same label in every row', async () => {
     const { api, ev, t1, t2 } = await world();
     await api.signIn(EMAILS.org);
-    await api.invite(ev.id, { email: 'judge2@x.test', name:'Test Judge',role: 'judge', panel: 'verbal' });
+    await api.invite(ev.id, { email: 'judge2@x.test', name:'Test Judge',role: 'judge', panel: 'verbal',teamId:t1.id });
     await api.signIn('judge2@x.test');
     await api.claimInvitations();
     const c = await api.openCard(ev.id, t1.id, 'verbal-technique');
@@ -273,14 +273,14 @@ describe('moderationScreen', () => {
     expect(rows[1]).not.toContain('Judge 1');
   });
 
-  it('is read-only for a lead judge and closed to everyone else', async () => {
+  it('allows a lead judge to reopen their panel cards, with overrides reserved for the Chair', async () => {
     const { api, ev, t1 } = await world();
     await submitOne(api, ev.id, t1.id);
     await api.signIn(EMAILS.lead);
     const { ctx } = makeCtx(api);
     const el = await moderationScreen(ctx, ev.id);
     expect(text(el)).toContain('26');
-    expect(el.querySelector('form')).toBeNull();
+    expect(el.querySelector('form[data-reopen]')).not.toBeNull();expect(el.querySelector('form[data-override]')).toBeNull();
     await api.signIn(EMAILS.judge);
     expect(text(await moderationScreen(ctx, ev.id))).toContain('Only the Chair and lead judges');
   });

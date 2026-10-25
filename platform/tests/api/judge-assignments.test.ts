@@ -3,7 +3,7 @@ import {MemoryApi,blankReview} from '../../src/api';
 const setup=async()=>{
  const api=new MemoryApi();api.setCreatorAllowlist(['org@x.test']);await api.signIn('org@x.test');const event=await api.createEvent({name:'Assignment event'});const team1=await api.createTeam(event.id,{number:'1',name:'One'});const team2=await api.createTeam(event.id,{number:'2',name:'Two'});
  for(const [email,role,panel] of [['v@x.test','judge','verbal'],['d@x.test','judge','design_engineering'],['race@x.test','race_official',undefined],['manager@x.test','team_manager',undefined]] as const)await api.invite(event.id,{email,name:email,role,panel,...(role==='team_manager'?{teamId:team1.id}:{})});
- for(const email of ['v@x.test','d@x.test','race@x.test','manager@x.test']){await api.signIn(email);await api.claimInvitations();}return {api,event,team1,team2};
+ for(const email of ['v@x.test','d@x.test','race@x.test','manager@x.test']){await api.signIn(email);await api.claimInvitations();}for(const [email,panel] of [['v@x.test','verbal'],['d@x.test','design_engineering']] as const){await api.signIn(email);const uid=(await api.getSession())!.userId;await api.signIn('org@x.test');await api.setJudgeAssignment(event.id,uid,panel,null);}return {api,event,team1,team2};
 };
 describe('memory assignment permissions mirror the database',()=>{
  it('scopes multiple panels independently and blocks old draft edits after reassignment',async()=>{

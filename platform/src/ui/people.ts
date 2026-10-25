@@ -66,7 +66,7 @@ export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
   };
 
   const describe = (x: { role: Role; panel: Panel | null; teamId: string | null }) =>
-    [ROLE_LABEL[x.role], x.panel ? PANEL_LABEL[x.panel] : '', teamLabel(x.teamId) || (x.role === 'judge' ? 'All teams' : '')].filter(Boolean).join(' · ');
+    [ROLE_LABEL[x.role], x.panel ? PANEL_LABEL[x.panel] : '', teamLabel(x.teamId) || (x.role === 'judge' ? 'Awaiting team assignment' : '')].filter(Boolean).join(' · ');
 
   const refresh = async () => {
     const [allRoles, invites, exemptions] = await Promise.all([ctx.api.listRoles(eventId), ctx.api.listInvitations(eventId), ctx.api.listJudgeExemptions(eventId)]);

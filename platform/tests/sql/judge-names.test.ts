@@ -17,11 +17,11 @@ describe('judge names',()=>{
   const name=async()=>(await as(db,'organiser',q=>q('select display_name from event_roles where event_id=$1 and user_id=$2',[w.eventId,ids.invitee]))).rows.map(r=>r.display_name);
   expect(await name()).toEqual(['Asha Patel']);
   await as(db,'organiser',q=>q("select set_judge_assignment($1,$2,'design_engineering',null)",[w.eventId,ids.invitee]));
-  expect(await name()).toEqual(['Asha Patel','Asha Patel']);
+  expect(await name()).toEqual(['Asha Patel','Asha Patel','Asha Patel']);
   await as(db,'organiser',q=>q("select set_judge_assignment($1,$2,'verbal',array[$3::uuid])",[w.eventId,ids.invitee,w.team1]));
-  expect(await name()).toEqual(['Asha Patel','Asha Patel']);
+  expect(await name()).toEqual(['Asha Patel','Asha Patel','Asha Patel']);
   await as(db,'organiser',q=>q("select set_judge_name($1,$2,'Asha P.')",[w.eventId,ids.invitee]));
-  expect(await name()).toEqual(['Asha P.','Asha P.']);
+  expect(await name()).toEqual(['Asha P.','Asha P.','Asha P.']);
  });
  it('refuses renaming by ordinary judges and prevents blank or overlong names',async()=>{
   await expect(as(db,'judgeV',q=>q("select set_judge_name($1,$2,'Forged')",[w.eventId,ids.judgeD]))).rejects.toThrow(/only the Chair/);

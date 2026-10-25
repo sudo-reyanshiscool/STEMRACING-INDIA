@@ -13,7 +13,7 @@ describe('judge assignment editor',()=>{
   change(form,'assignment-person',user);change(form,'assignment-panel','design_engineering');change(form,'assignment-scope','selected');
   (form.querySelector(`input[value="${t2.id}"]`) as HTMLInputElement).checked=true;
   const spy=vi.spyOn(api,'invite');form.dispatchEvent(new Event('submit',{cancelable:true}));await wait();expect(spy).not.toHaveBeenCalled();expect(text(el)).toContain('Judge assignment saved');
-  await api.signIn(EMAILS.judge);const roles=await api.myRoles(ev.id);expect(roles.filter(r=>r.role==='judge')).toHaveLength(2);
+  await api.signIn(EMAILS.judge);const roles=await api.myRoles(ev.id);expect(roles.filter(r=>r.role==='judge')).toHaveLength(3);
   const tasks=await scoringScreen(ctx,ev.id);expect(tasks.querySelector(`a[href$="/${t1.id}/verbal-technique"]`)).not.toBeNull();expect(tasks.querySelector(`a[href$="/${t2.id}/de-portfolio"]`)).not.toBeNull();expect(tasks.querySelector(`a[href$="/${t1.id}/de-portfolio"]`)).toBeNull();
   expect(text(await scorecardScreen(ctx,ev.id,t1.id,'de-portfolio'))).toContain('not assigned to you');
  });

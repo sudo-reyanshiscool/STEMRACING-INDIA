@@ -11,7 +11,7 @@ afterAll(async () => db.close());
 describe('technical inspections SQL rules', () => {
   it('allows scrutineers and scrutineering judges to insert and update inspections', async () => {
     // Give judgeD the scrutineering panel role
-    await db.query("insert into event_roles(event_id, user_id, role, panel) values ($1, $2, 'judge', 'scrutineering')", [w.eventId, ids.judgeD]);
+    await db.query("insert into event_roles(event_id, user_id, role, panel,team_id) values ($1, $2, 'judge', 'scrutineering',$3)", [w.eventId, ids.judgeD,w.team1]);
 
     // JudgeD inserts Car A inspection
     const ins = await as(db, 'judgeD', (q) =>
@@ -91,7 +91,7 @@ describe('technical inspections SQL rules', () => {
   });
 
   it('enforces visibility: drafts visible only to author and staff; submitted visible to all judges; managers only after release for own team', async () => {
-    await db.query("insert into event_roles(event_id, user_id, role, panel) values ($1, $2, 'judge', 'scrutineering')", [w.eventId, ids.judgeD]);
+    await db.query("insert into event_roles(event_id, user_id, role, panel,team_id) values ($1, $2, 'judge', 'scrutineering',$3)", [w.eventId, ids.judgeD,w.team1]);
 
     // Insert draft inspection by judgeD
     const ins = await as(db, 'judgeD', (q) =>

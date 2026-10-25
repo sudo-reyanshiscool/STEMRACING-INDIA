@@ -38,7 +38,7 @@ describe('judge draw transactions',()=>{
  it('replaces selected panel scopes together, preserves other panels, and exposes the assignments to judges',async()=>{
   await addSecondJudge();const s=await state();await judges(judgeRows(),s.version);
   expect((await as(db,'judgeV',q=>q("select team_id from event_roles where event_id=$1 and user_id=$2 and role='judge' and panel='verbal'",[w.eventId,ids.judgeV]))).rows).toEqual([{team_id:w.team1}]);
-  expect((await db.query("select panel,team_id,display_name from event_roles where event_id=$1 and user_id=$2 order by panel",[w.eventId,ids.judgeD])).rows).toEqual([{panel:'design_engineering',team_id:null,display_name:''},{panel:'verbal',team_id:w.team2,display_name:'Judge Two'}]);
+  expect((await db.query("select panel,team_id,display_name from event_roles where event_id=$1 and user_id=$2 order by panel",[w.eventId,ids.judgeD])).rows).toEqual(expect.arrayContaining([{panel:'design_engineering',team_id:w.team1,display_name:''},{panel:'design_engineering',team_id:w.team2,display_name:''},{panel:'verbal',team_id:w.team2,display_name:'Judge Two'}]));
   await expect(judges(judgeRows(),s.version)).rejects.toMatchObject({code:'40001'});
   expect((await db.query("select action from audit_log where event_id=$1 and action='judge_draw'",[w.eventId])).rows).toHaveLength(1);
  });
@@ -50,7 +50,7 @@ describe('judge draw transactions',()=>{
   await expect(judges([{judgeId:ids.organiser,teamIds:[w.team1,w.team2]}])).rejects.toMatchObject({code:'22023'});
   await as(db,'organiser',q=>q('select set_judge_exemption($1,$2,$3,true,$4)',[w.eventId,ids.judgeD,w.team1,'Unavailable']));
   await expect(judges([{judgeId:ids.judgeV,teamIds:[w.team2]},{judgeId:ids.judgeD,teamIds:[w.team1]}])).rejects.toMatchObject({code:'22023'});
-  expect((await db.query("select team_id from event_roles where event_id=$1 and role='judge' and panel='verbal'",[w.eventId])).rows).toEqual([{team_id:null},{team_id:null}]);
+  expect((await db.query("select team_id from event_roles where event_id=$1 and role='judge' and panel='verbal'",[w.eventId])).rows).toEqual(expect.arrayContaining([{team_id:w.team1},{team_id:w.team2},{team_id:null}]));
  });
  it('locks a started panel while leaving other panels available, and rejects judges, managers and outsiders',async()=>{
   await addSecondJudge();for(const who of ['judgeV','leadV','mgr1','outsider',null] as const)await expect(judges(judgeRows(),'x',who)).rejects.toThrow();

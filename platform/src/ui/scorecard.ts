@@ -35,7 +35,7 @@ export async function scorecardScreen(ctx: Ctx, eventId: string, teamId: string,
   const ownJudgingLabel=roles.some(r=>r.role==='organiser'||r.role==='chair')?'Judge':'My scorecards';
   const backLabel=`Back to ${ownJudgingLabel.toLowerCase()}`;
   if (!event || !area || !team) return notFound('That scorecard was not found.', back, backLabel);
-  if (!roles.some((r) => r.role==='organiser' || r.role==='chair' || (r.role === 'judge' && r.panel === area.panel && (r.teamId === null || r.teamId === teamId)))) {
+  if (!roles.some((r) => r.role==='organiser' || r.role==='chair' || (r.role === 'judge' && r.panel === area.panel && r.teamId === teamId))) {
     return notFound('This team and panel are not assigned to you, so you cannot score this scorecard.', back, backLabel);
   }
   const conflicted = conflictList.includes(teamId);

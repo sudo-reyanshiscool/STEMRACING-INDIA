@@ -21,6 +21,7 @@ export async function world() {
     await api.signIn(e);
     await api.claimInvitations();
   }
+  await api.signIn(EMAILS.judge);const assignedJudge=(await api.getSession())!.userId;await api.signIn(EMAILS.org);await api.setJudgeAssignment(ev.id,assignedJudge,'verbal',null);await api.signIn(EMAILS.mgr);
   return { api, ev, t1, t2 };
 }
 

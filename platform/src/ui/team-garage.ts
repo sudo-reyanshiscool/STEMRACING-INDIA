@@ -4,7 +4,7 @@ import type {Ctx} from './ctx';
 import {h} from './dom';
 import {routeHref,type Route} from './router';
 export const managerOnly=(roles:RoleRow[])=>roles.length>0&&roles.every(r=>r.role==='team_manager');
-export const garageDate=(iso:string)=>new Date(iso).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'})+' IST';
+export const garageDate=(iso:string,timezone='Asia/Kolkata')=>new Date(iso).toLocaleString('en-IN',{timeZone:timezone,day:'numeric',month:'short',hour:'numeric',minute:'2-digit'})+(timezone==='Asia/Kolkata'?' IST':` ${timezone}`);
 export function garageHeader(kicker:string,title:string,copy:string) {
  return h('header',{class:'garage-page-head'},h('p',{class:'eyebrow'},kicker),h('h1',null,title),h('p',{class:'lead'},copy));
 }
@@ -22,6 +22,7 @@ export async function teamGarage(ctx:Ctx,event:EventRow,roles:RoleRow[]):Promise
  const href=(name:Route['name'])=>routeHref({name,eventId:event.id} as Route);
  const outstanding=state?.rows.filter(r=>!r.submittedAt&&r.deadline).sort((a,b)=>Date.parse(a.deadline!)-Date.parse(b.deadline!))??[];
  const next=outstanding[0],penalty=state?.rows.reduce((sum,r)=>sum+r.points,0)??0;
+ let schedule:import('../scheduling').TeamSchedule|null=null;try{schedule=await ctx.api.mySchedule(event.id);}catch{/* Other team tools remain available if the schedule cannot be loaded. */}
  const primary=teams[0];
  const hero=h('section',{class:'garage-hero'},
   h('div',{class:'garage-hero__copy'},h('p',{class:'garage-kicker'},'STEM Racing India / Team garage'),h('h1',null,primary?.name??'Your team garage'),h('p',{class:'garage-school'},primary?.school||'Ready for your next milestone.'),h('p',{class:'garage-event'},event.name,event.startsOn?` · ${new Date(event.startsOn+'T12:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'})}`:''),h('a',{class:'btn garage-hero__action',href:href('submissions')},event.resultsReleased?'View submissions ↗':'Submit your portfolios ↗')),
@@ -35,6 +36,7 @@ export async function teamGarage(ctx:Ctx,event:EventRow,roles:RoleRow[]):Promise
  return h('div',{class:'garage stack stack--lg'},h('a',{class:'back',href:'#/'},'All events'),hero,
   teams.length>1?h('p',{class:'notice'},`You manage ${teams.length} teams: ${teams.map(t=>`${t.number} · ${t.name}`).join(', ')}. Progress below covers all your teams.`):null,
   metrics,state?submissionProgress(state):h('p',{class:'notice'},'Submission progress could not be loaded. Open Submissions to try again.'),
+  h('section',{class:'garage-progress stack'},h('div',{class:'garage-section-head'},h('h2',null,'My Schedule'),h('a',{class:'btn btn--ghost',href:href('my-schedule')},'Open schedule ↗')),schedule?.publishedAt?h('div',{class:'stack'},schedule.teams.map(own=>{const next=own.activities.find(a=>Date.parse(a.end??a.start)>=Date.now());return h('p',null,`${teams.find(t=>t.id===own.teamId)?.name??'Your team'} · ${own.stream??'Awaiting allocation'} · ${next?`${next.title} — ${garageDate(next.start,schedule?.timezone)}`:'No upcoming appointments'}`);})):h('p',{class:'muted'},schedule?'Your official stream and appointments will appear when the organisers publish the schedule.':'Schedule could not be loaded. Open My Schedule to try again.')),
   h('section',{class:'stack'},h('div',{class:'garage-section-head'},h('h2',null,'Your competition toolkit'),h('p',{class:'muted small'},'Everything your team needs, in one place.')),
-   h('div',{class:'garage-links'},tile('01','Submissions','Portfolios, deadlines and email confirmations.','submissions'),tile('02','Team files','Your team artwork and submitted documents.','team-files'),tile('03','Team feedback','Raise a concern and follow organiser responses.','team-feedback'),tile('04','Results',event.resultsReleased?'Explore your scores and judging feedback.':'Your team’s results will appear after release.','results'),event.resultsReleased?tile('05','Scores','Explore the released scores.','scores'):null,event.resultsReleased?tile('06','Race control','Review the event’s race records.','racing'):null)));
+   h('div',{class:'garage-links'},tile('00','My Schedule','Your stream, judging sessions and exact racing appointments.','my-schedule'),tile('01','Submissions','Portfolios, deadlines and email confirmations.','submissions'),tile('02','Team files','Your team artwork and submitted documents.','team-files'),tile('03','Team feedback','Raise a concern and follow organiser responses.','team-feedback'),tile('04','Results',event.resultsReleased?'Explore your scores and judging feedback.':'Your team’s results will appear after release.','results'),event.resultsReleased?tile('05','Scores','Explore the released scores.','scores'):null,event.resultsReleased?tile('06','Race control','Review the event’s race records.','racing'):null)));
 }

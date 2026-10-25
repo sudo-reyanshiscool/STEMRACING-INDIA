@@ -13,13 +13,15 @@ export type Route =
   | { name: 'moderate'; eventId: string }
   | { name: 'rankings'; eventId: string }
   | { name: 'results'; eventId: string }
+  | { name:'schedule';eventId:string }
+  | { name:'my-schedule';eventId:string }
   | { name: 'submissions'; eventId:string }
   | { name: 'team-files'; eventId: string }
   | { name: 'team-feedback'; eventId: string }
   | { name: 'communications'; eventId: string };
 
 const HOME: Route = { name: 'home' };
-const SECTIONS = ['submissions', 'team-files', 'team-feedback', 'teams', 'people', 'draw', 'communications', 'score', 'scores', 'moderate', 'rankings', 'results', 'racing'] as const;
+const SECTIONS = ['schedule','my-schedule','submissions', 'team-files', 'team-feedback', 'teams', 'people', 'draw', 'communications', 'score', 'scores', 'moderate', 'rankings', 'results', 'racing'] as const;
 
 export function parseHash(hash: string): Route {
   const parts = hash.replace(/^#\/?/, '').split('/');

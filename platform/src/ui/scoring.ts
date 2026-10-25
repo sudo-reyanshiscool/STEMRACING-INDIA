@@ -74,8 +74,9 @@ export async function scoringScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
         const areas = event.ruleset.areas.filter((a) => a.kind === 'scorecard' && a.panel === panel);
         return h('section', { class: 'section', id: `judge-panel-${panel}`, hidden: panel !== selectedPanel, 'aria-labelledby': `judge-panel-heading-${panel}` },
           h('h2', { id: `judge-panel-heading-${panel}` }, PANEL_LABEL[panel]),
+          !staff&&panel!=='scrutineering'&&!roles.some(r=>r.role==='judge'&&r.panel===panel&&r.teamId!==null)?h('p',{class:'notice'},'No teams are assigned to you on this panel. Ask an organiser to assign your teams.'):null,
           staff&&!selectedTeam?h('p',{class:'muted'},'Choose a team above to open its scorecards.'):null,
-          h('div', { class: 'grid' }, teams.filter(t=>staff?t.id===selectedTeam:roles.some(r=>(r.role==='judge' && r.panel===panel && (r.teamId===null || r.teamId===t.id)) || (panel==='scrutineering' && r.role==='scrutineer' && (r.teamId===null || r.teamId===t.id)))).map((t) => {
+          h('div', { class: 'grid' }, teams.filter(t=>staff?t.id===selectedTeam:roles.some(r=>(r.role==='judge' && r.panel===panel && r.teamId===t.id) || (panel==='scrutineering' && r.role==='scrutineer' && (r.teamId===null || r.teamId===t.id)))).map((t) => {
             const conflicted = conflicts.has(t.id);
             const exemption = exemptionList.find(x=>x.judgeId===session?.userId && x.teamId===t.id);
             const declare = h('button', { class: 'linkish', type: 'button' },

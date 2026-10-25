@@ -1,3 +1,4 @@
+import type {ScheduleDoc,ScheduleState,TeamSchedule} from '../scheduling';
 import type {SubmissionState,SubmissionRule} from './submissions';
 import type {TeamFile,TeamFileInput} from './team-files';
 import type { RacingSetup, RacingSetupInput } from '../racing/competition';
@@ -105,6 +106,10 @@ export interface TeamConcern {
 }
 export interface InspectionScope {revision: number; articles: string[] | null; locked: boolean}
 export interface Api {
+  schedulingState(eventId:string):Promise<ScheduleState>;
+  saveSchedule(eventId:string,revision:number,document:ScheduleDoc):Promise<void>;
+  publishSchedule(eventId:string,revision:number):Promise<void>;
+  mySchedule(eventId:string):Promise<TeamSchedule>;
   sendSubmissionConfirmation(eventId:string,teamId:string,kind:import('./submissions').PortfolioKind,revision:number):Promise<void>;
   submissionState(eventId:string):Promise<SubmissionState>;
   saveSubmissionRules(eventId:string,revision:number,rules:SubmissionRule[]):Promise<void>;

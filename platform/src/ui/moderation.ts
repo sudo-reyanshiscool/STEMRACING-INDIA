@@ -197,7 +197,7 @@ export async function moderationScreen(ctx: Ctx, eventId: string): Promise<HTMLE
                 j.status === 'submitted' ? ' This judge declared a conflict with this team after submitting, and the card still counts. Reopen it to leave it out.' : ' Not counted while a draft.')
               : null,
             judgeReview(j.cardId),
-            canChange && j.status === 'submitted' ? reopenForm(j.cardId, judge, r.teamLabel) : null);
+            !released && (isChair||leadPanels.includes(area.panel as Panel)) && j.status === 'submitted' ? reopenForm(j.cardId, judge, r.teamLabel) : null);
         }),
           drafts(r) > 0 ? h('li', { class: 'small' }, `${drafts(r)} card${drafts(r) === 1 ? '' : 's'} still in draft, not counted`) : null])),
         h('td', { class: 'num', 'data-label': 'Mean of submitted' }, r.mean === null ? '—' : String(r.mean)),

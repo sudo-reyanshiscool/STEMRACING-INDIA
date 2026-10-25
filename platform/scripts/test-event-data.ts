@@ -109,10 +109,12 @@ begin
  if exists(select 1 from teams where event_id=e.id) then raise exception 'Test Event already contains teams; sample import cancelled without changing records'; end if;
  for j in select value from jsonb_array_elements(data->'judges') loop
   insert into auth.users(id,email,email_confirmed_at) values((j->>'id')::uuid,j->>'email',now());
-  insert into event_roles(event_id,user_id,email,display_name,role,panel) values(e.id,(j->>'id')::uuid,j->>'email',j->>'name','judge',(j->>'panel')::judging_panel);
  end loop;
  for t in select value from jsonb_array_elements(data->'teams') loop
   insert into teams(id,event_id,number,name,school) values((t->>'id')::uuid,e.id,t->>'number',t->>'name',t->>'school');
+ end loop;
+ for j in select value from jsonb_array_elements(data->'judges') loop
+  insert into event_roles(event_id,user_id,email,display_name,role,panel,team_id) select e.id,(j->>'id')::uuid,j->>'email',j->>'name','judge',(j->>'panel')::judging_panel,tt.id from teams tt where tt.event_id=e.id;
  end loop;
  for c in select value from jsonb_array_elements(data->'cards') loop
   insert into scorecards(id,event_id,team_id,area_id,panel,judge_id) values((c->>'id')::uuid,e.id,(c->>'teamId')::uuid,c->>'areaId',(c->>'panel')::judging_panel,(c->>'judgeId')::uuid);

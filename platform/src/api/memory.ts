@@ -1,3 +1,4 @@
+import {emptySchedule,validateSchedule,teamActivities,type ScheduleDoc,type ScheduleState} from '../scheduling';
 import {PORTFOLIOS,submissionRow,validateSubmissionRules,type SubmissionRule} from './submissions';
 import {FILE_PANEL, validateTeamFile, type TeamFile, type TeamFileInput} from './team-files';
 import { defaultRacingSetup, validateSetup, reactionPairings, type RacingSetup, type RacingSetupInput } from '../racing/competition';
@@ -57,6 +58,29 @@ export interface ShowcaseSeed {
  * Used by tests. Where several rules could fail at once, permission is checked first.
  */
 export class MemoryApi implements Api {
+  private schedules=new Map<string,ScheduleState>();
+  async schedulingState(eventId:string) {
+    this.require(eventId,'organiser','chair','spectator');
+    const state=copy(this.schedules.get(eventId)??{revision:0,draft:emptySchedule(),published:null,publishedAt:null,issues:[],history:[]});
+    state.issues=validateSchedule(state.draft,this.teams.filter(t=>t.eventId===eventId));return {...state,judgeExemptions:this.exemptions.filter(x=>x.eventId===eventId&&this.visibleIdentity(x.judgeId,null)).map(x=>({teamId:x.teamId,judgeName:this.roles.find(r=>r.userId===x.judgeId)?.name??'Assigned judge',reason:x.reason}))};
+  }
+  async saveSchedule(eventId:string,revision:number,document:ScheduleDoc) {
+    this.require(eventId,'organiser','chair');
+    const state=await this.schedulingState(eventId);if(state.revision!==revision)throw new ApiError('conflict','Schedule changed; reload before saving');
+    const issues=validateSchedule(document,this.teams.filter(t=>t.eventId===eventId));
+    if(issues.some(i=>['capacity','duplicate','allocation'].includes(i.code)))throw new ApiError('invalid','Stream allocations are invalid or exceed capacity');
+    state.draft=copy(document);state.revision++;state.issues=issues;state.history.unshift({revision:state.revision,action:'save',at:new Date().toISOString()});this.schedules.set(eventId,state);
+  }
+  async publishSchedule(eventId:string,revision:number) {
+    this.require(eventId,'organiser','chair');const state=await this.schedulingState(eventId);
+    if(state.revision!==revision)throw new ApiError('conflict','Save and review the current draft before publishing');
+    if(state.issues.some(i=>i.severity==='error'))throw new ApiError('locked','Resolve blocking schedule errors before publication');
+    state.published=copy(state.draft);state.publishedAt=new Date().toISOString();state.revision++;state.history.unshift({revision:state.revision,action:'publish',at:state.publishedAt});this.schedules.set(eventId,state);
+  }
+  async mySchedule(eventId:string) {
+    this.require(eventId,'team_manager');const state=this.schedules.get(eventId),doc=state?.published;
+    return {timezone:doc?.timezone??'Asia/Kolkata',publishedAt:state?.publishedAt??null,teams:this.teams.filter(t=>t.eventId===eventId&&this.rolesOf(eventId).some(r=>r.role==='team_manager'&&r.teamId===t.id)).map(t=>({teamId:t.id,stream:doc?.streams.find(s=>doc.allocations.some(a=>a.teamId===t.id&&a.streamId===s.id))?.name??null,activities:doc?teamActivities(doc,t.id).map(a=>({...copy(a),teamIds:a.scope==='teams'?[t.id]:[],resourceNames:a.resourceIds.map(id=>doc.resources.find(r=>r.id===id)?.name??'Resource')})):[]}))};
+  }
   private submissionRules=new Map<string,{revision:number;rules:SubmissionRule[]}>();
   private submittedTimes=new Map<string,string>();
   private submissionRows(eventId:string) {
@@ -589,16 +613,17 @@ export class MemoryApi implements Api {
     this.require(eventId,'chair','organiser');
     const person=this.roles.find(r=>r.eventId===eventId && r.userId===userId);
     if(!person || !this.eventOrThrow(eventId).ruleset.areas.some(a=>a.kind==='scorecard' && a.panel===panel)) throw new ApiError('invalid','Choose an event member and panel');
+    if(teamIds===null)teamIds=this.teams.filter(t=>t.eventId===eventId).map(t=>t.id);
     if(teamIds!==null && (!teamIds.length || teamIds.length>1000 || teamIds.some(t=>!this.teams.some(x=>x.id===t && x.eventId===eventId)))) throw new ApiError('invalid','Choose teams in this event');
     if(teamIds?.some(t=>this.conflicts.some(c=>c.eventId===eventId && c.judgeId===userId && c.teamId===t))) throw new ApiError('invalid','Judge has a declared conflict');
-    const wanted:Array<string|null>=teamIds===null?[null]:[...new Set(teamIds)];
-    this.roles=this.roles.filter(r=>r.eventId!==eventId || r.userId!==userId || r.role!=='judge' || r.panel!==panel || wanted.includes(r.teamId));
+    const wanted=[...new Set(teamIds)];
+    this.roles=this.roles.filter(r=>r.eventId!==eventId || r.userId!==userId || r.role!=='judge' || r.panel!==panel || (r.teamId!==null&&wanted.includes(r.teamId)));
     for(const teamId of wanted) if(!this.roles.some(r=>r.eventId===eventId && r.userId===userId && r.role==='judge' && r.panel===panel && r.teamId===teamId)) {
       this.roles.push({id:nid('role'),eventId,userId,role:'judge',panel,teamId,email:person.email,...(person.name?{name:person.name}:{})});
     }
   }
   private canScore(eventId: string, panel: Panel, teamId: string) {
-    return (this.has(eventId,'organiser','chair') || this.rolesOf(eventId).some(r=>r.role==='judge' && r.panel===panel && (r.teamId===null || r.teamId===teamId))) && !this.exemptions.some(x=>x.eventId===eventId && x.judgeId===this.me?.userId && x.teamId===teamId);
+    return (this.has(eventId,'organiser','chair') || this.rolesOf(eventId).some(r=>r.role==='judge' && r.panel===panel && r.teamId===teamId)) && !this.exemptions.some(x=>x.eventId===eventId && x.judgeId===this.me?.userId && x.teamId===teamId);
   }
   async drawLotsState(eventId:string):Promise<DrawLotsState>{
     this.require(eventId,'organiser','chair','spectator');
@@ -924,7 +949,7 @@ export class MemoryApi implements Api {
   async reopenCard(cardId: string, reason: string) {
     const card = this.cards.find((c) => c.id === cardId);
     if (!card) throw new ApiError('not-found', 'Scorecard not found');
-    this.require(card.eventId, 'chair');
+    if(!this.has(card.eventId,'chair')&&!this.rolesOf(card.eventId).some(r=>r.role==='lead_judge'&&r.panel===card.panel))throw new ApiError('forbidden','Only the Chair or panel Lead Judge can reopen a scorecard');
     if ((typeof reason === 'string' ? reason : '').trim().length < 3) throw new ApiError('invalid', 'A reason is required to reopen a scorecard');
     if (this.released(card.eventId)) throw new ApiError('locked', 'Results are released; withdraw the release before reopening a scorecard');
     if (card.status !== 'submitted') throw new ApiError('locked', 'That scorecard is not submitted');
@@ -1075,7 +1100,7 @@ export class MemoryApi implements Api {
     this.teamOrThrow(eventId, teamId);
     this.frozen(eventId, 'inspections');
     const isInspector = this.has(eventId, 'chair', 'organiser', 'scrutineer') ||
-      this.rolesOf(eventId).some((r) => r.role === 'judge' && r.panel === 'scrutineering' && (r.teamId === null || r.teamId === teamId));
+      (this.canScore(eventId,'scrutineering',teamId)&&!this.conflicted(eventId,teamId));
     if (!isInspector) throw new ApiError('forbidden', 'You cannot inspect this team');
     let insp = this.inspections.find((i) => i.eventId === eventId && i.teamId === teamId && i.car === car);
     const now = new Date().toISOString();
@@ -1110,7 +1135,7 @@ export class MemoryApi implements Api {
     const insp = this.inspections.find((i) => i.id === inspectionId);
     if (!insp) throw new ApiError('not-found', 'Inspection not found');
     this.frozen(insp.eventId, 'inspections');
-    const canSubmit = insp.inspectorId === this.me?.userId || this.has(insp.eventId, 'chair', 'organiser');
+    const canSubmit = (insp.inspectorId === this.me?.userId && (this.has(insp.eventId,'scrutineer')||(this.canScore(insp.eventId,'scrutineering',insp.teamId)&&!this.conflicted(insp.eventId,insp.teamId)))) || this.has(insp.eventId, 'chair', 'organiser');
     if (!canSubmit) throw new ApiError('forbidden', 'You cannot submit this inspection');
     if (insp.status === 'submitted') throw new ApiError('duplicate', 'Already submitted');
     this.inspectionHistory.push({
