@@ -1,3 +1,4 @@
+import { selectedRules } from '../technical';
 import { buttonBusy } from './button-busy';
 import { competitionScores } from '../racing/competition';
 import { ApiError, type CardRow, type EventRow, type OverrideRow, type PenaltyRow, type RoleRow, type SnapshotRow, type TeamRow } from '../api';
@@ -30,8 +31,8 @@ function buildInputs(teams: TeamRow[], cards: CardRow[], overrides: OverrideRow[
     const a = inspections.find((i) => i.teamId === t.id && i.car === 'A');
     const b = inspections.find((i) => i.teamId === t.id && i.car === 'B');
     if (a && b && a.status === 'submitted' && b.status === 'submitted') {
-      const sumA = summarise(INDIA_TECHNICAL.rules, a.measurements);
-      const sumB = summarise(INDIA_TECHNICAL.rules, b.measurements);
+      const sumA = summarise(selectedRules(INDIA_TECHNICAL.rules, a), a.measurements);
+      const sumB = summarise(selectedRules(INDIA_TECHNICAL.rules, b), b.measurements);
       derived[t.id] = { specifications: specificationsScore(sumA, sumB) };
     }
   }

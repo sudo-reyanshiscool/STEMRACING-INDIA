@@ -1,9 +1,23 @@
+import { selectedRules } from '../technical';
 import type { RaceHeat, RaceInput, RaceLane } from './index';
 import { INDIA_TECHNICAL, summarise, type Inspection } from '../technical';
 
 export const ROUND_NAMES = ['Round of 64', 'Round of 32', 'Round of 16', 'Quarter-final', 'Semi-final', 'Final'];
 export const POINT_NAMES = [...ROUND_NAMES.slice(0, 5).map(n => `Eliminated · ${n}`), 'Runner-up', 'Winner', 'Not qualified'];
+export interface ReactionScoring {
+  podium: [number,number,number]; minimum: number; referenceMultiplier: number;
+  falseStartPenalty: number; dnfPenalty: number; fastestCarBonus: number;
+}
+export const defaultReactionScoring = (): ReactionScoring => ({podium:[105,100,95],minimum:5,referenceMultiplier:1.2,falseStartPenalty:2.5,dnfPenalty:1,fastestCarBonus:10});
+export function validReactionScoring(s: ReactionScoring): boolean {
+  const point=(n: unknown,max:number)=>typeof n==='number'&&Number.isFinite(n)&&n>=0&&n<=max&&Math.abs(n*10-Math.round(n*10))<1e-8;
+  return !!s && Array.isArray(s.podium)&&s.podium.length===3&&s.podium.every(p=>point(p,105))&&
+    s.podium[0]>=s.podium[1]&&s.podium[1]>=s.podium[2]&&point(s.minimum,s.podium[2])&&
+    typeof s.referenceMultiplier==='number'&&Number.isFinite(s.referenceMultiplier)&&s.referenceMultiplier>1&&s.referenceMultiplier<=10&&
+    point(s.falseStartPenalty,105)&&point(s.dnfPenalty,105)&&point(s.fastestCarBonus,10);
+}
 export interface RacingSetup {
+  scoring?: ReactionScoring;
   revision: number;
   /** Ranked seed order, frozen once a bracket heat exists. Empty until approved. */
   seeds: string[];
@@ -13,8 +27,9 @@ export interface RacingSetup {
   version: string;
 }
 export const defaultRacingSetup = (): RacingSetup => ({ revision: 0, seeds: [], reactionComplete: false, points: [null, null, null, 85, 106, null, 135, 10], version: '' });
-export type RacingSetupInput = Pick<RacingSetup, 'seeds' | 'reactionComplete' | 'points'>;
+export type RacingSetupInput = Pick<RacingSetup, 'seeds' | 'reactionComplete' | 'points' | 'scoring'>;
 export function validateSetup(s: RacingSetupInput): string | null {
+  if(s.scoring!==undefined&&!validReactionScoring(s.scoring))return 'Check reaction points, penalties, reference multiplier and Fastest Car bonus.';
   if (!Array.isArray(s.seeds) || s.seeds.length > 64 || new Set(s.seeds).size !== s.seeds.length || s.seeds.some(id => typeof id !== 'string' || !id)) return 'Choose up to 64 different teams in seed order.';
   if (typeof s.reactionComplete !== 'boolean' || !Array.isArray(s.points) || s.points.length !== 8 || s.points.some(p => p !== null && (!Number.isFinite(p) || p < 0 || p > 135 || Math.round(p * 10) !== p * 10))) return 'Enter eight stage scores between 0 and 135, with at most one decimal place.';
   if (s.seeds.length && (!s.reactionComplete || s.seeds.length < 2)) return 'Complete reaction racing before approving at least two seeds.';
@@ -24,7 +39,7 @@ export interface CarCheck { ready: boolean; performance: string[]; safety: strin
 export function carCheck(inspections: Inspection[], teamId: string, car: 'A' | 'B'): CarCheck {
   const i = inspections.find(i => i.teamId === teamId && i.car === car);
   if (!i || i.status !== 'submitted' || i.rulesetId !== INDIA_TECHNICAL.id) return { ready: false, performance: [], safety: [], additionMs: 0 };
-  const s = summarise(INDIA_TECHNICAL.rules, i.measurements);
+  const s = summarise(selectedRules(INDIA_TECHNICAL.rules, i), i.measurements);
   const performance = s.perfFailures.map(r => r.article), safety = s.safetyFailures.map(r => r.article);
   return { ready: s.complete, performance, safety, additionMs: performance.length * 200 + safety.length * 300 };
 }
@@ -72,13 +87,13 @@ export function knockoutBracket(setup: RacingSetup, races: RaceHeat[], inspectio
     const attempts = races.filter(r => r.bracket?.round === round && r.bracket.slot === slot).sort((a,b) => b.number-a.number);
     const heat = attempts[0]; match.heat = heat ?? null;
     if (!heat) { match.reason = 'Ready to race'; continue; }
-    if (heat.phase !== 'knockout' || heat.lane1.teamId !== team1 || heat.lane2.teamId !== team2) { match.reason = 'Pairing changed · correct this heat before continuing'; continue; }
+    if (heat.phase !== 'knockout' || !((heat.lane1.teamId === team1 && heat.lane2.teamId === team2) || (heat.lane1.teamId === team2 && heat.lane2.teamId === team1))) { match.reason = 'Pairing changed · correct this heat before continuing'; continue; }
     const a = heat.lane1, b = heat.lane2;
     if (a.status === 'pending' || b.status === 'pending') { match.reason = 'Awaiting both lanes'; continue; }
-    if (a.status !== 'finished' && b.status !== 'finished') { match.reason = 'No finisher · rerun required'; continue; }
+    if (a.status !== 'finished' && b.status !== 'finished') { match.reason = [a,b].some(l=>l.status==='dnf') ? 'DNF · official review required' : 'No finisher · rerun required'; continue; }
     const at = adjustedTime(heat, a, inspections), bt = adjustedTime(heat, b, inspections);
     if (a.status === 'finished' && b.status === 'finished' && at === bt) { match.reason = 'Tie · rerun required'; continue; }
-    match.winner = a.status !== 'finished' ? team2 : b.status !== 'finished' ? team1 : at! < bt! ? team1 : team2;
+    match.winner = a.status !== 'finished' ? b.teamId : b.status !== 'finished' ? a.teamId : at! < bt! ? a.teamId : b.teamId;
     match.resolved = true; match.reason = 'Winner confirmed from adjusted total';
   }
   return out;
@@ -89,20 +104,21 @@ export function competitionScores(teamIds: string[], races: RaceHeat[], inspecti
   const derived: RacingScores['derived'] = {}, deductions = new Map<string, number>(), issues: string[] = [];
   const add = (id: string, points: number) => deductions.set(id, (deductions.get(id) ?? 0) + points);
   const set = (id: string, area: string, points: number) => { (derived[id] ??= {})[area] = Math.round(points * 10) / 10; };
+  const scoring=setup.scoring??defaultReactionScoring();
   if (setup.reactionComplete) {
     const best = teamIds.map(id => ({id, times:races.filter(r => r.phase === 'reaction').flatMap(r => [r.lane1,r.lane2]).filter(l => l.teamId === id && l.status === 'finished').map(l => l.totalMs!) })).map(t => ({id:t.id,time:t.times.length?Math.min(...t.times):Infinity})).sort((a,b) => a.time-b.time || a.id.localeCompare(b.id));
-    const times = best.filter(t => Number.isFinite(t.time)).map(t => t.time), base = (times[2] ?? times.at(-1) ?? 0) * 1.2;
+    const times = best.filter(t => Number.isFinite(t.time)).map(t => t.time), base = (times[2] ?? times.at(-1) ?? 0) * scoring.referenceMultiplier;
     for (const t of best) {
-      const place = times.indexOf(t.time), raw = place < 0 ? 5 : place < 3 ? [105,100,95][place] : Math.max(5,5+90/(base-times[0])*(base-t.time));
+      const place = times.indexOf(t.time), raw = place < 0 ? scoring.minimum : place < 3 ? scoring.podium[place] : Math.max(scoring.minimum,scoring.minimum+(scoring.podium[2]-scoring.minimum)/(base-times[0])*(base-t.time));
       const lanes = races.filter(r => r.phase === 'reaction').flatMap(r => [r.lane1,r.lane2]).filter(l => l.teamId === t.id);
       set(t.id,'reaction',raw);
-      add(t.id, lanes.filter(l => l.status === 'false_start').length * 2.5 + (raw === 5 ? lanes.filter(l => l.status === 'dnf').length : 0));
+      add(t.id, lanes.filter(l => l.status === 'false_start').length * scoring.falseStartPenalty + (raw === scoring.minimum ? lanes.filter(l => l.status === 'dnf').length * scoring.dnfPenalty : 0));
     }
     // PERF breaches on either car remove Fastest Car eligibility. Missing checks stay pending.
     const candidates = races.filter(r => r.phase === 'reaction').flatMap(r => [r.lane1,r.lane2]).filter(l => l.status === 'finished' && teamCheck(inspections,l.teamId).ready && !['A','B'].some(c => carCheck(inspections,l.teamId,c as 'A'|'B').performance.length)).map(l => ({id:l.teamId,time:l.totalMs!-l.reactionMs!}));
     if (teamIds.every(id => teamCheck(inspections,id).ready)) {
       const fastest = Math.min(...candidates.map(c => c.time));
-      for (const id of teamIds) set(id,'fastest-car',candidates.some(c => c.id===id && c.time===fastest)?10:0);
+      for (const id of teamIds) set(id,'fastest-car',candidates.some(c => c.id===id && c.time===fastest)?scoring.fastestCarBonus:0);
     } else issues.push('Fastest Car bonus awaits submitted inspections for every team.');
   } else if (races.length || setup.revision) issues.push('Reaction racing has not been confirmed complete.');
   const bracket = knockoutBracket(setup,races,inspections), final = bracket.find(m => m.round===6);
@@ -122,7 +138,11 @@ export function competitionScores(teamIds: string[], races: RaceHeat[], inspecti
 
 /** Four reaction runs per team: each car in each lane, with Heat 1 & Heat 2 paired and opposite. */
 export function reactionPairings(ids: string[]): RaceInput[] {
-  if (ids.length < 2) return [];
+  if (!ids.length) return [];
+  if(ids.length===1) {
+    const lane=(car:'A'|'B'):RaceLane=>({teamId:ids[0],car,status:'pending',totalMs:null,reactionMs:null});
+    return [{label:'RR-H01',phase:'reaction',lane1:lane('A'),lane2:lane('B'),note:'',source:'manual',sourceRunId:null},{label:'RR-H02',phase:'reaction',lane1:lane('B'),lane2:lane('A'),note:'',source:'manual',sourceRunId:null}];
+  }
   const n = ids.length;
   const races: RaceInput[] = [];
   let heatNum = 1;

@@ -1,7 +1,7 @@
 import { buttonBusy } from './button-busy';
 import { competitionPanel } from './racing-competition';
 import { defaultRacingSetup, adjustedTime, carCheck } from '../racing/competition';
-import { blankLane, outcome, parseDenford, parseSeconds, raceRecorded, raceStandings, seconds, STATUS_LABEL, validateRace, type RaceHeat, type RaceInput, type RaceLane, type RaceStatus, type TimingState } from '../racing';
+import { rerunEligible, blankLane, outcome, parseDenford, parseSeconds, raceRecorded, raceStandings, seconds, STATUS_LABEL, validateRace, type RaceHeat, type RaceInput, type RaceLane, type RaceStatus, type TimingState } from '../racing';
 import { reportActionError } from './actions';
 import { notFound, tag } from './common';
 import type { Ctx } from './ctx';
@@ -102,7 +102,7 @@ export async function racingScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
   const renderBoard = () => {
     const hasReaction = races.some(r => r.phase === 'reaction');
     const hasKnockout = races.some(r => r.phase === 'knockout');
-    autoGenBtn.hidden = !canEdit || hasReaction || teams.length < 2;
+    autoGenBtn.hidden = !canEdit || hasReaction || teams.length < 1;
     downloadReactionPdfBtn.hidden = !hasReaction;
     downloadKnockoutPdfBtn.hidden = !hasKnockout;
     counters.replaceChildren(...[['Recorded heats',races.filter(raceRecorded).length],['Queued heats',races.filter(r => !raceRecorded(r)).length],['Teams entered',teams.length]].map(([label,value]) => h('div',null,h('strong',null,value),h('span',null,label))));
@@ -159,6 +159,17 @@ export async function racingScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
       const finish = buttonBusy(save, 'Saving race…');
       try{const saved=await ctx.api.saveRace(eventId,row.id,row.revision,input);if(!alive)return;races=races.filter(r=>r.id!==saved.id);races.push(saved);races.sort((a,b)=>a.number-b.number);await refresh();select(saved,true);status.textContent='Race result saved and shared.';}catch(e){if(alive)fail(e);}finally{finish();if(alive)save.disabled=!canEdit;}
     });
+    const followups=h('div',{class:'actions'});
+    if(canEdit && !(row.phase==='reaction' && setup.reactionComplete)) {
+      for(const mode of ['swap','rerun'] as const) {
+        if(mode==='swap' && row.bracket || mode==='rerun' && !rerunEligible(row)) continue;
+        const next=h('button',{type:'button',class:'btn btn--ghost'},mode==='swap'?'Queue lane-swapped race':'Queue eligible rerun');
+        next.onclick=async()=>{if(dirty){error.textContent='Save or reload your changes before queuing another race.';error.hidden=false;return;}
+          const finish=buttonBusy(next);try{const saved=await ctx.api.queueRaceFollowup(eventId,row.id,row.revision,mode);await refresh();if(alive)select(saved,true);}catch(e){fail(e);}finally{finish();}};
+        followups.append(next);
+      }
+    }
+    form.append(followups);
     editor.replaceChildren(h('div',{class:'race-console-heading'},h('div',null,h('p',{class:'eyebrow'},`${row.phase==='reaction'?'Reaction racing':'Knockout racing'} · HEAT ${String(row.number).padStart(2,'0')}`),h('h2',null,row.label)),tag(raceRecorded(row)?'Recorded':'Ready to race',raceRecorded(row)?'pass':'todo')),form);
     renderBoard();updateTrack();
   }
@@ -166,10 +177,10 @@ export async function racingScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
   if(canEdit){
     const a=teamSelect(),b=teamSelect();a.setAttribute('aria-label','New heat lane 1');b.setAttribute('aria-label','New heat lane 2');
     const phase=h('select',{'aria-label':'New heat phase'},h('option',{value:'reaction'},'Reaction racing'));
-    const add=h('button',{class:'btn btn--ghost',type:'submit',disabled:teams.length<2},'Add pairing');
-    addForm.append(h('h3',null,'New pairing'),field('Phase',phase),field('Lane 1',a),field('Lane 2',b),add);
-    addForm.addEventListener('submit',async e=>{e.preventDefault();if(add.disabled)return;if(dirty&&!window.confirm('Discard the unsaved lane changes and create a new pairing?'))return;if(!a.value||!b.value||a.value===b.value){error.textContent='Choose two different teams for this heat.';error.hidden=false;return;}const finish = buttonBusy(add, 'Adding pairing…');
-      try{const row=await ctx.api.saveRace(eventId,crypto.randomUUID(),0,{label:`${phase.value==='reaction'?'Reaction':'Knockout'} · Heat ${Math.max(0,...races.map(r=>r.number))+1}`,phase:phase.value as RaceInput['phase'],lane1:blankLane(a.value),lane2:blankLane(b.value),note:'',source:'manual',sourceRunId:null});races.push(row);if(alive)select(row,true);}catch(e){if(alive)fail(e);}finally{finish();}
+    const add=h('button',{class:'btn btn--ghost',type:'submit',disabled:teams.length<1},'Add pairing');
+    addForm.append(h('h3',null,'New pairing'),field('Phase',phase),field('Lane 1',a),field('Lane 2',b),h('p',{class:'small muted'},'Selecting the same team pairs Car A against Car B.'),add);
+    addForm.addEventListener('submit',async e=>{e.preventDefault();if(add.disabled)return;if(dirty&&!window.confirm('Discard the unsaved lane changes and create a new pairing?'))return;if(!a.value||!b.value){error.textContent='Choose a team for each lane.';error.hidden=false;return;}const finish = buttonBusy(add, 'Adding pairing…');
+      try{const row=await ctx.api.saveRace(eventId,crypto.randomUUID(),0,{label:`${phase.value==='reaction'?'Reaction':'Knockout'} · Heat ${Math.max(0,...races.map(r=>r.number))+1}`,phase:phase.value as RaceInput['phase'],lane1:blankLane(a.value),lane2:{...blankLane(b.value),car:a.value===b.value?'B':'A'},note:'',source:'manual',sourceRunId:null});races.push(row);if(alive)select(row,true);}catch(e){if(alive)fail(e);}finally{finish();}
     });
   }
   const connectionMethod=h('select',{'aria-label':'Track connection method'},h('option',{value:'wifi'},'Track Wi-Fi'),h('option',{value:'ethernet'},'Ethernet'));
@@ -189,7 +200,7 @@ export async function racingScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
     const finish = buttonBusy(pair, 'Pairing…');
     try{
       const connection=await ctx.api.pairTiming(eventId);
-      const config={connectionMethod:connectionMethod.value,gateUrl:gateUrl.value,projectUrl:import.meta.env.VITE_SUPABASE_URL,anonKey:import.meta.env.VITE_SUPABASE_ANON_KEY,token:connection.token};
+      const config={dbSchema:import.meta.env.VITE_SUPABASE_DB_SCHEMA??'public',connectionMethod:connectionMethod.value,gateUrl:gateUrl.value,projectUrl:import.meta.env.VITE_SUPABASE_URL,anonKey:import.meta.env.VITE_SUPABASE_ANON_KEY,token:connection.token};
       const url=URL.createObjectURL(new Blob([JSON.stringify(config,null,2)],{type:'application/json'}));
       const link=h('a',{class:'btn',href:url,download:'denford-connection.json'},'Download pairing file');
       ctx.onLeave(()=>URL.revokeObjectURL(url));
@@ -232,11 +243,11 @@ export async function racingScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
       h('p', { class: 'eyebrow' }, 'Start line'),
       h('h2', null, 'Set the first pairing.'),
       h('p', { class: 'muted' }, canEdit
-        ? (teams.length >= 2 ? 'Generate the full 4-run reaction schedule automatically, or add individual pairings below.' : 'At least two teams are required to race.')
+        ? (teams.length ? 'Generate the full 4-run reaction schedule automatically, or add individual pairings below.' : 'Add a team before creating a pairing.')
         : 'A race official will add the first pairing.'
       )
     );
-    if (canEdit && teams.length >= 2 && !races.some(r => r.phase === 'reaction')) {
+    if (canEdit && teams.length >= 1 && !races.some(r => r.phase === 'reaction')) {
       editor.append(emptyGen);
     }
   }

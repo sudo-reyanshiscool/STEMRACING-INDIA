@@ -1,3 +1,4 @@
+import { inspectionScopeControl } from './inspection-scope';
 import type { Role } from '../api';
 import type { Ctx } from './ctx';
 import { notFound } from './common';
@@ -25,6 +26,8 @@ export async function eventHomeScreen(ctx: Ctx, eventId: string): Promise<HTMLEl
   if (roles.some(r => r.role !== 'team_manager') || (has('team_manager') && event.resultsReleased)) tiles.push(tile('Race control', 'Pair teams, record lane times and follow Denford track readings.', { name: 'racing', eventId }));
   if (has('chair', 'lead_judge')) tiles.push(tile('Moderation', "Review judges' scores, override and reopen.", { name: 'moderate', eventId }));
   if (has('organiser', 'chair')) tiles.push(tile('Rankings', 'Combine scores, add penalties, publish and release.', { name: 'rankings', eventId }));
+  if (roles.length) tiles.push(tile('Team files', 'Upload logos and portfolios or download assigned team submissions.', {name:'team-files', eventId}));
+  if (has('organiser', 'chair', 'team_manager')) tiles.push(tile('Team feedback', 'Report judging concerns and follow organiser responses.', {name:'team-feedback', eventId}));
   tiles.push(tile('Results', ctx.demo ? 'Explore the populated standings, awards and team PDFs.' : event.resultsReleased ? 'Results released.' : 'Not released yet.', { name: 'results', eventId }));
 
   const mine = [...new Set(roles.map((r) => (r.panel ? `${ROLE_LABEL[r.role]}: ${PANEL_LABEL[r.panel]}` : ROLE_LABEL[r.role])))];
@@ -42,6 +45,7 @@ export async function eventHomeScreen(ctx: Ctx, eventId: string): Promise<HTMLEl
         h('a', { class: 'btn btn--primary', href: showcaseHref(event.id) }, 'Open showcase'),
         h('a', { class: 'btn btn--ghost', href: showcaseHref(event.id, true) }, 'Six-team example'))) : null,
     h('div', { class: 'tiles' }, tiles),
+    has('organiser','chair') ? await inspectionScopeControl(ctx,eventId) : null,
     has('organiser') ? deleteEventControl(ctx, event) : null,
   );
 }

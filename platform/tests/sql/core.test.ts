@@ -125,7 +125,7 @@ describe('roles and invitations', () => {
     const role = await as(w.db, 'invitee', async (q) => (await q('select role, panel from event_roles where event_id = $1', [w.eventId])).rows);
     expect(role).toEqual([{ role: 'judge', panel: 'enterprise' }]);
     expect(await as(w.db, 'invitee', async (q) => (await q('select claim_invitations() as n')).rows[0].n)).toBe(0);
-    const left = await as(w.db, 'organiser', async (q) => (await q(`select id from invitations where email = 'new.judge@x.test'`)).rows);
+    const left = await as(w.db, 'organiser', async (q) => (await q(`select id from list_event_invitations($1) where email = 'new.judge@x.test'`,[w.eventId])).rows);
     expect(left).toEqual([]);
   });
 });

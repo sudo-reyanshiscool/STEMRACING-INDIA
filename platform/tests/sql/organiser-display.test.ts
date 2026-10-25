@@ -1,0 +1,20 @@
+import {beforeAll,afterAll,it,expect} from 'vitest';
+import {as,makeDb,seedWorld,ids,type World} from './harness';
+let w:World;beforeAll(async()=>{w=await seedWorld(await makeDb());});afterAll(async()=>w.db.close());
+it('redacts a named organiser address at the API boundary while retaining private delivery data',async()=>{
+ await w.db.query("insert into platform_organisers(user_id,email,scope,granted_by,display_name,hide_email) values($1,'nelson-private@x.test','platform',$2,'Nelson',true)",[ids.outsider,ids.admin]);
+ const result=await as(w.db,'admin',q=>q('select platform_access() as access'));
+ const nelson=result.rows[0].access.organisers.find((p:any)=>p.name==='Nelson');
+ expect(nelson).toMatchObject({userId:ids.outsider,email:null,emailHidden:true,scope:'platform'});
+ expect(JSON.stringify(result.rows)).not.toContain('nelson-private@x.test');
+ await expect(as(w.db,'admin',q=>q('select email from platform_organisers'))).rejects.toThrow();
+ await w.db.query("insert into event_roles(event_id,user_id,role,email) values($1,$2,'organiser','nelson-private@x.test')",[w.eventId,ids.outsider]);
+ const people=await as(w.db,'chair',q=>q('select * from list_event_people($1)',[w.eventId]));
+ expect(people.rows.find((p:any)=>p.user_id===ids.outsider)).toMatchObject({email:null,display_name:'Nelson'});
+ await expect(as(w.db,'chair',q=>q('select email from event_roles where user_id=$1',[ids.outsider]))).rejects.toThrow();
+ await as(w.db,'organiser',q=>q("insert into invitations(event_id,email,role,display_name) values($1,'nelson-private@x.test','organiser','Nelson Vale')",[w.eventId]));
+ const invitations=await as(w.db,'chair',q=>q('select email,display_name from list_event_invitations($1)',[w.eventId]));
+ expect(invitations.rows).toEqual([{email:'',display_name:'Nelson'}]);
+ await expect(as(w.db,'chair',q=>q('select email from invitations where event_id=$1',[w.eventId]))).rejects.toThrow();
+ expect((await as(w.db,'outsider',q=>q('select platform_manager() as allowed'))).rows[0].allowed).toBe(true);
+});

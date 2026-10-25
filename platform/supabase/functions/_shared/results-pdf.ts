@@ -2,7 +2,7 @@ import {jsPDF} from 'jspdf';
 import {autoTable,type CellInput,type UserOptions} from 'jspdf-autotable';
 import type {Benchmark,ReportArea,ResultsPacket} from './results-packet.ts';
 import {INDIA_TECHNICAL} from './technical/rules.ts';
-import {summarise} from './technical/summarise.ts';
+import {selectedRules,summarise} from './technical/summarise.ts';
 import {describeLimit} from './technical/describe.ts';
 import {RESULTS_FONTS} from './results-fonts.ts';
 import {RESULTS_BANNER,RESULTS_ACCENT} from './results-banner.ts';
@@ -182,7 +182,7 @@ function summary(doc:jsPDF,p:ResultsPacket){
 function specPages(doc:jsPDF,p:ResultsPacket){
  doc.addPage();let y=teamCardHeader(doc,p,'Specification Results')+5;
  y=paragraphs(doc,y,'Published specifications score',`${points(p.teamResult.areas.specifications)} / ${p.ruleset.areas.find(a=>a.id==='specifications')?.max??100}`);
- const cars=['A','B'].map(car=>{const i=p.inspections.find(i=>i.car===car);return {car,inspection:i,summary:i?.rulesetId===INDIA_TECHNICAL.id?summarise(INDIA_TECHNICAL.rules,i.measurements):null};});
+ const cars=['A','B'].map(car=>{const i=p.inspections.find(i=>i.car===car);return {car,inspection:i,summary:i?.rulesetId===INDIA_TECHNICAL.id?summarise(selectedRules(INDIA_TECHNICAL.rules,i),i.measurements):null};});
  const body:CellInput[][]=[];
  for(const [cls,label] of [['GEN','General'],['SAF','Safety'],['PERF','Performance']]){
   body.push([label,...cars.map(c=>!c.inspection?'No submitted inspection.':!c.summary?'Evaluation unavailable for this technical ruleset.':c.summary.results.filter(r=>r.status==='fail'&&r.cls===cls).map(r=>text(`${r.article} - ${r.name}\n${r.detail.join('; ')}\nDeduction: ${r.penalty} pts`)).join('\n\n')||'No recorded infringements.')]);
@@ -190,7 +190,7 @@ function specPages(doc:jsPDF,p:ResultsPacket){
  body.push(['Total deductions',...cars.map(c=>c.summary?`${c.summary.total} pts`:'-')]);
  body.push(['Performance infringements',...cars.map(c=>c.summary?String(c.summary.perfFailures.length):'-')]);
  y=table(doc,y,['Regulation class','Car A','Car B'],body,{headStyles:{fillColor:blue,textColor:[255,255,255]},columnStyles:{0:{cellWidth:36},1:{cellWidth:74},2:{cellWidth:74}}});
- y=paragraphs(doc,y,'','Deductions use the technical ruleset recorded for each car. Performance counts show failed regulation checks, not a newly calculated racing penalty. The published score in the summary remains authoritative.');
+ y=paragraphs(doc,y,'','Deductions use only the selected regulations recorded for each car; unselected regulations are not assessed. Performance counts show failed regulation checks, not a newly calculated racing penalty. The published score in the summary remains authoritative.');
  if(p.penalties.length){y=heading(doc,y,'Other recorded event penalties');table(doc,y,['Points','Reason'],p.penalties.map(x=>[points(x.points),text(x.reason)]),{columnStyles:{0:{cellWidth:24}}});}
 }
 interface Group {title:string;areas:ReportArea[]}
@@ -230,7 +230,8 @@ function measurements(doc:jsPDF,p:ResultsPacket){
  for(const i of p.inspections){
   doc.addPage();const y=teamCardHeader(doc,p,`Recorded Measurements - Car ${i.car}`)+3;
   const known=i.rulesetId===INDIA_TECHNICAL.id;
-  table(doc,y,['Regulation / check','Recorded value','Limits / check'],Object.entries(i.measurements).map(([article,v])=>{
+  if(i.selectedArticles) paragraphs(doc,y,'Inspection scope',`${i.selectedArticles.length} selected regulations. Unselected regulations are not assessed.`);
+  table(doc,i.selectedArticles?y+12:y,['Regulation / check','Recorded value','Limits / check'],Object.entries(i.measurements).map(([article,v])=>{
    const rule=known?INDIA_TECHNICAL.rules.find(r=>r.article===article):undefined;
    const format=(v:unknown):string=>v==null?'Not recorded':typeof v==='boolean'?(v?'Pass':'Fail'):typeof v==='number'?String(v):Object.entries(v as object).map(([k,n])=>`${k}: ${format(n)}`).join('; ');
    return [text(`${article}${rule?` - ${rule.name}`:''}`),text(format(v)),rule?text(describeLimit(rule)):'Ruleset guidance unavailable'];

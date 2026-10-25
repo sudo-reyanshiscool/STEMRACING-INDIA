@@ -1,6 +1,6 @@
 import type { TeamRow } from '../api';
 import { blankLane, raceStandings, seconds, type RaceHeat } from '../racing';
-import { adjustedTime, carCheck, competitionScores, POINT_NAMES, ROUND_NAMES, type RacingSetup } from '../racing/competition';
+import { defaultReactionScoring, adjustedTime, carCheck, competitionScores, POINT_NAMES, ROUND_NAMES, type RacingSetup } from '../racing/competition';
 import type { Inspection } from '../technical';
 import type { Ctx } from './ctx';
 import { h } from './dom';
@@ -22,13 +22,17 @@ export function competitionPanel(ctx: Ctx, eventId: string, get:()=>State, selec
     const form=h('form',{class:'stack'});
     const complete=h('input',{type:'checkbox',checked:setup.reactionComplete,disabled:!canConfigure||races.some(r=>r.bracket)});
     const points=setup.points.map((p,i)=>h('input',{type:'number',min:0,max:135,step:0.1,value:p??'',disabled:!canConfigure,'aria-label':POINT_NAMES[i]}));
+    const scoring=setup.scoring??defaultReactionScoring();
+    const scoreValues=[...scoring.podium,scoring.minimum,scoring.referenceMultiplier,scoring.falseStartPenalty,scoring.dnfPenalty,scoring.fastestCarBonus];
+    const scoreNames=['Reaction first place','Reaction second place','Reaction third place','Minimum reaction points','Reference multiplier','False-start deduction','DNF deduction at minimum score','Fastest Car bonus'];
+    const scoreInputs=scoreValues.map((value,i)=>h('input',{type:'number',value,min:i===4?1.01:0,max:i===4?10:i===7?10:105,step:i===4?0.01:0.1,required:true,disabled:!canConfigure,'aria-label':scoreNames[i]}));
     const save=h('button',{type:'submit',class:'btn',disabled:!canConfigure},'Save racing setup');
-    form.append(h('label',{class:'inline'},complete,' Reaction racing complete'),h('p',{class:'small muted'},'Confirm only after all reaction runs have been entered. Four runs per team: Car A and Car B in each lane. Once knockout heats are queued, reaction results and seed order lock.'),h('div',{class:'grid'},points.map((p,i)=>field(POINT_NAMES[i],p))),h('p',{class:'small muted'},'The supplied regulations do not define a complete top-64 points table. Fill the blank stages before final results can be released. Blank values remain pending.'),save);
-    form.addEventListener('submit',e=>{e.preventDefault();void run(save,()=>ctx.api.saveRacingSetup(eventId,setup.revision,{seeds:complete.checked?setup.seeds:[],reactionComplete:complete.checked,points:points.map(p=>p.value===''?null:Number(p.value))}));});
+    form.append(h('label',{class:'inline'},complete,' Reaction racing complete'),h('p',{class:'small muted'},'Confirm only after all reaction runs have been entered. Four runs per team: Car A and Car B in each lane. Once knockout heats are queued, reaction results and seed order lock.'),h('div',{class:'grid'},points.map((p,i)=>field(POINT_NAMES[i],p))),h('h3',null,'Reaction racing and Fastest Car scoring'),h('div',{class:'grid'},scoreInputs.map((p,i)=>field(scoreNames[i],p))),h('p',{class:'small muted'},'Review these values with Shubham before competition use. Defaults come from the pinned 2026 rules; the meeting did not finalise 2027 scoring.'),h('p',{class:'small muted'},'The supplied regulations do not define a complete top-64 points table. Fill the blank stages before final results can be released. Blank values remain pending.'),save);
+    form.addEventListener('submit',e=>{e.preventDefault();void run(save,()=>ctx.api.saveRacingSetup(eventId,setup.revision,{seeds:complete.checked?setup.seeds:[],reactionComplete:complete.checked,points:points.map(p=>p.value===''?null:Number(p.value)),scoring:{podium:[Number(scoreInputs[0].value),Number(scoreInputs[1].value),Number(scoreInputs[2].value)],minimum:Number(scoreInputs[3].value),referenceMultiplier:Number(scoreInputs[4].value),falseStartPenalty:Number(scoreInputs[5].value),dnfPenalty:Number(scoreInputs[6].value),fastestCarBonus:Number(scoreInputs[7].value)}}));});
     setupBox.append(form);section.append(setupBox);
     const scheduleActions = h('div', { class: 'actions' });
     if(canConfigure&&!races.some(r=>r.phase==='reaction')) {
-      const queue=h('button',{type:'button',class:'btn btn--ghost',disabled:teams.length<2},'Queue four reaction runs per team');
+      const queue=h('button',{type:'button',class:'btn btn--ghost',disabled:teams.length<1},'Queue four reaction runs per team');
       queue.onclick=()=>void run(queue,()=>ctx.api.queueReactionRaces(eventId));scheduleActions.append(queue);
     }
     if(races.some(r=>r.phase==='reaction')) {
@@ -113,7 +117,7 @@ export function competitionPanel(ctx: Ctx, eventId: string, get:()=>State, selec
           }
           if(canRecord&&!m.resolved&&m.team1&&m.team2&&(m.reason==='Ready to race'||m.reason.includes('rerun required')||m.reason.startsWith('Pairing changed'))) {
             const queue=h('button',{class:'btn',type:'button'},m.heat?'Queue rerun':'Queue match');
-            queue.onclick=()=>void run(queue,async()=>{const replace=m.reason.startsWith('Pairing changed')&&m.heat&&(m.heat.lane1.status==='pending'||m.heat.lane2.status==='pending')?m.heat:null;const row=await ctx.api.saveRace(eventId,replace?.id??crypto.randomUUID(),replace?.revision??0,{label,phase:'knockout',bracket:{round,slot:m.slot},lane1:blankLane(m.team1!),lane2:blankLane(m.team2!),note:replace?'Pairing repaired after the previous round changed':'',source:'manual',sourceRunId:null});await refresh();select(row);});node.append(queue);
+            queue.onclick=()=>void run(queue,async()=>{const replace=m.reason.startsWith('Pairing changed')&&m.heat&&(m.heat.lane1.status==='pending'||m.heat.lane2.status==='pending')?m.heat:null;const row=m.heat && !replace ? await ctx.api.queueRaceFollowup(eventId,m.heat.id,m.heat.revision,'rerun') : await ctx.api.saveRace(eventId,replace?.id??crypto.randomUUID(),replace?.revision??0,{label,phase:'knockout',bracket:{round,slot:m.slot},lane1:blankLane(m.team1!),lane2:blankLane(m.team2!),note:replace?'Pairing repaired after the previous round changed':'',source:'manual',sourceRunId:null});await refresh();select(row);});node.append(queue);
           }
           return node;
         });group.append(h('div',{class:'stack'},rows));section.append(group);

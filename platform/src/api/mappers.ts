@@ -111,6 +111,7 @@ export const toInspectionRow = (r: Row): import('../technical').Inspection => ({
   inspectorId: r.inspector_id,
   status: r.status,
   rulesetId: r.ruleset_id,
+  selectedArticles: r.selected_articles ?? null,
   measurements: parseJson(r.measurements),
   notes: parseJson(r.notes),
   startedAt: r.started_at,

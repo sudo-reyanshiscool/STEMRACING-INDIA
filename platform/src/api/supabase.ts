@@ -38,13 +38,11 @@ async function guard<T>(run: () => PromiseLike<T>): Promise<T> {
 // and a list keeps every other query independent of columns the app does not use.
 const EVENT_COLS = 'id,name,starts_on,ruleset,results_released';
 const TEAM_COLS = 'id,event_id,number,name,school';
-const ROLE_COLS = 'display_name,id,event_id,user_id,role,panel,team_id,email';
-const INVITE_COLS = 'display_name,id,event_id,email,role,panel,team_id,email_status,email_sent_at,email_failure';
 const CARD_COLS = 'id,event_id,team_id,area_id,panel,judge_id,status,reopened_count,scorecard_scores(criterion_id,score,comment)';
 const OVERRIDE_COLS = 'event_id,team_id,area_id,value,reason';
 const PENALTY_COLS = 'id,event_id,team_id,points,reason';
 const SNAPSHOT_COLS = 'id,event_id,created_at,ruleset_id,input_hash,rows,released';
-const INSPECTION_COLS = 'id,event_id,team_id,car,inspector_id,status,ruleset_id,measurements,notes,started_at,submitted_at,updated_at,revision';
+const INSPECTION_COLS = 'id,event_id,team_id,car,inspector_id,status,ruleset_id,selected_articles,measurements,notes,started_at,submitted_at,updated_at,revision';
 
 /** PostgREST caps every response at `max_rows` (1000 by default) and says nothing when it cuts a list off. */
 export const PAGE_SIZE = 1000;
@@ -130,7 +128,7 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
   };
   const raceRow = (r: any): RaceHeat => {
     const lane = (n: number): RaceLane => ({ teamId: r[`lane${n}_team`], car: r[`lane${n}_car`], status: r[`lane${n}_status`], totalMs: r[`lane${n}_total_ms`], reactionMs: r[`lane${n}_reaction_ms`] });
-    return { bracket: r.bracket_round == null ? null : {round:r.bracket_round,slot:r.bracket_slot}, id: r.id, eventId: r.event_id, number: r.heat_number, label: r.label, phase: r.phase, lane1: lane(1), lane2: lane(2), note: r.note, source: r.source, sourceRunId: r.source_run_id, revision: r.revision, updatedAt: r.updated_at };
+    return { ...(r.parent_heat?{parentHeat:r.parent_heat,followupKind:r.followup_kind}:{}), bracket: r.bracket_round == null ? null : {round:r.bracket_round,slot:r.bracket_slot}, id: r.id, eventId: r.event_id, number: r.heat_number, label: r.label, phase: r.phase, lane1: lane(1), lane2: lane(2), note: r.note, source: r.source, sourceRunId: r.source_run_id, revision: r.revision, updatedAt: r.updated_at };
   };
   return {
     async getSession() {
@@ -311,11 +309,11 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
     },
     async listRoles(eventId) {
       if (!(await session())) return [];
-      return (await pages<never>((a, b) => sb.from('event_roles').select(ROLE_COLS).eq('event_id', eventId).order('id').range(a, b))).map(toRoleRow);
+      return (await pages<never>((a, b) => sb.rpc('list_event_people',{p_event:eventId}).order('id').range(a, b))).map(toRoleRow);
     },
     async listInvitations(eventId) {
       if (!(await session())) return [];
-      return (await pages<never>((a, b) => sb.from('invitations').select(INVITE_COLS).eq('event_id', eventId).order('id').range(a, b))).map(toInviteRow);
+      return (await pages<never>((a, b) => sb.rpc('list_event_invitations',{p_event:eventId}).order('id').range(a, b))).map(toInviteRow);
     },
     async invite(eventId, i) {
       const row=firstRow(one(await guard(() => sb.from('invitations').insert({
@@ -352,9 +350,24 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
       if (!(await session())) return [];
       return (await pages<any>((a,b) => sb.from('race_heats').select('*').eq('event_id',eventId).order('heat_number').order('id').range(a,b))).map(raceRow);
     },
+    async queueRaceFollowup(eventId,id,revision,mode) {return raceRow(firstRow(ok(await guard(()=>sb.rpc('queue_race_followup',{p_event:eventId,p_id:id,p_revision:revision,p_mode:mode})))));},
     async saveRace(eventId, id, revision, input) { return raceRow(firstRow(ok(await guard(() => sb.rpc('save_race', {p_event:eventId,p_id:id,p_revision:revision,p_input:input}))))); },
     async getTiming(eventId) { return ok(await guard(() => sb.rpc('race_timing_state',{p_event:eventId}))) as TimingState | null; },
     async pairTiming(eventId) { return ok(await guard(() => sb.rpc('pair_race_timing',{p_event:eventId}))) as TimingPair; },
+    async listTeamFiles(eventId) {return await pages<any>((a,b)=>sb.rpc('list_team_files',{p_event:eventId}).order('id').range(a,b));},
+    async uploadTeamFile(eventId,teamId,revision,input) {ok(await guard(()=>sb.rpc('upload_team_file',{p_event:eventId,p_team:teamId,p_revision:revision,p_input:input})));},
+    async downloadTeamFile(eventId,id) {return ok(await guard(()=>sb.rpc('download_team_file',{p_event:eventId,p_id:id})));},
+    async getInspectionScope(eventId) {return ok(await guard(()=>sb.rpc('inspection_scope',{p_event:eventId})));},
+    async saveInspectionScope(eventId, revision, articles) {return ok(await guard(()=>sb.rpc('save_inspection_scope',{p_event:eventId,p_revision:revision,p_articles:articles})));},
+    async listTeamConcerns(eventId) {
+      return await pages<any>((a, b) => sb.rpc('list_team_concerns', {p_event: eventId}).order('createdAt', {ascending: false}).order('id').range(a,b));
+    },
+    async submitTeamConcern(eventId, teamId, panel, message) {
+      ok(await guard(() => sb.rpc('submit_team_concern', {p_event:eventId,p_team:teamId,p_panel:panel,p_message:message})));
+    },
+    async resolveTeamConcern(eventId, id, response) {
+      ok(await guard(() => sb.rpc('resolve_team_concern', {p_event:eventId,p_id:id,p_response:response})));
+    },
     async listTeams(eventId) {
       return (await pages<never>((a, b) => sb.from('teams').select(TEAM_COLS).eq('event_id', eventId).order('id').range(a, b))).map(toTeamRow)
         .sort((a, b) => a.number.localeCompare(b.number, 'en', { numeric: true }));
@@ -449,8 +462,7 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
     async listNominations(eventId) {
       const s = await session();
       if (!s) return [];
-      const roles = await pages<Record<string, any>>((a, b) => sb.from('event_roles').select(ROLE_COLS)
-        .eq('event_id', eventId).eq('user_id', s.userId).order('id').range(a, b));
+      const roles = await pages<Record<string, any>>((a, b) => sb.rpc('list_event_people',{p_event:eventId}).eq('user_id', s.userId).order('id').range(a, b));
       const chair = roles.some((r) => r.role === 'chair');
       const panels = roles.filter((r) => r.role === 'lead_judge').map((r) => r.panel);
       if (!chair && panels.length === 0) return [];

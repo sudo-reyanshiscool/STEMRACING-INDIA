@@ -6,6 +6,7 @@ Run: python3 denford-bridge.py --config /path/to/denford-connection.json
 import argparse
 import ipaddress
 import json
+import re
 from pathlib import Path
 import time
 import urllib.error
@@ -33,6 +34,8 @@ def configuration(path):
         raise ValueError('Project address must be your https://PROJECT.supabase.co URL')
     if not isinstance(config['token'], str) or len(config['token']) != 72 or not isinstance(config['anonKey'], str):
         raise ValueError('Invalid pairing file; download a fresh file from Race control')
+    if not isinstance(config.get('dbSchema', 'stem_racing'), str) or not re.fullmatch(r'[a-z][a-z0-9_]{0,62}', config.get('dbSchema', 'stem_racing')):
+        raise ValueError('Invalid application schema')
     return config
 
 
@@ -51,7 +54,7 @@ def publish(opener, config, payload):
     request = urllib.request.Request(config['projectUrl'].rstrip('/') + '/rest/v1/rpc/ingest_denford',
         data=json.dumps({'p_token': config['token'], 'p_payload': payload}).encode(),
         headers={'apikey': config['anonKey'], 'Authorization': 'Bearer ' + config['anonKey'],
-                 'Content-Type': 'application/json', 'Content-Profile': 'stem_racing'}, method='POST')
+                 'Content-Type': 'application/json', 'Content-Profile': config.get('dbSchema', 'stem_racing')}, method='POST')
     with opener.open(request, timeout=10) as response:
         if json.loads(response.read(1024)) is not True:
             raise ValueError('The platform did not accept the track data')
@@ -60,6 +63,7 @@ def publish(opener, config, payload):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config', required=True)
+    parser.add_argument('--check', action='store_true', help='Read the gate once without uploading or saving any race data')
     args = parser.parse_args()
     try:
         config = configuration(args.config)
@@ -68,6 +72,14 @@ def main():
     # Never send local gate traffic to an ambient system proxy. HTTPS uploads use normal system trust.
     gate_opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
     cloud_opener = urllib.request.build_opener(NoRedirect())
+    if args.check:
+        try:
+            data = read_gate(gate_opener, config['gateUrl'])
+            print('Gate responded. Race ID:', str(data['raceid'])[:40], flush=True)
+            print('Read-only connection check passed. No data was uploaded; physical timing still needs bench verification.', flush=True)
+            return
+        except (OSError, ValueError, urllib.error.URLError):
+            parser.exit(1, 'Could not read this gate. Check its address, cable or Wi-Fi and try again. No data was uploaded.\n')
     print('Read-only Denford connection:', config.get('connectionMethod', 'wifi'), config['gateUrl'], flush=True)
     print('Keep this running on the track laptop. Ctrl+C disconnects. Pairing expires after 8 hours.', flush=True)
     previous = None

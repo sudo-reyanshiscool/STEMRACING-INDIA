@@ -38,3 +38,9 @@ only a signed-in race official can save that data as an official race record.
 This avoids browser mixed-content and private-network restrictions on the live
 HTTPS platform. Hardware operation must be bench-tested against the actual
 track before use; protocol and simulated-feed tests do not prove physical timing.
+
+For a single read-only connection check, add `--check` to the bridge command. It reads
+the selected gate once, reports whether it returned track data, and does not upload
+anything. This verifies connectivity only; test real sensor timing on the physical track.
+New pairing files include the configured application schema. Older files default to
+`stem_racing`; the bridge validates the schema name before sending its staging request.

@@ -9,6 +9,6 @@ export interface ResultsPacket {
  awards:Array<{title:string;teamNumber:string;teamName:string;teamSchool?:string}>;
  cards:Array<{areaId:string;scores:Record<string,number>;feedback:{overall:string|null;strengths:string|null;improvements:string|null}}>;
  penalties:Array<{points:number;reason:string}>;
- inspections:Array<{car:string;rulesetId?:string;measurements:Record<string,number|boolean|Record<string,number|boolean>>}>;
+ inspections:Array<{car:string;rulesetId?:string;selectedArticles?:string[]|null;measurements:Record<string,number|boolean|Record<string,number|boolean>>}>;
  benchmarks?:Record<string,Benchmark>;races?:ReportRace[];
 }

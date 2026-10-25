@@ -1,7 +1,7 @@
 export type RaceStatus = 'pending' | 'finished' | 'dnf' | 'dns' | 'false_start';
 export interface RaceLane { teamId: string; car: 'A' | 'B'; status: RaceStatus; totalMs: number | null; reactionMs: number | null }
 export interface RaceInput { bracket?: { round: number; slot: number } | null; label: string; phase: 'reaction' | 'knockout'; lane1: RaceLane; lane2: RaceLane; note: string; source: 'manual' | 'denford'; sourceRunId: string | null }
-export interface RaceHeat extends RaceInput { id: string; eventId: string; number: number; revision: number; updatedAt: string }
+export interface RaceHeat extends RaceInput { parentHeat?: string | null; followupKind?: 'swap' | 'rerun' | null; id: string; eventId: string; number: number; revision: number; updatedAt: string }
 export interface TimingState { connectionId: string; expiresAt: string; lastSeenAt: string | null; payload: Record<string, unknown> | null }
 export interface TimingPair { token: string; connectionId: string; expiresAt: string }
 export const STATUS_LABEL: Record<RaceStatus, string> = { pending: 'Awaiting run', finished: 'Finished', dnf: 'DNF', dns: 'DNS', false_start: 'False start' };
@@ -18,7 +18,8 @@ export function validateRace(r: RaceInput): string | null {
   if (!r || !['reaction', 'knockout'].includes(r.phase) || !r.label?.trim() || r.label.trim().length > 100) return 'Choose a race phase and a label of 1–100 characters.';
   if (typeof r.note !== 'string' || r.note.length > 1000 || !['manual', 'denford'].includes(r.source)) return 'Check the race notes and entry source.';
   if (r.source === 'manual' ? r.sourceRunId !== null : !r.sourceRunId || r.sourceRunId.length > 160) return 'The track run reference is missing or invalid.';
-  if (!r.lane1?.teamId || !r.lane2?.teamId || r.lane1.teamId === r.lane2.teamId) return 'Choose two different teams.';
+  if (!r.lane1?.teamId || !r.lane2?.teamId) return 'Choose a team for each lane.';
+  if (r.lane1.teamId === r.lane2.teamId && (r.phase !== 'reaction' || r.lane1.car === r.lane2.car)) return 'Same-team racing requires Car A and Car B in reaction racing.';
   if (r.bracket && (r.phase !== 'knockout' || !Number.isInteger(r.bracket.round) || r.bracket.round < 1 || r.bracket.round > 6 || !Number.isInteger(r.bracket.slot) || r.bracket.slot < 1 || r.bracket.slot > 64 / 2 ** r.bracket.round)) return 'Choose a valid knockout round and match.';
   for (const [index, lane] of [r.lane1, r.lane2].entries()) {
     if (!['A', 'B'].includes(lane.car) || !Object.hasOwn(STATUS_LABEL, lane.status)) return `Check the car and status for lane ${index + 1}.`;
@@ -31,7 +32,7 @@ export function validateRace(r: RaceInput): string | null {
 export function outcome(r: RaceInput): string {
   const a = r.lane1, b = r.lane2;
   if (a.status === 'pending' || b.status === 'pending') return 'Awaiting both lanes';
-  if (a.status !== 'finished' && b.status !== 'finished') return 'No winner · review / rerun';
+  if (a.status !== 'finished' && b.status !== 'finished') return [a,b].some(l=>l.status==='dnf') ? 'DNF · official review required' : 'No winner · eligible rerun';
   if (a.status !== 'finished') return 'Lane 2 wins';
   if (b.status !== 'finished') return 'Lane 1 wins';
   return a.totalMs === b.totalMs ? 'Tie · rerun required' : a.totalMs! < b.totalMs! ? 'Lane 1 wins' : 'Lane 2 wins';
@@ -75,4 +76,18 @@ export function parseDenford(payload: Record<string, unknown> | null): DenfordRe
   };
   const a = lane(1), b = lane(2);
   return a && b ? { raceId, lane1: a, lane2: b } : null;
+}
+
+/** A DNF does not qualify for an ordinary rerun. A tied finish may be replayed. */
+export function rerunEligible(r: RaceInput): boolean {
+  const lanes = [r.lane1, r.lane2];
+  return !lanes.some(l => l.status === 'pending' || l.status === 'dnf') &&
+    (lanes.some(l => l.status === 'dns' || l.status === 'false_start') ||
+      (lanes.every(l => l.status === 'finished') && r.lane1.totalMs === r.lane2.totalMs));
+}
+export function followupInput(r: RaceHeat, mode: 'swap' | 'rerun'): RaceInput {
+  const lane = (l: RaceLane): RaceLane => ({...l,status:'pending',totalMs:null,reactionMs:null});
+  return {label:`${mode === 'swap' ? 'Lane swap' : 'Rerun'} · Heat ${r.number}`,phase:r.phase,
+    bracket:r.bracket??null, lane1:lane(mode==='swap'?r.lane2:r.lane1),lane2:lane(mode==='swap'?r.lane1:r.lane2),
+    note:`${mode === 'swap' ? 'Lane swap' : 'Rerun'} of heat ${r.number}`,source:'manual',sourceRunId:null};
 }

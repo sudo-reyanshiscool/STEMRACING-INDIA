@@ -340,3 +340,50 @@ Team scorecards follow the supplied rubric grids: boxed team identities, cyan se
 `send-results` generates attachments on the server and uses the existing SMTP secrets. It accepts reviewed event/team/snapshot/award-version/contact identifiers; the database checks these against current records, selects the real recipient and builds the scoped packet. Neither arbitrary recipients nor uploaded attachments are accepted. Deliveries are idempotent per snapshot, confirmed award version, team and address. Failed sends can be retried; uncertain sends require an explicit recipient-inbox acknowledgement, and successful sends are skipped. Each team sends in a separate request, with progress and a stop-after-current-email control.
 
 Deploy `supabase/functions/send-results` with its `deno.json` import map after applying migration 0017 through the isolated migration renderer. Keep JWT verification enabled. The function uses `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, and `SMTP_FROM` already stored as server secrets. No SMTP password or service-role key belongs in the frontend. Tests use local MIME streams and synthetic report data; production verification must not send results until a staff member explicitly confirms the recipient review.
+
+### Team-reported judging concerns
+
+**Team feedback** is available to signed-in team managers before and after results release.
+Managers submit a panel and description for their own team and see only their team's
+submissions and organiser responses. The Chair and organisers can view all submissions,
+filter open/resolved items, and resolve an open item with a required team-facing response.
+Original submissions and completed responses cannot be edited through the API. Judges
+and other teams cannot read these reports. Use **Refresh feedback** to fetch new submissions.
+This is separate from judges' scorecard feedback and does not change competition scores.
+
+Apply migration `0025_team_concerns.sql` through the isolated migration renderer before
+publishing this client. Shared data is persisted by protected database functions; showcase
+submissions are temporary and reset on reload. No emails are sent by this feature.
+
+### 2027 registration and race operations
+
+**Team files** adds private registration assets: PNG/static SVG team logos (2 MB),
+and Design & Engineering, Enterprise and Project Management portfolio PDFs (12 MB each).
+Managers upload only for their teams; staff can upload for event teams. Assigned judges
+and the relevant panel leads can download portfolios, subject to conflicts/exemptions.
+Uploads lock when results are released. Organisers can export numbered team logos
+and an index as a ZIP for event production. Binary data stays in private database storage.
+
+On **Event → Scrutineering setup**, organisers choose the full checklist or selected
+regulations. The selection locks once any inspection starts and is pinned server-side.
+Unselected regulations do not contribute penalties, racing infringements or pending checks.
+Old inspections without a selection retain the full historical checklist.
+
+**Race control** accepts same-team Car A/B reaction pairings and queues linked lane
+swaps or eligible reruns. DNF is excluded from the ordinary rerun action. Automatic
+reaction schedules contain adjacent return races with exchanged lanes, including
+odd fields and one-team practice. **Racing setup and stage points** now includes
+validated reaction points, deductions and Fastest Car bonus controls. Defaults remain
+based on 2026 regulations; review the final configuration before 2027 competition use.
+
+Apply migrations 0025–0029 through the isolated renderer before publishing the client,
+and redeploy send-results to include the selected inspection scope in team PDF reports.
+See `../docs/2027-platform-work.md` for rollout order and the remaining physical/rules checks.
+
+### Named organisers and email privacy
+
+Migrations 0030 and 0031 let protected platform-organiser profiles supply a display
+name and hide their email. The platform organiser listing and event People/invitation
+listing redact the address on the server. Direct browser reads of the corresponding
+contact columns are revoked; sign-in and server email delivery retain the private address.
+Existing event-member permissions still govern the listing RPCs.

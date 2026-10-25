@@ -1,3 +1,4 @@
+import { selectedRules } from '../technical';
 import { buttonBusy } from './button-busy';
 import { areaTotal, validateScores } from '../engine';
 import type { CardRow } from '../api';
@@ -105,7 +106,7 @@ export async function scoresScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
         }
         const insp = item.inspection;
         const judge = (()=>{const r=data.people.find(r=>r.userId===insp.inspectorId);return r?.name||r?.email;})() ?? (insp.inspectorId === session.userId ? session.email : 'Scrutineer');
-        const sum = summarise(INDIA_TECHNICAL.rules, insp.measurements);
+        const sum = summarise(selectedRules(INDIA_TECHNICAL.rules, insp), insp.measurements);
         const failing = sum.results.filter((r) => r.status === 'fail');
         const detailsKey = `insp-${insp.id}`;
         const canInspect = staff || roles.some((r) => (r.role === 'scrutineer' || (r.role === 'judge' && r.panel === 'scrutineering')) && (r.teamId === null || r.teamId === insp.teamId));

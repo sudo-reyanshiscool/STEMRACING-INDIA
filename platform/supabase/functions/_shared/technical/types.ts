@@ -115,6 +115,7 @@ export interface Inspection {
   inspectorId: string;
   status: InspectionStatus;
   rulesetId: string;
+  selectedArticles?: string[] | null;
   measurements: Measurements;
   notes: Record<string, string>;
   startedAt: string;

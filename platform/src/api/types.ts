@@ -1,3 +1,4 @@
+import type {TeamFile,TeamFileInput} from './team-files';
 import type { RacingSetup, RacingSetupInput } from '../racing/competition';
 import type { TeamContact, ResultMailState, ResultsPacket, ResultMailSelection } from './result-mail';
 import type {DrawLotsState,TeamNumberAssignment,JudgeLotAssignment} from './draw-lots';
@@ -10,7 +11,7 @@ export interface PlatformAccess {
   kind: 'admin' | OrganiserScope | null;
   ownerEmail: string;
   canManage: boolean;
-  organisers: Array<{userId: string; email: string; scope: 'admin' | OrganiserScope; permanent: boolean}>;
+  organisers: Array<{userId: string; name?: string; emailHidden?: boolean; email: string | null; scope: 'admin' | OrganiserScope; permanent: boolean}>;
   invitations: Array<{id: string; email: string; scope: OrganiserScope; emailStatus: EmailStatus}>;
 }
 export type Role = 'organiser' | 'chair' | 'lead_judge' | 'judge' | 'scrutineer' | 'race_official' | 'team_manager';
@@ -96,7 +97,21 @@ export class ApiError extends Error {
 
 import type { Car, Inspection, Measurements } from '../technical';
 
+export interface TeamConcern {
+  id: string; eventId: string; teamId: string; panel: Panel; message: string;
+  status: 'open' | 'resolved'; response: string; createdAt: string;
+}
+export interface InspectionScope {revision: number; articles: string[] | null; locked: boolean}
 export interface Api {
+  listTeamFiles(eventId: string): Promise<TeamFile[]>;
+  uploadTeamFile(eventId: string, teamId: string, revision: number, input: TeamFileInput): Promise<void>;
+  downloadTeamFile(eventId: string, id: string): Promise<TeamFile & {base64:string}>;
+  getInspectionScope(eventId: string): Promise<InspectionScope>;
+  saveInspectionScope(eventId: string, revision: number, articles: string[] | null): Promise<InspectionScope>;
+  queueRaceFollowup(eventId: string, id: string, revision: number, mode: 'swap' | 'rerun'): Promise<RaceHeat>;
+  listTeamConcerns(eventId: string): Promise<TeamConcern[]>;
+  submitTeamConcern(eventId: string, teamId: string, panel: Panel, message: string): Promise<void>;
+  resolveTeamConcern(eventId: string, id: string, response: string): Promise<void>;
   getSession(): Promise<Session | null>;
   signIn(email: string): Promise<void>;
   verifyEmailCode(email: string, code: string): Promise<void>;

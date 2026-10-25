@@ -1,10 +1,12 @@
+import {FILE_PANEL, validateTeamFile, type TeamFile, type TeamFileInput} from './team-files';
 import { defaultRacingSetup, validateSetup, reactionPairings, type RacingSetup, type RacingSetupInput } from '../racing/competition';
-import { raceRecorded, validateRace, type RaceHeat, type RaceInput, type TimingState } from '../racing';
+import { rerunEligible, followupInput, raceRecorded, validateRace, type RaceHeat, type RaceInput, type TimingState } from '../racing';
 import { validateScores, type Area } from '../engine';
 import { INDIA_2026 } from '../rulesets';
 import type {ResultsPacket, ResultMailState, EventAward, TeamContact, ResultMailSelection} from './result-mail';
 import { validManagerEmail, cleanTeam, MAX_IMPORT_TEAMS } from './team-input';
-import type { OrganiserScope, PlatformAccess, NewTeam } from './types';
+import { INDIA_TECHNICAL } from '../technical';
+import type { InspectionScope, TeamConcern, OrganiserScope, PlatformAccess, NewTeam } from './types';
 import type {DrawLotsState,TeamNumberAssignment,JudgeLotAssignment} from './draw-lots';
 import { blankReview, validateReview, type CardReview, type FeedbackRow, type NominationRow } from './review';
 import {
@@ -55,6 +57,66 @@ export interface ShowcaseSeed {
  */
 export class MemoryApi implements Api {
   private showcaseMode = false;
+  private teamFiles: Array<TeamFile & {base64:string}> = [];
+  private readsTeamFile(file: TeamFile): boolean {
+    if(this.has(file.eventId,'organiser','chair'))return true;
+    if(this.rolesOf(file.eventId).some(r=>r.role==='team_manager' && r.teamId===file.teamId))return true;
+    if(this.conflicted(file.eventId,file.teamId)||this.exemptions.some(x=>x.eventId===file.eventId&&x.teamId===file.teamId&&x.judgeId===this.me?.userId))return false;
+    const panel=FILE_PANEL[file.kind];
+    return panel===null ? this.rolesOf(file.eventId).some(r=>r.role!=='team_manager') : this.canScore(file.eventId,panel,file.teamId)||this.rolesOf(file.eventId).some(r=>r.role==='lead_judge'&&r.panel===panel);
+  }
+  async listTeamFiles(eventId:string) {
+    this.require(eventId,'organiser','chair','judge','lead_judge','scrutineer','race_official','team_manager');
+    return copy(this.teamFiles.filter(f=>f.eventId===eventId&&this.readsTeamFile(f)).map(({base64,...metadata})=>metadata));
+  }
+  async uploadTeamFile(eventId:string,teamId:string,revision:number,input:TeamFileInput) {
+    this.require(eventId,'organiser','chair','team_manager');this.frozen(eventId,'team files');this.teamOrThrow(eventId,teamId);
+    if(!this.has(eventId,'organiser','chair')&&!this.rolesOf(eventId).some(r=>r.role==='team_manager'&&r.teamId===teamId))throw new ApiError('forbidden','Only your own team');
+    const size=validateTeamFile(input),old=this.teamFiles.find(f=>f.eventId===eventId&&f.teamId===teamId&&f.kind===input.kind);
+    if((old?.revision??0)!==revision)throw new ApiError('conflict','File changed');
+    const file={...copy(input),name:input.name.trim(),id:old?.id??nid('file'),eventId,teamId,size,revision:revision+1,updatedAt:new Date().toISOString()};
+    this.teamFiles=this.teamFiles.filter(f=>f.id!==file.id);this.teamFiles.push(file);
+  }
+  async downloadTeamFile(eventId:string,id:string) {
+    const file=this.teamFiles.find(f=>f.eventId===eventId&&f.id===id);
+    if(!file||!this.readsTeamFile(file))throw new ApiError('forbidden','File unavailable');return copy(file);
+  }
+  private scopes = new Map<string, InspectionScope>();
+  async getInspectionScope(eventId: string): Promise<InspectionScope> {
+    this.require(eventId,'organiser','chair','judge','lead_judge','scrutineer','race_official','team_manager');
+    return copy({...this.scopes.get(eventId)??{revision:0,articles:null},locked:this.inspections.some(i=>i.eventId===eventId)});
+  }
+  async saveInspectionScope(eventId: string, revision: number, articles: string[] | null) {
+    this.require(eventId,'organiser','chair');this.frozen(eventId,'inspection setup');
+    const old=await this.getInspectionScope(eventId);
+    if(old.locked) throw new ApiError('locked','Inspection scope is pinned once inspections begin');
+    if(old.revision!==revision) throw new ApiError('conflict','Scope changed');
+    if(articles!==null && (!Array.isArray(articles)||!articles.length||new Set(articles).size!==articles.length||articles.some(a=>!INDIA_TECHNICAL.rules.some(r=>r.article===a)))) throw new ApiError('invalid','Select valid regulations');
+    const value={revision:revision+1,articles:copy(articles),locked:false};this.scopes.set(eventId,value);return copy(value);
+  }
+  private concerns: TeamConcern[] = [];
+  async listTeamConcerns(eventId: string) {
+    this.require(eventId, 'organiser', 'chair', 'team_manager');
+    const staff = this.has(eventId, 'organiser', 'chair');
+    const teams = this.rolesOf(eventId).filter(r => r.role === 'team_manager').map(r => r.teamId);
+    return copy(this.concerns.filter(c => c.eventId === eventId && (staff || teams.includes(c.teamId))).slice().reverse());
+  }
+  async submitTeamConcern(eventId: string, teamId: string, panel: Panel, message: string) {
+    this.require(eventId, 'team_manager');
+    if (!this.rolesOf(eventId).some(r => r.role === 'team_manager' && r.teamId === teamId)) throw new ApiError('forbidden', 'Only your own team');
+    this.teamOrThrow(eventId, teamId);
+    if (!PANELS.includes(panel)) throw new ApiError('invalid', 'Invalid panel');
+    message = this.text(message, 'Concern', 4000);
+    this.concerns.push({id: nid('concern'), eventId, teamId, panel, message, status: 'open', response: '', createdAt: new Date().toISOString()});
+  }
+  async resolveTeamConcern(eventId: string, id: string, response: string) {
+    this.require(eventId, 'organiser', 'chair');
+    const concern = this.concerns.find(c => c.id === id && c.eventId === eventId);
+    if (!concern) throw new ApiError('invalid', 'Concern not found');
+    response = this.text(response, 'Response', 4000);
+    if (concern.status !== 'open') throw new ApiError('locked', 'Already resolved');
+    concern.response = response; concern.status = 'resolved';
+  }
 
   /** This instance has no reference to the shared backend or persistent browser storage. */
   static forShowcase(source: ShowcaseSeed): MemoryApi {
@@ -173,7 +235,7 @@ export class MemoryApi implements Api {
       awards:this.awards.filter(a=>a.eventId===eventId).map(a=>{const t=this.teamOrThrow(eventId,a.teamId);return {title:a.title,teamNumber:t.number,teamName:t.name,teamSchool:t.school};}),
       cards:this.cards.filter(c=>c.eventId===eventId && c.teamId===teamId && c.status==='submitted').map(c=>{const r=this.reviews.get(c.id);return {areaId:c.areaId,scores:c.scores,feedback:{overall:r?.overall??'',strengths:r?.strengths??'',improvements:r?.improvements??''}};}),
       penalties:this.penalties.filter(p=>p.eventId===eventId && p.teamId===teamId).map(({points,reason})=>({points,reason})),
-      inspections:this.inspections.filter(i=>i.eventId===eventId && i.teamId===teamId && i.status==='submitted').map(i=>({car:i.car,rulesetId:i.rulesetId,measurements:i.measurements as ResultsPacket['inspections'][number]['measurements']}))});
+      inspections:this.inspections.filter(i=>i.eventId===eventId && i.teamId===teamId && i.status==='submitted').map(i=>({car:i.car,rulesetId:i.rulesetId,selectedArticles:i.selectedArticles,measurements:i.measurements as ResultsPacket['inspections'][number]['measurements']}))});
   }
   async sendTeamResults(eventId:string,teamId:string,selection:ResultMailSelection):Promise<'sent'|'already_sent'> {
     this.require(eventId,'chair','organiser');if(!this.released(eventId))throw new ApiError('locked','Release results first');
@@ -559,7 +621,7 @@ export class MemoryApi implements Api {
     this.require(eventId,'chair','organiser');this.frozen(eventId,'races');
     if(this.races.some(r=>r.eventId===eventId&&r.phase==='reaction')||this.racingSetups.get(eventId)?.reactionComplete)throw new ApiError('locked','Reaction racing already queued or locked');
     const ids=this.teams.filter(t=>t.eventId===eventId).sort((a,b)=>a.number.localeCompare(b.number)).map(t=>t.id);
-    if(ids.length<2)throw new ApiError('invalid','At least two teams required');
+    if(ids.length<1)throw new ApiError('invalid','At least one team required');
     for(const input of reactionPairings(ids))await this.saveRace(eventId,crypto.randomUUID(),0,input);
   }
   async getRacingSetup(eventId: string): Promise<RacingSetup> {
@@ -575,12 +637,25 @@ export class MemoryApi implements Api {
     const races=this.races.filter(r=>r.eventId===eventId);
     if(input.reactionComplete && (races.some(r=>r.phase==='reaction' && (r.lane1.status==='pending'||r.lane2.status==='pending')) || this.teams.filter(t=>t.eventId===eventId).some(t=>(['A','B'] as const).some(car=>(['lane1','lane2'] as const).some(lane=>!races.some(r=>r.phase==='reaction'&&r[lane].teamId===t.id&&r[lane].car===car))))))throw new ApiError('locked','Finish reaction races for every team first');
     if(races.some(r=>r.bracket) && (JSON.stringify(input.seeds)!==JSON.stringify(old.seeds)||!input.reactionComplete))throw new ApiError('locked','Bracket seeds are locked');
-    this.racingSetups.set(eventId,{...copy(input),revision:revision+1,version:''});this.version++;
+    this.racingSetups.set(eventId,{...(old.scoring?{scoring:copy(old.scoring)}:{}),...copy(input),revision:revision+1,version:''});this.version++;
     return this.getRacingSetup(eventId);
   }
   async listRaces(eventId: string) {
     const roles = this.rolesOf(eventId);
     return copy(roles.length && (roles.some(r => r.role !== 'team_manager') || this.released(eventId)) ? this.races.filter(r => r.eventId === eventId) : []);
+  }
+  private raceFollowups = new Set<string>();
+  async queueRaceFollowup(eventId: string, id: string, revision: number, mode: 'swap' | 'rerun') {
+    this.require(eventId,'organiser','chair','race_official'); this.frozen(eventId,'races');
+    const previous = this.races.find(r=>r.eventId===eventId && r.id===id);
+    if(!previous || previous.revision!==revision) throw new ApiError('conflict','Reload the source heat');
+    if(!['swap','rerun'].includes(mode) || (mode==='swap' && previous.bracket) || (mode==='rerun' && !rerunEligible(previous))) throw new ApiError('invalid','This heat is not eligible');
+    const key=`${id}:${mode}`;
+    if(this.raceFollowups.has(key)) throw new ApiError('duplicate','Follow-up already queued');
+    this.raceFollowups.add(key);
+    try {const row=await this.saveRace(eventId,crypto.randomUUID(),0,followupInput(previous,mode));
+      const stored=this.races.find(r=>r.id===row.id)!;stored.parentHeat=id;stored.followupKind=mode;return copy(stored);
+    }catch(err){this.raceFollowups.delete(key);throw err;}
   }
   async saveRace(eventId: string, id: string, revision: number, input: RaceInput) {
     this.require(eventId, 'organiser', 'chair', 'race_official');
@@ -591,13 +666,17 @@ export class MemoryApi implements Api {
     if(setup?.reactionComplete && input.phase==='reaction')throw new ApiError('locked','Reopen reaction racing setup before editing');
     if(JSON.stringify(previous?.bracket??null)!==JSON.stringify(input.bracket??null) && previous)throw new ApiError('locked','Bracket identity is fixed');
     if(input.bracket && (!setup?.seeds.includes(input.lane1.teamId)||!setup.seeds.includes(input.lane2.teamId)))throw new ApiError('invalid','Approve seeds first');
+    if(input.bracket && !previous) {
+      const prior=this.races.filter(r=>r.eventId===eventId&&r.bracket?.round===input.bracket!.round&&r.bracket.slot===input.bracket!.slot).sort((a,b)=>b.number-a.number)[0];
+      if(prior&&[prior.lane1,prior.lane2].some(l=>l.status==='dnf'||l.status==='pending'))throw new ApiError('locked','Pending or DNF match requires review');
+    }
     if(input.bracket && this.races.some(r=>r.eventId===eventId && r.id!==id && r.bracket?.round===input.bracket!.round && r.bracket.slot===input.bracket!.slot && r.number>(previous?.number??0) && (r.lane1.status==='pending'||r.lane2.status==='pending')))throw new ApiError('locked','Open the existing pending attempt');
     const error = validateRace(input);
     if (error) throw new ApiError('invalid', error);
     this.teamOrThrow(eventId, input.lane1.teamId); this.teamOrThrow(eventId, input.lane2.teamId);
     if (previous && raceRecorded(previous) && input.note.trim().length < 5) throw new ApiError('invalid', 'Give a correction reason');
     if (input.sourceRunId && this.races.some(r => r.eventId === eventId && r.id !== id && r.sourceRunId === input.sourceRunId)) throw new ApiError('duplicate', 'This track run was already saved');
-    const row: RaceHeat = { ...copy(input), label: input.label.trim(), note: input.note.trim(), id, eventId, number: previous?.number ?? 1 + Math.max(0, ...this.races.filter(r => r.eventId === eventId).map(r => r.number)), revision: revision + 1, updatedAt: new Date().toISOString() };
+    const row: RaceHeat = { ...(previous?.parentHeat?{parentHeat:previous.parentHeat,followupKind:previous.followupKind}:{}), ...copy(input), label: input.label.trim(), note: input.note.trim(), id, eventId, number: previous?.number ?? 1 + Math.max(0, ...this.races.filter(r => r.eventId === eventId).map(r => r.number)), revision: revision + 1, updatedAt: new Date().toISOString() };
     this.races = this.races.filter(r => r.id !== id); this.races.push(row); this.version++;
     return copy(row);
   }
@@ -963,6 +1042,7 @@ export class MemoryApi implements Api {
         inspectorId: this.me!.userId,
         status: 'in_progress',
         rulesetId: 'india-nationals-2026-technical',
+        selectedArticles: this.scopes.get(eventId)?.articles??null,
         measurements: copy(measurements),
         notes: notes ? copy(notes) : {},
         startedAt: now,

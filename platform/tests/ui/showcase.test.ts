@@ -16,6 +16,8 @@ import { moderationScreen } from '../../src/ui/moderation';
 import { rankingsScreen } from '../../src/ui/rankings';
 import { resultsScreen } from '../../src/ui/results';
 import { racingScreen } from '../../src/ui/racing';
+import { teamFilesScreen } from '../../src/ui/team-files';
+import { teamFeedbackScreen } from '../../src/ui/team-feedback';
 import { eventNav } from '../../src/ui/event-nav';
 import { mountShowcaseBar } from '../../src/ui/showcase';
 
@@ -38,9 +40,9 @@ describe('showcase navigation and presentation', () => {
     const seed = makeSeed();
     const api = MemoryApi.forShowcase(seed);
     const nav = eventNav((await api.getEvent(SHOWCASE_EVENT_ID))!, await api.myRoles(SHOWCASE_EVENT_ID), 'event');
-    expect([...nav.querySelectorAll('a')].map(text)).toEqual(['Event', 'Teams', 'People', 'Draw lots', 'Communications', 'Judge', 'Scores', 'Race control', 'Moderation', 'Rankings', 'Results']);
+    expect([...nav.querySelectorAll('a')].map(text)).toEqual(['Event', 'Teams', 'People', 'Draw lots', 'Communications', 'Judge', 'Scores', 'Race control', 'Moderation', 'Rankings', 'Team files', 'Team feedback', 'Results']);
     for (const screen of [eventHomeScreen, teamsScreen, peopleScreen, drawLotsScreen, communicationsScreen,
-      scoringScreen, scoresScreen, moderationScreen, rankingsScreen, resultsScreen, racingScreen]) {
+      scoringScreen, scoresScreen, moderationScreen, rankingsScreen, resultsScreen, racingScreen, teamFeedbackScreen, teamFilesScreen]) {
       const {ctx, leaves} = makeCtx(api);
       ctx.demo = true;
       const node = await screen(ctx, SHOWCASE_EVENT_ID);

@@ -74,3 +74,8 @@ export function summarisePair(a: CarSummary, b: CarSummary): PairSummary {
 export function specificationsScore(a: CarSummary, b: CarSummary): number {
   return Math.max(0, 100 - a.total - b.total);
 }
+
+/** A null selection preserves the complete historical checklist. */
+export function selectedRules(rules: Rule[], inspection: {selectedArticles?: string[] | null}): Rule[] {
+  return inspection.selectedArticles == null ? rules : rules.filter(r => inspection.selectedArticles!.includes(r.article));
+}

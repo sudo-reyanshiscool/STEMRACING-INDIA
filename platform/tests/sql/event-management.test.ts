@@ -32,7 +32,7 @@ describe('restorable event deletion',()=>{
       else expect((await as(db,who,q=>q('select id from ranking_snapshots where event_id=$1',[w.eventId]))).rows).toEqual([]);
     }
     for(const who of ['organiser','chair','judgeV','leadV','mgr1'] as const) {
-      for(const table of ['event_roles','scorecards','judge_conflicts','invitations']) expect((await as(db,who,q=>q(`select * from ${table} where event_id=$1`,[w.eventId]))).rows).toEqual([]);
+      for(const table of ['event_roles','scorecards','judge_conflicts','invitations']) expect((await as(db,who,q=>q(`select ${table==='event_roles'?'user_id':table==='invitations'?'id':'*'} from ${table} where event_id=$1`,[w.eventId]))).rows).toEqual([]);
       for(const table of ['scorecard_scores','scorecard_feedback','scorecard_private_reviews']) expect((await as(db,who,q=>q(`select * from ${table} where scorecard_id=$1`,[c]))).rows).toEqual([]);
     }
     await denied(as(db,'judgeV',q=>q("update scorecard_scores set score=2 where scorecard_id=$1 returning criterion_id",[c])));

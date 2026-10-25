@@ -42,6 +42,14 @@ class BridgeTests(unittest.TestCase):
         self.assertEqual(request.full_url,'https://testproject.supabase.co/rest/v1/rpc/ingest_denford')
         self.assertEqual(request.get_header('Content-profile'),'stem_racing')
         self.assertEqual(json.loads(request.data)['p_payload'],{'raceid':'12'})
+    def test_wired_address_and_schema_are_explicit(self):
+        config=self.config(connectionMethod='ethernet', gateUrl='http://192.168.50.2', dbSchema='public')
+        op=Opener(b'true'); bridge.publish(op,config,{'raceid':'12'})
+        self.assertEqual(op.calls[0].get_header('Content-profile'),'public')
+        self.assertEqual(config['gateUrl'],'http://192.168.50.2')
+    def test_rejects_invalid_application_schema(self):
+        for schema in ['bad schema', 'public;drop', '', 3]:
+            with self.assertRaises(ValueError): self.config(dbSchema=schema)
     def test_rejects_partial_or_unrelated_gate_json(self):
         for body in [b'{', b'[]', b'{}', b'x'*8193]:
             with self.assertRaises(ValueError): bridge.read_gate(Opener(body),'http://10.0.0.1')

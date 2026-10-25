@@ -1,3 +1,4 @@
+import { selectedRules } from '../technical';
 import { buttonBusy } from './button-busy';
 import type { Car, Inspection, Measurements, Value } from '../technical';
 import { INDIA_TECHNICAL, SECTIONS, summarise } from '../technical';
@@ -46,6 +47,7 @@ export async function inspectionScreen(ctx: Ctx, eventId: string, teamId: string
     revision: 1,
   };
 
+  if (!existing) insp.selectedArticles = (await ctx.api.getInspectionScope(eventId)).articles;
   const measurements: Measurements = { ...insp.measurements };
   const locked = event.resultsReleased || insp.status === 'submitted';
   const readOnly = !canInspect || locked;
@@ -90,7 +92,7 @@ export async function inspectionScreen(ctx: Ctx, eventId: string, teamId: string
       const originalText = btn.textContent;
       btn.textContent = 'Generating PDF…';
       try {
-        const s = summarise(INDIA_TECHNICAL.rules, measurements);
+        const s = summarise(selectedRules(INDIA_TECHNICAL.rules, insp), measurements);
         const inspector = roles.find((r) => r.userId === insp.inspectorId)?.email || session?.email || '';
         await downloadSheet({
           eventName: event.name,
@@ -132,7 +134,7 @@ export async function inspectionScreen(ctx: Ctx, eventId: string, teamId: string
 
   const rows = new Map<string, ReturnType<typeof ruleRow>>();
   const refresh = () => {
-    const s = summarise(INDIA_TECHNICAL.rules, measurements);
+    const s = summarise(selectedRules(INDIA_TECHNICAL.rules, insp), measurements);
     for (const r of s.results) rows.get(r.article)?.showResult(r);
     total.textContent = String(s.total);
     const items = [
@@ -147,7 +149,7 @@ export async function inspectionScreen(ctx: Ctx, eventId: string, teamId: string
   };
 
   const sectionEls = SECTIONS.map((sec) => {
-    const rules = INDIA_TECHNICAL.rules.filter((r) => r.section === sec.id);
+    const rules = selectedRules(INDIA_TECHNICAL.rules, insp).filter((r) => r.section === sec.id);
     const ruleNodes = rules.map((rule) => {
       const row = ruleRow(rule, measurements[rule.article], readOnly, (v: Value) => {
         if (v === undefined) delete measurements[rule.article];
@@ -169,8 +171,8 @@ export async function inspectionScreen(ctx: Ctx, eventId: string, teamId: string
   }, 'Submit inspection');
 
   submitBtn.addEventListener('click', async () => {
-    if (readOnly || !insp.id) return;
-    const s = summarise(INDIA_TECHNICAL.rules, measurements);
+    if (readOnly) return;
+    const s = summarise(selectedRules(INDIA_TECHNICAL.rules, insp), measurements);
     if (!s.complete) {
       const ok = window.confirm(`There are still ${s.pending.length} unmeasured items. Submit anyway?`);
       if (!ok) return;
@@ -180,6 +182,7 @@ export async function inspectionScreen(ctx: Ctx, eventId: string, teamId: string
     error.hidden = true;
     try {
       await savePromise;
+      if (!insp.id) insp = await ctx.api.saveInspection(eventId,teamId,car,structuredClone(measurements));
       await ctx.api.submitInspection(insp.id);
       insp.status = 'submitted';
       updateStatusBadge();
@@ -221,6 +224,7 @@ export async function inspectionScreen(ctx: Ctx, eventId: string, teamId: string
       h('p', { class: 'eyebrow' }, INDIA_TECHNICAL.name),
       h('h1', null, `Team ${team.number} · Car ${car} Technical Inspection`),
       h('p', { class: 'lead' }, team.name, ' ', statusEl),
+      insp.selectedArticles !== undefined && insp.selectedArticles !== null ? h('p',{class:'notice'},`Selected inspection: ${insp.selectedArticles.length} regulations. Unselected regulations are not assessed or penalised.`) : null,
     ),
     error,
     bar,

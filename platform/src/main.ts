@@ -17,6 +17,8 @@ import { emailConfirmScreen } from './ui/email-confirm';
 import { loginScreen } from './ui/login';
 import { moderationScreen } from './ui/moderation';
 import { peopleScreen } from './ui/people';
+import { teamFilesScreen } from './ui/team-files';
+import { teamFeedbackScreen } from './ui/team-feedback';
 import { communicationsScreen } from './ui/communications';
 import { rankingsScreen } from './ui/rankings';
 import { resultsScreen } from './ui/results';
@@ -177,6 +179,8 @@ async function screenFor(route: Route, ctx: Ctx): Promise<HTMLElement> {
     case 'event': return eventHomeScreen(ctx, route.eventId);
     case 'teams': return teamsScreen(ctx, route.eventId);
     case 'people': return peopleScreen(ctx, route.eventId);
+    case 'team-files': return teamFilesScreen(ctx,route.eventId);
+    case 'team-feedback': return teamFeedbackScreen(ctx, route.eventId);
     case 'communications': return communicationsScreen(ctx, route.eventId);
     case 'score': return scoringScreen(ctx, route.eventId);
     case 'draw': return drawLotsScreen(ctx,route.eventId);

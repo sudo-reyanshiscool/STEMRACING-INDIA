@@ -22,7 +22,7 @@ describe('event deletion controls',()=>{
     const deletion=vi.spyOn(api,'deleteEvent');
     type(name,'Wrong');button(el,'Confirm delete event').click();
     expect(deletion).not.toHaveBeenCalled();expect(text(el)).toContain(`Type “${ev.name}” above to confirm deletion.`);expect(name.getAttribute('aria-invalid')).toBe('true');
-    button(el,'Cancel').click();expect(name.value).toBe('');expect(el.querySelector('form')!.hidden).toBe(true);
+    button(el,'Cancel').click();expect(name.value).toBe('');expect(el.querySelector<HTMLFormElement>('.event-management form')!.hidden).toBe(true);
     button(el,'Delete event').click();type(name,ev.name);expect(button(el,'Confirm delete event').disabled).toBe(false);
     button(el,'Confirm delete event').click();await vi.waitFor(()=>expect(ctx.rerender).toHaveBeenCalled());
     expect(await api.getEvent(ev.id)).toBeNull();expect(location.hash).toBe('#/');
@@ -58,8 +58,8 @@ describe('event deletion controls',()=>{
   it('prevents double deletion while in flight and recovers with readable errors',async()=>{
     const {api,ev,ctx}=await open();let reject!:(e:unknown)=>void;
     const spy=vi.spyOn(api,'deleteEvent').mockImplementationOnce(()=>new Promise<void>((_,r)=>{reject=r;}));
-    const el=await eventHomeScreen(ctx,ev.id);button(el,'Delete event').click();type(el.querySelector('input')!,ev.name);
-    const form=el.querySelector('form')!;form.dispatchEvent(new Event('submit',{cancelable:true}));form.dispatchEvent(new Event('submit',{cancelable:true}));
+    const el=await eventHomeScreen(ctx,ev.id);button(el,'Delete event').click();type(el.querySelector<HTMLInputElement>('[aria-label="Event name to confirm deletion"]')!,ev.name);
+    const form=el.querySelector('.event-management form')!;form.dispatchEvent(new Event('submit',{cancelable:true}));form.dispatchEvent(new Event('submit',{cancelable:true}));
     expect(spy).toHaveBeenCalledTimes(1);expect(button(el,'Cancel').disabled).toBe(true);reject(new ApiError('network','raw server details'));
     await vi.waitFor(()=>expect(button(el,'Cancel').disabled).toBe(false));expect(text(el)).not.toContain('raw server details');expect(text(el)).toContain('Could not reach');
   });

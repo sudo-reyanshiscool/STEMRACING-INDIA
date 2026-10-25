@@ -35,7 +35,7 @@ export function organiserControls(ctx: Ctx, access: PlatformAccess): HTMLElement
     h('label', {class:'field'}, h('span', {class:'field__label'}, 'Access level'), scope), send);
   form.addEventListener('submit', e => { e.preventDefault(); void run(send, () => ctx.api.inviteOrganiser(email.value,scope.value as OrganiserScope)); });
   section.append(error, form, h('ul', {class:'list'}, access.organisers.map(person => {
-    const row = h('li', null, h('strong',null,person.email), h('span',{class:'muted small'},label(person.scope)),
+    const row = h('li', null, h('strong',null,person.name || person.email || 'Organiser'), person.emailHidden ? h('span',{class:'muted small'},'Email hidden') : person.name && person.email ? h('span',{class:'muted small'},person.email) : null, h('span',{class:'muted small'},label(person.scope)),
       person.permanent ? h('span',{class:'tag tag--pass'},'Permanent administrator') : null);
     if(!person.permanent) {
       const remove = h('button',{class:'btn btn--ghost btn--small',type:'button'},'Revoke organiser access');

@@ -38,7 +38,7 @@ describe('event creation authorization and multiple organisers', () => {
 
     // Organiser can invite another organiser
     await as(db, 'organiser', (q) => q("insert into invitations(event_id, email, role) values ($1, 'org2@x.test', 'organiser')", [w.eventId]));
-    expect((await as(db, 'organiser', (q) => q("select email from invitations where event_id = $1 and role = 'organiser'", [w.eventId]))).rows).toHaveLength(1);
+    expect((await as(db, 'organiser', (q) => q("select email from list_event_invitations($1) where event_id = $1 and role = 'organiser'", [w.eventId]))).rows).toHaveLength(1);
   });
 
   it('allows removing an organiser when multiple exist, but prevents removing the last organiser', async () => {
