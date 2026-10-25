@@ -11,3 +11,5 @@ export * from './result-mail';
 export * from './draw-lots';
 
 export * from './team-files';
+
+export * from './submissions';

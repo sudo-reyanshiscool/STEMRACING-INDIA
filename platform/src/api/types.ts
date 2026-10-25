@@ -1,3 +1,4 @@
+import type {SubmissionState,SubmissionRule} from './submissions';
 import type {TeamFile,TeamFileInput} from './team-files';
 import type { RacingSetup, RacingSetupInput } from '../racing/competition';
 import type { TeamContact, ResultMailState, ResultsPacket, ResultMailSelection } from './result-mail';
@@ -104,6 +105,8 @@ export interface TeamConcern {
 }
 export interface InspectionScope {revision: number; articles: string[] | null; locked: boolean}
 export interface Api {
+  submissionState(eventId:string):Promise<SubmissionState>;
+  saveSubmissionRules(eventId:string,revision:number,rules:SubmissionRule[]):Promise<void>;
   listTeamFiles(eventId: string): Promise<TeamFile[]>;
   uploadTeamFile(eventId: string, teamId: string, revision: number, input: TeamFileInput): Promise<void>;
   downloadTeamFile(eventId: string, id: string): Promise<TeamFile & {base64:string}>;

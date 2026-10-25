@@ -311,7 +311,8 @@ export async function rankingsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
   };
 
   const removeButton = (p: PenaltyRow, teamLabel: string) => {
-    const btn = h('button', { class: 'btn btn--ghost btn--small', type: 'button', 'aria-label': `Remove the penalty of ${p.points} points from ${teamLabel}: ${p.reason}` }, 'Remove penalty');
+    if(p.id.startsWith('submission:'))return h('span',{class:'muted small'},'Automatic · managed in Submissions');
+    const btn = h('button', { disabled:p.id.startsWith('submission:'),class: 'btn btn--ghost btn--small', type: 'button', 'aria-label': `Remove the penalty of ${p.points} points from ${teamLabel}: ${p.reason}` }, 'Remove penalty');
     btn.addEventListener('click', () => {
       if (busy) return;
       clear();

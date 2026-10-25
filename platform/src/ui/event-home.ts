@@ -28,6 +28,7 @@ export async function eventHomeScreen(ctx: Ctx, eventId: string): Promise<HTMLEl
   if (roles.some(r => r.role !== 'team_manager') || (has('team_manager') && event.resultsReleased)) tiles.push(tile('Race control', 'Pair teams, record lane times and follow Denford track readings.', { name: 'racing', eventId }));
   if (has('chair', 'lead_judge')) tiles.push(tile('Moderation', "Review judges' scores, override and reopen.", { name: 'moderate', eventId }));
   if (has('organiser', 'chair')) tiles.push(tile('Rankings', 'Combine scores, add penalties, publish and release.', { name: 'rankings', eventId }));
+  if(has('organiser','chair','team_manager'))tiles.push(tile('Submissions','Submit portfolios, check deadlines and track late penalties.',{name:'submissions',eventId}));
   if (roles.length) tiles.push(tile('Team files', 'Upload logos and portfolios or download assigned team submissions.', {name:'team-files', eventId}));
   if (has('organiser', 'chair', 'team_manager')) tiles.push(tile('Team feedback', 'Report judging concerns and follow organiser responses.', {name:'team-feedback', eventId}));
   tiles.push(tile('Results', ctx.demo ? 'Explore the populated standings, awards and team PDFs.' : event.resultsReleased ? 'Results released.' : 'Not released yet.', { name: 'results', eventId }));

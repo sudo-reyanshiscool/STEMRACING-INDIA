@@ -362,6 +362,8 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
     async saveRace(eventId, id, revision, input) { return raceRow(firstRow(ok(await guard(() => sb.rpc('save_race', {p_event:eventId,p_id:id,p_revision:revision,p_input:input}))))); },
     async getTiming(eventId) { return ok(await guard(() => sb.rpc('race_timing_state',{p_event:eventId}))) as TimingState | null; },
     async pairTiming(eventId) { return ok(await guard(() => sb.rpc('pair_race_timing',{p_event:eventId}))) as TimingPair; },
+    async submissionState(eventId) {return ok(await guard(()=>sb.rpc('submission_state',{p_event:eventId})));},
+    async saveSubmissionRules(eventId,revision,rules) {ok(await guard(()=>sb.rpc('save_submission_rules',{p_event:eventId,p_revision:revision,p_rules:rules})));},
     async listTeamFiles(eventId) {return await pages<any>((a,b)=>sb.rpc('list_team_files',{p_event:eventId}).order('id').range(a,b));},
     async uploadTeamFile(eventId,teamId,revision,input) {ok(await guard(()=>sb.rpc('upload_team_file',{p_event:eventId,p_team:teamId,p_revision:revision,p_input:input})));},
     async downloadTeamFile(eventId,id) {return ok(await guard(()=>sb.rpc('download_team_file',{p_event:eventId,p_id:id})));},
@@ -539,7 +541,7 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
     },
     async listPenalties(eventId) {
       if (!(await session())) return [];
-      return (await pages<never>((a, b) => sb.from('penalties').select(PENALTY_COLS).eq('event_id', eventId).order('id').range(a, b))).map(toPenaltyRow);
+      return (await pages<any>((a,b)=>sb.rpc('list_event_penalties',{p_event:eventId}).order('id').range(a,b))).map(toPenaltyRow);
     },
     async addPenalty(eventId, teamId, points, reason) {
       ok(await guard(() => sb.from('penalties').insert({ event_id: eventId, team_id: teamId, points, reason: reason.trim() })));

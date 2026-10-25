@@ -4,7 +4,7 @@ import type {Ctx} from './ctx';
 import {h} from './dom';
 import {ROLE_LABEL,PANEL_LABEL} from './labels';
 export const spectatorOnly=(roles:RoleRow[])=>roles.length>0&&roles.every(r=>r.role==='spectator');
-export const SPECTATOR_PAGES:Array<[string,Route['name']]>=[['Event','event'],['Teams','teams'],['People','people'],['Draw lots','draw'],['Communications','communications'],['Scores','scores'],['Race control','racing'],['Moderation','moderate'],['Rankings','rankings'],['Team files','team-files'],['Team feedback','team-feedback'],['Results','results']];
+export const SPECTATOR_PAGES:Array<[string,Route['name']]>=[['Event','event'],['Teams','teams'],['People','people'],['Draw lots','draw'],['Communications','communications'],['Scores','scores'],['Race control','racing'],['Moderation','moderate'],['Rankings','rankings'],['Submissions','submissions'],['Team files','team-files'],['Team feedback','team-feedback'],['Results','results']];
 export async function spectatorReadScreen(ctx:Ctx,eventId:string,page:Route['name']):Promise<HTMLElement>{
  const title=SPECTATOR_PAGES.find(([,name])=>name===page)?.[0]??'Event';
  const root=h('div',{class:'stack stack--lg'},h('h1',null,title),h('p',{class:'notice'},'Platform Spectator · read-only access'));

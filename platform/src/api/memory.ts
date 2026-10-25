@@ -1,3 +1,4 @@
+import {PORTFOLIOS,submissionRow,validateSubmissionRules,type SubmissionRule} from './submissions';
 import {FILE_PANEL, validateTeamFile, type TeamFile, type TeamFileInput} from './team-files';
 import { defaultRacingSetup, validateSetup, reactionPairings, type RacingSetup, type RacingSetupInput } from '../racing/competition';
 import { rerunEligible, followupInput, raceRecorded, validateRace, type RaceHeat, type RaceInput, type TimingState } from '../racing';
@@ -56,6 +57,31 @@ export interface ShowcaseSeed {
  * Used by tests. Where several rules could fail at once, permission is checked first.
  */
 export class MemoryApi implements Api {
+  private submissionRules=new Map<string,{revision:number;rules:SubmissionRule[]}>();
+  private submittedTimes=new Map<string,string>();
+  private submissionRows(eventId:string) {
+    const state=this.submissionRules.get(eventId)??{revision:0,rules:PORTFOLIOS.map(kind=>({kind,deadline:null,pointsPerHour:5}))};
+    const time=this.released(eventId)?Date.parse(this.snapshots.filter(s=>s.eventId===eventId).at(-1)?.createdAt??new Date().toISOString()):Date.now();
+    return {...copy(state),rows:this.teams.filter(t=>t.eventId===eventId).flatMap(t=>state.rules.map(r=>submissionRow(t.id,r,this.submittedTimes.get(`${eventId}:${t.id}:${r.kind}`)??null,time)))};
+  }
+  async submissionState(eventId:string) {
+    this.require(eventId,'organiser','chair','spectator','team_manager');
+    const state=this.submissionRows(eventId);
+    if(!this.has(eventId,'organiser','chair','spectator'))state.rows=state.rows.filter(row=>this.rolesOf(eventId).some(r=>r.role==='team_manager'&&r.teamId===row.teamId));
+    return state;
+  }
+  async saveSubmissionRules(eventId:string,revision:number,rules:SubmissionRule[]) {
+    this.require(eventId,'organiser','chair');this.frozen(eventId,'submission rules');validateSubmissionRules(rules);
+    if((this.submissionRules.get(eventId)?.revision??0)!==revision)throw new ApiError('conflict','Submission rules changed. Reload and try again.');
+    this.submissionRules.set(eventId,{revision:revision+1,rules:copy(rules)});this.version++;
+  }
+  private checkSubmissionPenalties(eventId:string,inputs:unknown) {
+    if(!this.submissionRules.get(eventId)?.rules.some(r=>r.deadline))return;
+    const norm=(rows:Array<{teamId:string;points:number}>)=>JSON.stringify(rows.map(r=>({teamId:r.teamId,points:r.points})).sort((a,b)=>a.teamId.localeCompare(b.teamId)||a.points-b.points));
+    const actual=(inputs as {penalties?:Array<{teamId:string;points:number}>})?.penalties??[];
+    if(norm([...this.penalties.filter(p=>p.eventId===eventId),...this.automaticPenalties(eventId)])!==norm(actual))throw new ApiError('locked','Submission penalties changed; refresh and publish rankings again.');
+  }
+  private automaticPenalties(eventId:string) {return this.submissionRows(eventId).rows.filter(r=>r.points>0).map(r=>({id:`submission:${r.teamId}:${r.kind}`,eventId,teamId:r.teamId,points:r.points,reason:`Automatic submission penalty · ${r.kind}`}));}
   private showcaseMode = false;
   private teamFiles: Array<TeamFile & {base64:string}> = [];
   private readsTeamFile(file: TeamFile): boolean {
@@ -76,6 +102,7 @@ export class MemoryApi implements Api {
     if((old?.revision??0)!==revision)throw new ApiError('conflict','File changed');
     const file={...copy(input),name:input.name.trim(),id:old?.id??nid('file'),eventId,teamId,size,revision:revision+1,updatedAt:new Date().toISOString()};
     this.teamFiles=this.teamFiles.filter(f=>f.id!==file.id);this.teamFiles.push(file);
+    const key=`${eventId}:${teamId}:${input.kind}`;if(input.kind!=='logo'&&!this.submittedTimes.has(key))this.submittedTimes.set(key,file.updatedAt);this.version++;
   }
   async downloadTeamFile(eventId:string,id:string) {
     const file=this.teamFiles.find(f=>f.eventId===eventId&&f.id===id);
@@ -244,7 +271,7 @@ export class MemoryApi implements Api {
       races:this.races.filter(r=>r.eventId===eventId).flatMap(r=>[r.lane1,r.lane2].flatMap((lane,i)=>lane.teamId===teamId&&lane.status!=='pending'?[{number:r.number,label:r.label,phase:r.phase,lane:i+1,car:lane.car,status:lane.status,totalMs:lane.totalMs,reactionMs:lane.reactionMs}]:[])),
       awards:this.awards.filter(a=>a.eventId===eventId).map(a=>{const t=this.teamOrThrow(eventId,a.teamId);return {title:a.title,teamNumber:t.number,teamName:t.name,teamSchool:t.school};}),
       cards:this.cards.filter(c=>c.eventId===eventId && c.teamId===teamId && c.status==='submitted').map(c=>{const r=this.reviews.get(c.id);return {areaId:c.areaId,scores:c.scores,feedback:{overall:r?.overall??'',strengths:r?.strengths??'',improvements:r?.improvements??''}};}),
-      penalties:this.penalties.filter(p=>p.eventId===eventId && p.teamId===teamId).map(({points,reason})=>({points,reason})),
+      penalties:[...this.penalties.filter(p=>p.eventId===eventId),...this.automaticPenalties(eventId)].filter(p=>p.teamId===teamId).map(({points,reason})=>({points,reason})),
       inspections:this.inspections.filter(i=>i.eventId===eventId && i.teamId===teamId && i.status==='submitted').map(i=>({car:i.car,rulesetId:i.rulesetId,selectedArticles:i.selectedArticles,measurements:i.measurements as ResultsPacket['inspections'][number]['measurements']}))});
   }
   async sendTeamResults(eventId:string,teamId:string,selection:ResultMailSelection):Promise<'sent'|'already_sent'> {
@@ -506,6 +533,7 @@ export class MemoryApi implements Api {
       const inputs=this.snapshotInputs.get(latest.id) as {racingIssues?:string[]}|undefined;
       if(!inputs?.racingIssues || inputs.racingIssues.length)throw new ApiError('locked','Finish racing setup and bracket before release');
     }
+    this.checkSubmissionPenalties(eventId,this.snapshotInputs.get(latest.id));
     ev.resultsReleased = true;
   }
 
@@ -943,10 +971,9 @@ export class MemoryApi implements Api {
     this.version += 1;
   }
   async listPenalties(eventId: string) {
-    if (this.has(eventId, 'chair', 'organiser', 'spectator')) return copy(this.penalties.filter((p) => p.eventId === eventId));
-    if (!this.released(eventId)) return [];
+    if (this.has(eventId, 'chair', 'organiser', 'spectator')) return copy([...this.penalties.filter((p) => p.eventId === eventId),...this.automaticPenalties(eventId)]);
     const managed = this.rolesOf(eventId).filter((r) => r.role === 'team_manager').map((r) => r.teamId);
-    return copy(this.penalties.filter((p) => p.eventId === eventId && managed.includes(p.teamId)));
+    return copy([...this.penalties.filter((p) => p.eventId === eventId&&this.released(eventId)),...this.automaticPenalties(eventId)].filter(p=>managed.includes(p.teamId)));
   }
   async addPenalty(eventId: string, teamId: string, points: number, reason: string) {
     this.require(eventId, 'chair');
@@ -974,6 +1001,7 @@ export class MemoryApi implements Api {
     if (s.rulesetId !== ev.ruleset.id) throw new ApiError('invalid', 'The snapshot ruleset does not match the ruleset pinned to the event');
     if (typeof s.inputs !== 'object' || s.inputs === null || Array.isArray(s.inputs)) throw new ApiError('invalid', 'Snapshot inputs must be an object');
     if (!Array.isArray(s.rows)) throw new ApiError('invalid', 'Snapshot rows must be a list');
+    this.checkSubmissionPenalties(eventId,s.inputs);
     const row: SnapshotRow = {
       id: nid('snapshot'), eventId, createdAt: new Date().toISOString(), rulesetId: s.rulesetId,
       inputHash: s.inputHash, rows: copy(s.rows), released: true,

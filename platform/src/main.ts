@@ -1,3 +1,4 @@
+import {submissionsScreen} from './ui/submissions';
 import {spectatorOnly,spectatorReadScreen} from './ui/spectator';
 import { judgePageAllowed } from './ui/judge-access';
 import './styles/tokens.css';
@@ -190,6 +191,7 @@ async function screenFor(route: Route, ctx: Ctx): Promise<HTMLElement> {
     case 'event': return eventHomeScreen(ctx, route.eventId);
     case 'teams': return teamsScreen(ctx, route.eventId);
     case 'people': return peopleScreen(ctx, route.eventId);
+    case 'submissions': return submissionsScreen(ctx,route.eventId);
     case 'team-files': return teamFilesScreen(ctx,route.eventId);
     case 'team-feedback': return teamFeedbackScreen(ctx, route.eventId);
     case 'communications': return communicationsScreen(ctx, route.eventId);

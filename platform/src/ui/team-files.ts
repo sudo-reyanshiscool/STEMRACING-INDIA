@@ -3,21 +3,23 @@ import { FILE_KINDS, validateTeamFile, type TeamFileKind, type TeamFileInput } f
 import { h } from './dom';
 import { errorText, notFound } from './common';
 
-export async function teamFilesScreen(ctx: Ctx, eventId: string): Promise<HTMLElement> {
-  const [event,roles,teams,files]=await Promise.all([ctx.api.getEvent(eventId),ctx.api.myRoles(eventId),ctx.api.listTeams(eventId),ctx.api.listTeamFiles(eventId)]);
+export async function teamFilesScreen(ctx: Ctx, eventId: string, portfoliosOnly=false): Promise<HTMLElement> {
+  const [event,roles,teams,allFiles]=await Promise.all([ctx.api.getEvent(eventId),ctx.api.myRoles(eventId),ctx.api.listTeams(eventId),ctx.api.listTeamFiles(eventId)]);
+  const files=allFiles.filter(f=>!portfoliosOnly||f.kind!=='logo');
   if(!event||!roles.length)return notFound('Team files are unavailable.');
   let alive=true;ctx.onLeave(()=>{alive=false;});
   const staff=roles.some(r=>r.role==='chair'||r.role==='organiser');
   const managed=roles.filter(r=>r.role==='team_manager').map(r=>r.teamId);
   const uploadTeams=teams.filter(t=>staff||managed.includes(t.id));
-  const root=h('div',{class:'stack stack--lg'},h('h1',null,'Team files'),h('p',{class:'lead'},'Upload team artwork and portfolios. Portfolio access follows judging assignments and declared conflicts.'));
+  const root=h('div',{class:'stack stack--lg'},h(portfoliosOnly?'h2':'h1',null,portfoliosOnly?'Upload and download portfolios':'Team files'),h('p',{class:'lead'},portfoliosOnly?'PDF portfolios, up to 12 MB each. Access follows judging assignments and declared conflicts.':'Upload team artwork and portfolios. Portfolio access follows judging assignments and declared conflicts.'));
   const status=h('p',{role:'status','aria-live':'polite'});root.append(status);
   if(uploadTeams.length&&!event.resultsReleased) {
     const team=h('select',{'aria-label':'Upload team'},uploadTeams.map(t=>h('option',{value:t.id},`${t.number} · ${t.name}`)));
-    const kind=h('select',{'aria-label':'File category'},Object.entries(FILE_KINDS).map(([k,label])=>h('option',{value:k},label)));
+    const kind=h('select',{'aria-label':'File category'},Object.entries(FILE_KINDS).filter(([k])=>!portfoliosOnly||k!=='logo').map(([k,label])=>h('option',{value:k},label)));
     const file=h('input',{type:'file',accept:'.png,.svg','aria-label':'Choose team file',required:true});
     const guide=h('p',{class:'muted'},'PNG or self-contained SVG, up to 2 MB. Use high-resolution artwork.');
     kind.onchange=()=>{file.accept=kind.value==='logo'?'.png,.svg':'.pdf';file.value='';guide.textContent=kind.value==='logo'?'PNG or self-contained SVG, up to 2 MB. Use high-resolution artwork.':'PDF portfolio, up to 12 MB.';};
+    if(portfoliosOnly)kind.onchange(new Event('change'));
     const save=h('button',{type:'submit',class:'btn btn--primary'},'Upload file');
     root.append(h('form',{class:'stack',onsubmit:async(e:Event)=>{
       e.preventDefault();if(save.disabled)return;const selected=file.files?.[0];if(!selected)return;
