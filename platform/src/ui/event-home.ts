@@ -1,10 +1,11 @@
+import { judgePageAllowed } from './judge-access';
 import { inspectionScopeControl } from './inspection-scope';
 import type { Role } from '../api';
 import type { Ctx } from './ctx';
 import { notFound } from './common';
 import { h } from './dom';
 import { PANEL_LABEL, ROLE_LABEL } from './labels';
-import { routeHref, type Route } from './router';
+import { parseHash, routeHref, type Route } from './router';
 import { deleteEventControl } from './delete-event';
 import { canShowcase, showcaseHref } from '../api/showcase';
 
@@ -44,7 +45,7 @@ export async function eventHomeScreen(ctx: Ctx, eventId: string): Promise<HTMLEl
       h('div', {class: 'actions'},
         h('a', { class: 'btn btn--primary', href: showcaseHref(event.id) }, 'Open showcase'),
         h('a', { class: 'btn btn--ghost', href: showcaseHref(event.id, true) }, 'Six-team example'))) : null,
-    h('div', { class: 'tiles' }, tiles),
+    h('div', { class: 'tiles' }, tiles.filter(t=>judgePageAllowed(roles, parseHash(t.getAttribute('href')??'').name))),
     has('organiser','chair') ? await inspectionScopeControl(ctx,eventId) : null,
     has('organiser') ? deleteEventControl(ctx, event) : null,
   );

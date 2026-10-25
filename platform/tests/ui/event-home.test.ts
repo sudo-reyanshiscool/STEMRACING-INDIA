@@ -15,7 +15,7 @@ describe('eventHomeScreen', () => {
   it('shows each role the tiles it can use', async () => {
     expect(await tiles(EMAILS.org)).toEqual(['Teams', 'People', 'Draw lots', 'Judge', 'Scores', 'Race control', 'Moderation', 'Rankings', 'Team files', 'Team feedback', 'Results']);
     expect(await tiles(EMAILS.chair)).toEqual(['Teams', 'People', 'Draw lots', 'Judge', 'Scores', 'Race control', 'Moderation', 'Rankings', 'Team files', 'Team feedback', 'Results']);
-    expect(await tiles(EMAILS.judge)).toEqual(['My scorecards', 'Scores', 'Race control', 'Team files', 'Results']);
+    expect(await tiles(EMAILS.judge)).toEqual(['My scorecards', 'Scores']);
     expect(await tiles(EMAILS.lead)).toEqual(['Scores', 'Race control', 'Moderation', 'Team files', 'Results']);
     expect(await tiles(EMAILS.mgr)).toEqual(['Team files', 'Team feedback', 'Results']);
   });

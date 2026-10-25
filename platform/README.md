@@ -398,3 +398,13 @@ Private organisers are omitted from non-admin organiser, People and invitation
 responses; matching direct directory rows and historical records are also filtered.
 The hidden organiser’s access remains active. The home-page display independently
 filters private identities when the current viewer does not match the administrator.
+
+### Standard judge workspace
+
+Accounts assigned only Judge roles have exactly three event sections: **Event**,
+**My scorecards**, and **Scores**. The event home offers only the corresponding
+scorecard and scores tiles. Direct navigation to other event pages is refused before
+those screens load. Assigned scorecards and specification inspection detail pages
+remain reachable as part of My scorecards. This controls the judge interface;
+existing scorecard ownership, assignment and feedback permissions remain enforced
+by the API. Separately assigned leadership or operational roles retain their workspaces.
