@@ -19,6 +19,7 @@ export function eventNav(event: EventRow, roles: RoleRow[], current: Route['name
   if (has('organiser', 'chair')) items.push(
     ['Scheduling & Streams',{name:'schedule',eventId:event.id}],
     ['Teams', { name: 'teams', eventId: event.id }],
+    ['Media Assets', { name: 'media', eventId: event.id }],
     ['People', { name: 'people', eventId: event.id }],
     ['Draw lots', { name: 'draw', eventId: event.id }],
     ['Communications', { name: 'communications', eventId: event.id }]

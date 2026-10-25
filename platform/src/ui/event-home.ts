@@ -23,6 +23,7 @@ export async function eventHomeScreen(ctx: Ctx, eventId: string): Promise<HTMLEl
   const tiles: HTMLElement[] = [];
   if(has('organiser','chair'))tiles.push(tile('Scheduling & Streams','Allocate streams, build the master timeline and publish team schedules.',{name:'schedule',eventId}));
   if (has('organiser', 'chair')) tiles.push(tile('Teams', 'Add and review the teams entered.', { name: 'teams', eventId }));
+  if (has('organiser', 'chair')) tiles.push(tile('Media Assets', 'Manage team photographs, run bulk AI cutouts and approve broadcast graphics.', { name: 'media', eventId }));
   if (has('organiser', 'chair')) tiles.push(tile('People', 'Invite judges, officials and team managers.', { name: 'people', eventId }));
   if (has('organiser', 'chair')) tiles.push(tile('Draw lots', 'Preview random team numbers and balanced judge assignments.', {name:'draw',eventId}));
   if (has('organiser','chair')) tiles.push(tile('Judge', 'Choose a team and panel to complete your own scorecards.', { name: 'score', eventId }));
