@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>STEM Racing India team introductions</title>
+<link rel="icon" href="assets/brand/signifier.png">
+<style>
+@font-face{font-family:"Magistral";src:url("assets/fonts/Magistral-BoldItalic.woff2") format("woff2");font-weight:700;font-style:italic}
+@font-face{font-family:"Magistral";src:url("assets/fonts/Magistral-MediumItalic.woff2") format("woff2");font-weight:500;font-style:italic}
+@font-face{font-family:"MachoModular";src:url("assets/fonts/MachoModular-Light.woff2") format("woff2");font-weight:300;font-style:normal}
+@font-face{font-family:"MachoModular";src:url("assets/fonts/MachoModular-Medium.woff2") format("woff2");font-weight:400 500;font-style:normal}
+@font-face{font-family:"MachoModular";src:url("assets/fonts/MachoModular-Bold.woff2") format("woff2");font-weight:700;font-style:normal}
+
+:root{
+  --carbon-shadow:#05000B;--carbon-800:#261A3D;--carbon-700:#2E2347;--carbon-500:#5B5376;--carbon-300:#A39FB8;--carbon-100:#D7D6E3;--white:#fff;
+  --indigo:#312783;--violet:#961B81;--pink:#E6007E;--orange:#ED6D05;--gold:#FCBC00;
+  --bg:var(--carbon-shadow);--fg:var(--carbon-100);--strong:var(--white);--muted:var(--carbon-300);
+  --display:"Magistral",Arial,system-ui,sans-serif;--body:"MachoModular",Arial,system-ui,sans-serif;
+  --ease:cubic-bezier(.22,.8,.24,1);
+  --heading-gradient:linear-gradient(90deg,var(--violet) -15%,var(--pink) 52%,var(--orange) 100%);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#000;color:var(--fg);font-family:var(--body);font-weight:300}
+button,input,textarea,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+
+/* ================= projector ================= */
+body.display{overflow:hidden}
+#viewport{position:fixed;inset:0;overflow:hidden;background:#000}
+#stage{position:absolute;left:50%;top:50%;width:1920px;height:1080px;margin:-540px 0 0 -960px;transform-origin:50% 50%;background:#000;overflow:hidden}
+#blackout{position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .45s ease;z-index:50}
+#blackout.on{opacity:1}
+
+/* four layers: a full-screen graphic and a half-screen graphic for each team */
+.layer{position:absolute;top:0;height:1080px;overflow:hidden;background:var(--bg);opacity:0;visibility:hidden;
+  transition:opacity .6s ease,visibility 0s linear .6s}
+.layer.on{opacity:1;visibility:visible;transition:opacity .6s ease,visibility 0s}
+.layer.full{left:0;width:1920px;z-index:5}
+.layer.half{width:960px;z-index:2}
+.layer.half.l{left:0}
+.layer.half.r{left:960px;box-shadow:-2px 0 0 0 rgba(255,255,255,.14)}
+
+/* rich gradient field, slowly drifting, with a dark veil so the type stays readable */
+.layer .bg{position:absolute;left:50%;top:50%;background-size:cover;background-position:center;animation:bgdrift 26s ease-in-out infinite alternate}
+.layer.full .bg{width:1080px;height:1920px}
+.layer.half .bg{width:1080px;height:960px}
+@keyframes bgdrift{
+  from{transform:translate(-50%,-50%) rotate(var(--rot)) scale(1.1)}
+  to  {transform:translate(-50%,-50%) rotate(var(--rot)) scale(1.3) translate(3%,-4%)}}
+.layer .veil{position:absolute;inset:0;
+  background:radial-gradient(ellipse 64% 60% at 50% 40%,rgba(5,0,11,.82) 0,rgba(5,0,11,.52) 58%,rgba(5,0,11,.06) 100%),
+             linear-gradient(0deg,rgba(5,0,11,.84) 0,rgba(5,0,11,0) 44%)}
+.layer.half .veil{background:radial-gradient(ellipse 90% 56% at 50% 46%,rgba(5,0,11,.8) 0,rgba(5,0,11,.5) 62%,rgba(5,0,11,.12) 100%)}
+
+/* the SR signifier, drawn on with a sweep, gradient shifting, drifting a little */
+.shp{position:absolute;width:auto;pointer-events:none;overflow:visible;opacity:.95}
+.layer.full .shp.big{height:1010px;right:-190px;top:30px}
+.layer.full .shp.small{height:480px;left:-140px;bottom:-120px;rotate:-12deg;scale:-1 1;opacity:.85}
+.layer.half .shp.big{height:820px;right:-210px;bottom:-200px}
+.shp .sweep{stroke-dasharray:1 1;stroke-dashoffset:0;stroke-width:1100}
+.layer.on .shp .sweep{animation:draw 2.3s cubic-bezier(.34,.62,.36,1) .3s backwards}
+.layer.on .shp.small .sweep{animation-delay:.7s}
+@keyframes draw{from{stroke-dashoffset:1;stroke-width:230}to{stroke-dashoffset:0;stroke-width:1100}}
+.layer.on .shp.big{animation:drift 17s ease-in-out infinite alternate}
+.layer.on .shp.small{animation:drift 21s ease-in-out infinite alternate-reverse}
+@keyframes drift{from{transform:translate(0,0) rotate(0deg)}to{transform:translate(38px,-22px) rotate(-1.6deg)}}
+
+.stack{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 90px}
+.stack .logo{object-fit:contain}
+.stack .name{font:700 italic 1em/1.04 var(--display);padding-right:.1em;overflow-wrap:anywhere;color:var(--strong)}
+.stack .name .grad{background:linear-gradient(90deg,#FF4FA6 0%,#FF8A3D 58%,#FFC83D 100%);-webkit-background-clip:text;background-clip:text;color:transparent;display:inline-block;padding-right:.12em}
+.stack .school{font-family:var(--body);font-weight:400;color:#fff;letter-spacing:.02em;text-shadow:0 2px 14px rgba(5,0,11,.6)}
+/* tagline as the signature outlined text tracks: they slide in from the sides, then sit still */
+.tracks{position:absolute;left:0;right:0;bottom:70px;display:flex;flex-direction:column;overflow:hidden;font-size:var(--tf)}
+.track{height:1.2em;white-space:nowrap;overflow:hidden}
+.track .run{display:inline-block;font:700 italic 1em/1.2em var(--display);text-transform:uppercase;letter-spacing:.01em;padding-left:110px}
+.track.o .run{color:transparent;-webkit-text-stroke:2.5px rgba(255,255,255,.62);text-indent:-4.2em}
+.track.f .run{background:linear-gradient(90deg,#fff 0,#FFE9A8 22%,#FCBC00 48%,#FF8A3D 74%,#fff 100%);background-size:2200px 100%;-webkit-background-clip:text;background-clip:text;color:transparent}
+
+/* full screen: logo, name, school, tagline */
+.layer.full .stack{font-size:var(--nf)}
+.layer.full .school{font-size:.32em;margin-top:.28em;max-width:1500px;line-height:1.25}
+.layer.full .name{max-width:1600px}
+.layer.full .stack{bottom:360px}
+.layer.full .logo{width:210px;height:210px;margin-bottom:26px}
+
+/* half screen: logo, name, school only */
+.layer.half .stack{font-size:var(--nh)}
+.layer.half .logo{width:220px;height:220px;margin-bottom:34px}
+.layer.half .school{font-size:.4em;margin-top:.32em;line-height:1.25}
+.layer.half .name{max-width:800px}
+
+/* full screen comes in from the sides, then holds still */
+.layer.full.on .from-l{animation:fromL 1.15s var(--ease) backwards}
+.layer.full.on .from-r{animation:fromR 1.15s var(--ease) .12s backwards}
+@keyframes fromL{from{transform:translateX(-340px);opacity:0}}
+@keyframes fromR{from{transform:translateX(340px);opacity:0}}
+.layer.full.on .track.o{animation:fromL 1.3s var(--ease) .1s backwards}
+.layer.full.on .track.f{animation:fromR 1.3s var(--ease) .22s backwards}
+/* half screen sweeps in from the top; no shrink, no morph */
+.layer.half.on{animation:sweep 1.5s var(--ease) backwards}
+@keyframes sweep{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0 0 0 0)}}
+
+/* operator bar on the projector window: only visible while the mouse moves */
+#bar{position:fixed;left:16px;top:16px;z-index:100;display:flex;gap:10px;opacity:0;transition:opacity .3s}
+body.wake #bar{opacity:1}
+body:not(.wake){cursor:none}
+
+/* ================= control window ================= */
+body.control{background:var(--bg);overflow:auto}
+#ctl{max-width:1100px;margin:0 auto;padding:28px 28px 80px}
+#ctl h1{font:700 italic 44px/1.1 var(--display);color:var(--strong)}
+#ctl h2{font:500 20px/1 var(--body);letter-spacing:.06em;color:var(--muted);margin-bottom:14px}
+#ctl .sub{font:400 20px/1.4 var(--body);color:var(--muted);margin-top:8px}
+#ctl .panel{background:var(--carbon-800);border:1.5px solid var(--carbon-700);border-radius:6px;padding:20px 22px}
+#ctl .cols{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:22px}
+#ctl .big{font:700 italic 34px/1.15 var(--display);color:var(--strong);overflow-wrap:anywhere}
+#ctl .auto{margin-top:12px;font:500 22px/1.3 var(--body);color:var(--gold);min-height:30px}
+#ctl .steps{display:flex;gap:8px;margin:18px 0 4px}
+#ctl .steps i{flex:1;height:8px;border-radius:4px;background:var(--carbon-700)}
+#ctl .steps i.done{background:var(--pink)}
+#ctl .steps i.cur{background:var(--gold)}
+#ctl .row{display:flex;gap:12px;margin-top:22px;flex-wrap:wrap;align-items:center}
+.btn{background:var(--carbon-800);border:1.5px solid var(--carbon-500);border-radius:4px;padding:16px 26px;font:500 22px/1 var(--body);cursor:pointer;color:var(--strong)}
+.btn:hover{border-color:var(--pink)}
+.btn.primary{background:var(--pink);border-color:var(--pink)}
+.btn.sm{padding:10px 16px;font-size:17px}
+.btn.on{background:var(--violet);border-color:var(--violet)}
+#races{list-style:none;max-height:360px;overflow:auto;margin-top:6px}
+#races li{display:flex;gap:14px;align-items:baseline;padding:10px 12px;border-radius:4px;cursor:pointer;font:400 20px/1.3 var(--body)}
+#races li:hover{background:var(--carbon-700)}
+#races li.cur{background:var(--carbon-700);box-shadow:inset 4px 0 0 var(--gold)}
+#races li .n{color:var(--muted);min-width:70px}
+#races li .vs{color:var(--pink);font-weight:500}
+.field{display:flex;align-items:center;gap:12px;margin-top:18px;font:400 19px/1.3 var(--body);color:var(--muted)}
+.field input{background:var(--bg);border:1.5px solid var(--carbon-700);border-radius:4px;padding:9px 10px;color:var(--strong);font:400 19px/1 var(--body);width:90px}
+#json{background:var(--bg);border:1.5px solid var(--carbon-700);border-radius:4px;padding:11px 12px;color:var(--carbon-100);width:100%;
+  font:400 15px/1.45 ui-monospace,Menlo,monospace;min-height:260px;resize:vertical}
+#msg{margin-top:10px;font:400 18px/1.4 var(--body);min-height:26px}
+#msg.err{color:var(--orange)}#msg.ok{color:var(--gold)}
+.hint{font:300 17px/1.45 var(--body);color:var(--muted);margin-bottom:10px}
+@media (max-width:820px){#ctl .cols{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="viewport">
+  <div id="stage" aria-live="polite">
+    <section class="layer half l" id="halfA"></section>
+    <section class="layer half r" id="halfB"></section>
+    <section class="layer full" id="fullA"></section>
+    <section class="layer full" id="fullB"></section>
+    <div id="blackout"></div>
+  </div>
+  <div id="bar">
+    <button class="btn sm" id="openCtl" type="button">Control window (C)</button>
+    <button class="btn sm" id="fs" type="button">Fullscreen (F)</button>
+  </div>
+</div>
+<main id="ctl" hidden></main>
+
+<script>
+(() => {
+'use strict';
+const KEY = 'srindia-teamintro-v2';
+const CONTROL = new URLSearchParams(location.search).has('control');
+const STEPS = 3;                 /* per race: 0 blank, 1 team A, 2 team B */
+const FADE = 600, GAP = 500;     /* ms: full screen fades out, then black before the half fades in */
+const FALLBACK_LOGO = 'assets/brand/signifier.png';
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clip = (s, n) => String(s == null ? '' : s).trim().slice(0, n);
+
+/* ================= data ================= */
+/* The shape the heats generator will eventually hand over:
+   { event:{name,venue}, teams:[{id,name,school,tagline,logo?}], races:[{a:teamId,b:teamId}] } */
+const NAMES = ['Supercharge','Team Nitro','Apex Velocity','Turbo Titans','Nitro Nebula','Photon Racing','Vortex Vanguard','Silverstone Sparks',
+  'Kinetic Kites','Aero Alchemists','Quantum Quicksilver','Circuit Breakers','Drift Dynamics','Falcon Formula','Helix Horizon','Ignition Imperials',
+  'Jetstream Juniors','Lightning Lynx','Mach Mavericks','Orbit Overdrive','Pulse Pacers','Rocket Ravens','Slipstream Syndicate','Thunder Thrusters'];
+const SCHOOLS = ['Greenfield International School','St. Aldric’s Academy','Riverbend Public School','Northgate Senior Secondary','Lakeview Heritage School',
+  'Maple Crest International','Horizon Valley School','Sunridge Academy','Oakwood Global School','Cedar Hill Institute','Brightwater School','Highland Park Academy'];
+const CITIES = ['New Delhi','Mumbai','Bengaluru','Chennai','Pune','Hyderabad','Kolkata','Ahmedabad','Jaipur','Kochi'];
+const TAGLINES = ['Accelerating Futures','Future Faces of Formula 1','Meet the Future Face of Formula 1','Built to Fly','Engineered for Speed',
+  'Born to Race','Racing Beyond Limits','Chasing Milliseconds'];
+const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+function sample(){
+  const rest = shuffle(NAMES.slice(2)), names = ['Supercharge', 'Team Nitro'].concat(rest).slice(0, 16);
+  const schools = shuffle(SCHOOLS), cities = shuffle(CITIES), tags = shuffle(TAGLINES);
+  const teams = names.map((name, i) => ({
+    id: 't' + (i + 1), name,
+    school: schools[i % schools.length] + ', ' + cities[i % cities.length],
+    tagline: tags[i % tags.length]
+  }));
+  const races = [];
+  for (let i = 0; i < teams.length; i += 2) races.push({ a: teams[i].id, b: teams[i + 1].id });
+  return { event: { name: 'Regionals', venue: 'Sample venue' }, teams, races };
+}
+
+function sanitise(d){
+  if (!d || typeof d !== 'object') return { error: 'Data must be a JSON object.' };
+  if (!Array.isArray(d.teams) || !d.teams.length) return { error: 'Add at least one team under "teams".' };
+  if (!Array.isArray(d.races) || !d.races.length) return { error: 'Add at least one race under "races".' };
+  const seen = new Set(), teams = [];
+  for (const [i, t] of d.teams.entries()) {
+    if (!t || typeof t !== 'object') return { error: `Team ${i + 1} is not an object.` };
+    const id = clip(t.id, 40), name = clip(t.name, 60);
+    if (!id) return { error: `Team ${i + 1} has no id.` };
+    if (!name) return { error: `Team "${id}" has no name.` };
+    if (seen.has(id)) return { error: `Team id "${id}" is used twice.` };
+    seen.add(id);
+    teams.push({ id, name, school: clip(t.school, 90), tagline: clip(t.tagline, 60) || 'Ready to Race',
+      logo: typeof t.logo === 'string' && /^(assets\/|data:image\/)/.test(t.logo) ? t.logo : '',
+      photo: typeof t.photo === 'string' && /^(assets\/|data:image\/|https?:\/\/)/.test(t.photo) ? t.photo : '' });
+  }
+  const races = [];
+  for (const [i, r] of d.races.entries()) {
+    const a = r && clip(r.a, 40), b = r && clip(r.b, 40);
+    if (!seen.has(a)) return { error: `Race ${i + 1}: team "${a}" is not in the team list.` };
+    if (!seen.has(b)) return { error: `Race ${i + 1}: team "${b}" is not in the team list.` };
+    if (a === b) return { error: `Race ${i + 1}: a team cannot race itself.` };
+    races.push({ a, b });
+  }
+  const ev = d.event && typeof d.event === 'object' ? d.event : {};
+  return { data: { event: { name: clip(ev.name, 40) || 'Regionals', venue: clip(ev.venue, 60) }, teams, races } };
+}
+
+let data, pos = 0, hold = 6, blackout = false, cw = null, autoAt = 0, phase = '';
+const clampHold = n => Math.max(2, Math.min(30, Math.round(+n) || 6));
+
+function load(){
+  try {
+    const raw = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if (raw) {
+      const s = sanitise(raw.data);
+      if (s.data) { data = s.data; hold = clampHold(raw.hold); pos = Math.max(0, Math.min(+raw.pos || 0, total() - 1)); return; }
+    }
+  } catch (e) {}
+  data = sample(); pos = 0;
+}
+function save(){ try { localStorage.setItem(KEY, JSON.stringify({ data, pos, hold })); } catch (e) {} }
+const total = () => data.races.length * STEPS;
+const team = id => data.teams.find(t => t.id === id);
+
+/* ================= display ================= */
+const L = id => document.getElementById(id);
+const fullNameSize = n => n <= 14 ? 150 : n <= 22 ? 124 : n <= 32 ? 100 : 82;
+/* tagline track size: big for short taglines, smaller so a long one still reads whole */
+const trackSize = n => Math.max(66, Math.min(138, Math.round(1560 / (Math.max(n, 8) * 0.66))));
+function trackRun(text){ const u = esc(text) + ' \u00B7 '; let h = ''; while (h.length < 120) h += u; return `<div class="run">${h}</div>`; }
+const halfNameSize = n => n <= 10 ? 112 : n <= 16 ? 92 : n <= 24 ? 78 : 64;
+
+let uidN = 0;
+/* The signifier outline plus a stroked path used as a mask so it can be drawn on. Each instance has its own
+   gradient whose stops drift (SMIL), so the colour is never still. */
+function shapeSVG(cls, c){
+  const u = 's' + (++uidN);
+  return `<svg class="shp ${cls}" viewBox="0 0 801.43 878.01" aria-hidden="true">
+    <defs>
+      <linearGradient id="g${u}" x1="400" y1="878" x2="400" y2="0" gradientUnits="userSpaceOnUse" spreadMethod="repeat">
+        <stop offset="0" stop-color="${c[0]}"/>
+        <stop offset=".25" stop-color="${c[1]}"/>
+        <stop offset=".5" stop-color="${c[2]}"/>
+        <stop offset=".75" stop-color="${c[1]}"/>
+        <stop offset="1" stop-color="${c[0]}"/>
+        <animateTransform attributeName="gradientTransform" type="translate" values="0 0; 0 -878" keyTimes="0;1"
+          calcMode="spline" keySplines=".65 0 .35 1" dur="${cls === 'big' ? 2 : 2.5}s" begin="${cls === 'big' ? 0 : .3}s" repeatCount="indefinite"/>
+      </linearGradient>
+      <mask id="m${u}" maskUnits="userSpaceOnUse" x="-300" y="-300" width="1400" height="1500">
+        <path class="sweep" pathLength="1" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round"
+          d="M 35 575 C 95 660, 200 625, 205 520 C 208 445, 95 440, 62 360 C 88 296, 175 296, 252 332 C 318 362, 352 424, 398 502 C 438 566, 474 548, 534 500 C 618 436, 700 428, 788 352"/>
+      </mask>
+    </defs>
+    <path fill="url(#g${u})" mask="url(#m${u})" d="M782.36,318.68c33.88-96.9,22.07-193.22-31.18-256.78-50.09-59.79-125.1-76.01-200.82-49.76l-216.73,75.14-105.27,36.5-33.23,11.52-110.93,38.46C44.11,187.67,12.03,246.08,3.24,314.64c-5.85,45.69-1.18,91.36,13.03,127.06,14.65,36.8,37.91,59.23,64.84,60.71l37.42,2.07v-.05s23.75,1.31,23.75,1.31c9.14.5,14.46,9.46,16.83,14.79,2.37,5.35,5.97,16.55,3.28,31.01-2.83,15.21-11.63,24.83-21.25,23.54L0,556.09l104.47,140.13,34.52,9.83c48,13.68,96.15-28.4,113.11-106.83,12.17-56.28,5.53-117.6-17.82-165.17-22.45-45.74-55.68-69.09-89.73-65.65l-63.09,6.39c-7.34.18-11.61-6.99-13.52-11.39-1.97-4.55-4.97-14.22-2.93-28.14,2.18-14.9,9.5-26.44,17.93-27.99l89.5-16.45h0s35.59-6.54,35.59-6.54h0l329.58-60.57c19.74-3.63,30.82,7.53,35.68,14.56,4.88,7.09,12.13,22.61,5.37,46.02-7.09,24.52-26.78,42.94-47.41,45.03l-174.48,17.66c-31.17,3.16-58.52,30.19-70.8,68.07-11.92,36.77-7.85,78.36,10.53,107.58l184.93,280.97,261.12,74.39-267.6-353.84,44.41,2.45c103.57,5.72,216.89-76.08,263-207.95Z"/>
+  </svg>`;
+}
+/* per team: background gradient, its rotation, and shape colours that contrast with it */
+const THEMES = {
+  a: { bg: 'hot',         rot: '-90deg', big: ['#312783', '#E6007E', '#ED6D05'], small: ['#961B81', '#FCBC00', '#E6007E'] },
+  b: { bg: 'pink-orange', rot: '90deg',  big: ['#961B81', '#E6007E', '#FCBC00'], small: ['#312783', '#ED6D05', '#E6007E'] }
+};
+function fill(el, t, kind, theme){
+  const key = JSON.stringify([t, kind, theme]);
+  if (el.dataset.key === key) return;
+  el.dataset.key = key;
+  const th = THEMES[theme] || THEMES.a;
+  const logo = esc(t.logo || FALLBACK_LOGO);
+  el.style.setProperty(kind === 'full' ? '--nf' : '--nh', (kind === 'full' ? fullNameSize : halfNameSize)(t.name.length) + 'px');
+  el.innerHTML = `
+    <div class="bg" style="--rot:${th.rot};background-image:url(assets/gradients/${th.bg}.png)"></div>
+    <div class="veil"></div>
+    ${shapeSVG('big', th.big)}${kind === 'full' ? shapeSVG('small', th.small) : ''}
+    ${t.photo ? `<img class="team-photo from-r" src="${esc(t.photo)}" alt="" style="position:absolute;right:${kind==='full'?'80px':'30px'};bottom:0;max-height:${kind==='full'?'82%':'72%'};max-width:${kind==='full'?'46%':'50%'};object-fit:contain;z-index:4;filter:drop-shadow(0 20px 30px rgba(0,0,0,0.85)) drop-shadow(0 0 35px rgba(230,0,126,0.35));pointer-events:none;">` : ''}
+    <div class="stack">
+      <img class="logo from-l" src="${logo}" alt="">
+      <div class="name from-l"><span class="grad">${esc(t.name)}</span></div>
+      <div class="school from-r">${esc(t.school)}</div>
+    </div>
+    ${kind === 'full' ? `<div class="tracks" style="--tf:${trackSize(t.tagline.length)}px" aria-label="${esc(t.tagline)}">
+      <div class="track o">${trackRun(t.tagline)}</div><div class="track f">${trackRun(t.tagline)}</div></div>` : ''}`;
+}
+function setOn(el, on){
+  if (el.classList.contains('on') === on) return;
+  el.classList.toggle('on', on);
+  if (on) el.querySelectorAll('svg.shp').forEach(svg => svg.setCurrentTime(0));
+}
+
+let timers = [];
+const later = (ms, fn) => timers.push(setTimeout(fn, ms));
+const clearTimers = () => { timers.forEach(clearTimeout); timers = []; autoAt = 0; };
+
+/* Plays the introduction for position p. `animate` is true when arriving by Next (plays the full-screen
+   sequence), false when arriving by Back or a jump (goes straight to the settled picture). */
+function show(p, animate){
+  clearTimers();
+  const ri = Math.floor(p / STEPS), step = p % STEPS, r = data.races[ri];
+  const A = team(r.a), B = team(r.b);
+  const fA = L('fullA'), fB = L('fullB'), hA = L('halfA'), hB = L('halfB');
+
+  /* the half or full graphic for a team is only filled when it is about to be shown, so nothing flashes */
+  const upA = () => { fill(fA, A, 'full', 'a'); fill(hA, A, 'half', 'a'); };
+  const upB = () => { fill(fB, B, 'full', 'b'); fill(hB, B, 'half', 'b'); };
+
+  if (step === 0) {
+    [fA, fB, hA, hB].forEach(el => setOn(el, false));
+    phase = 'Blank screen';
+    return;
+  }
+  if (step === 1) {
+    upA(); setOn(hB, false); setOn(fB, false);
+    if (!animate) { setOn(fA, false); setOn(hA, true); phase = 'Team A is up (left half)'; return; }
+    setOn(hA, false); setOn(fA, true);
+    phase = 'Team A full screen';
+    autoAt = Date.now() + hold * 1000;
+    later(hold * 1000, () => { setOn(fA, false); phase = 'Fading to the left half'; publish(); });
+    later(hold * 1000 + FADE + GAP, () => { setOn(hA, true); phase = 'Team A is up (left half)'; autoAt = 0; publish(); });
+    return;
+  }
+  /* step 2 */
+  upA(); upB(); setOn(fA, false); setOn(hA, true);
+  if (!animate) { setOn(fB, false); setOn(hB, true); phase = 'Both teams up'; return; }
+  setOn(hB, false); setOn(fB, true);
+  phase = 'Team B full screen';
+  autoAt = Date.now() + hold * 1000;
+  later(hold * 1000, () => { setOn(fB, false); phase = 'Fading to the right half'; publish(); });
+  later(hold * 1000 + FADE + GAP, () => { setOn(hB, true); phase = 'Both teams up'; autoAt = 0; publish(); });
+}
+
+/* ================= navigation ================= */
+function go(p, animate){
+  const np = Math.max(0, Math.min(p, total() - 1));
+  pos = np; save(); show(pos, animate); publish();
+}
+const next = () => { if (pos + 1 < total()) go(pos + 1, true); };
+const prev = () => { if (pos > 0) go(pos - 1, false); };
+function toggleBlack(){ blackout = !blackout; L('blackout').classList.toggle('on', blackout); publish(); }
+function applyData(raw){
+  const s = sanitise(raw);
+  if (s.error) return s;
+  data = s.data; pos = Math.min(pos, total() - 1);
+  ['fullA', 'fullB', 'halfA', 'halfB'].forEach(id => { delete L(id).dataset.key; });
+  save(); show(pos, false); publish(true);
+  return s;
+}
+
+/* ================= control window link ================= */
+const stepLabel = (step, A, B) => step === 0 ? 'Blank screen'
+  : step === 1 ? `${A.name}: full screen, then left half` : `${B.name}: full screen, then right half`;
+function summary(withData){
+  const ri = Math.floor(pos / STEPS), step = pos % STEPS, r = data.races[ri];
+  const A = team(r.a), B = team(r.b);
+  let nextLabel = 'End of the running order';
+  if (pos + 1 < total()) {
+    const nri = Math.floor((pos + 1) / STEPS), nr = data.races[nri];
+    nextLabel = stepLabel((pos + 1) % STEPS, team(nr.a), team(nr.b)) + (step === 2 ? ` (race ${nri + 1})` : '');
+  }
+  return {
+    pos, total: total(), race: ri, step, steps: STEPS, blackout, hold, phase, autoAt,
+    cur: stepLabel(step, A, B), next: nextLabel,
+    event: data.event,
+    races: data.races.map((x, i) => ({ n: i + 1, a: team(x.a).name, b: team(x.b).name })),
+    data: withData ? data : undefined
+  };
+}
+function publish(withData){ if (cw && !cw.closed) cw.postMessage({ type: 'state', payload: summary(withData) }, location.origin); }
+function openControl(){
+  if (cw && !cw.closed) { cw.focus(); return; }
+  cw = window.open(location.pathname + '?control=1', 'srindia-teamintro-control', 'width=1120,height=900');
+}
+
+/* ================= boot: projector ================= */
+function bootDisplay(){
+  document.body.classList.add('display');
+  load();
+  const stage = L('stage');
+  const scale = () => { stage.style.transform = `scale(${Math.min(innerWidth / 1920, innerHeight / 1080)})`; };
+  addEventListener('resize', scale); scale();
+  show(pos, false);
+
+  let idle; const wake = () => { document.body.classList.add('wake'); clearTimeout(idle); idle = setTimeout(() => document.body.classList.remove('wake'), 2500); };
+  addEventListener('mousemove', wake);
+  const toggleFull = () => { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {}); };
+  L('openCtl').onclick = openControl;
+  L('fs').onclick = toggleFull;
+
+  addEventListener('keydown', e => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const k = e.key;
+    if (['ArrowRight', 'ArrowDown', ' ', 'PageDown', 'Enter'].includes(k)) { e.preventDefault(); next(); }
+    else if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(k)) { e.preventDefault(); prev(); }
+    else if (k.toLowerCase() === 'b') toggleBlack();
+    else if (k.toLowerCase() === 'f') toggleFull();
+    else if (k.toLowerCase() === 'c') openControl();
+  });
+  addEventListener('message', e => {
+    const m = e.data;
+    if (!m || typeof m !== 'object' || e.origin !== location.origin || !e.source || e.source === window) return;
+    if (m.type !== 'hello' && m.type !== 'cmd') return;
+    cw = e.source; /* re-attach, so refreshing the projector page does not orphan the control window */
+    if (m.type === 'hello') publish(true);
+    else if (m.type === 'cmd') {
+      if (m.cmd === 'next') next();
+      else if (m.cmd === 'prev') prev();
+      else if (m.cmd === 'black') toggleBlack();
+      else if (m.cmd === 'race' && Number.isInteger(m.i) && m.i >= 0 && m.i < data.races.length) go(m.i * STEPS, false);
+      else if (m.cmd === 'hold') { hold = clampHold(m.value); save(); publish(); }
+      else if (m.cmd === 'sample') { pos = 0; applyData(sample()); }
+      else if (m.cmd === 'load') {
+        const s = applyData(m.data);
+        cw.postMessage({ type: 'result', ok: !s.error, error: s.error || '' }, location.origin);
+      }
+    }
+  });
+}
+
+/* ================= boot: control window ================= */
+function bootControl(){
+  document.body.classList.add('control');
+  L('viewport').hidden = true;
+  const root = L('ctl'); root.hidden = false;
+  document.title = 'Team intro control';
+  root.innerHTML = `
+    <h1>Team intro control</h1>
+    <div class="sub" id="status">${window.opener || window.parent !== window ? 'Connecting to the projector window…' : 'Open this from the projector window by pressing C.'}</div>
+    <div class="cols">
+      <div class="panel"><h2>ON SCREEN NOW</h2><div class="big" id="cur">–</div><div class="auto" id="auto"></div><div class="steps" id="steps"></div></div>
+      <div class="panel"><h2>NEXT (PRESS WHEN THE MC SAYS THE TEAM)</h2><div class="big" id="nxt">–</div></div>
+    </div>
+    <div class="row">
+      <button class="btn" data-c="prev" type="button">Back</button>
+      <button class="btn primary" data-c="next" type="button">Next</button>
+      <button class="btn" data-c="black" id="blk" type="button">Blackout (B)</button>
+      <label class="field" style="margin:0 0 0 12px">Full screen holds for
+        <input id="hold" type="number" min="2" max="30" step="1" aria-label="Seconds the full-screen graphic holds"> seconds</label>
+    </div>
+    <div class="cols">
+      <div class="panel"><h2>RACES · CLICK TO JUMP (BLANK SCREEN)</h2><ul id="races"></ul></div>
+      <div class="panel"><h2>DATA</h2>
+        <p class="hint">Teams and races as JSON, the shape the heats generator will feed in later. Edit it and press Apply.</p>
+        <textarea id="json" spellcheck="false" aria-label="Teams and races JSON"></textarea>
+        <div class="row" style="margin-top:12px">
+          <button class="btn sm primary" id="apply" type="button">Apply</button>
+          <button class="btn sm" id="sample" type="button">New sample teams</button>
+        </div>
+        <div id="msg" role="status"></div>
+      </div>
+    </div>`;
+  const $ = id => root.querySelector('#' + id);
+  const peer = window.opener || (window.parent !== window ? window.parent : null);
+  const send = o => { if (peer) peer.postMessage(o, location.origin); };
+  let lastJson = '', autoAt = 0;
+
+  function show(p){
+    $('status').textContent = `Race ${p.race + 1} of ${p.races.length} · ${p.event.name}${p.event.venue ? ' · ' + p.event.venue : ''}${p.blackout ? ' · BLACKOUT ON' : ''}`;
+    $('cur').textContent = p.cur; $('nxt').textContent = p.next;
+    autoAt = p.autoAt;
+    if (!p.autoAt) $('auto').textContent = p.step === 0 ? '' : p.phase;
+    $('steps').innerHTML = Array.from({ length: p.steps }, (_, i) => `<i class="${i < p.step ? 'done' : i === p.step ? 'cur' : ''}"></i>`).join('');
+    $('blk').classList.toggle('on', p.blackout);
+    if (document.activeElement !== $('hold')) $('hold').value = p.hold;
+    $('races').innerHTML = p.races.map((r, i) =>
+      `<li data-i="${i}" class="${i === p.race ? 'cur' : ''}"><span class="n">Race ${r.n}</span><span>${esc(r.a)} <span class="vs">vs</span> ${esc(r.b)}</span></li>`).join('');
+    if (p.data) { const j = JSON.stringify(p.data, null, 2); if (j !== lastJson) { lastJson = j; $('json').value = j; } }
+  }
+  setInterval(() => {
+    if (!autoAt) return;
+    const s = Math.max(0, Math.ceil((autoAt - Date.now()) / 1000));
+    $('auto').textContent = `Moves to the half screen in ${s}s`;
+  }, 250);
+
+  addEventListener('message', e => {
+    const m = e.data;
+    if (!m || typeof m !== 'object' || e.origin !== location.origin || e.source !== peer) return;
+    if (m.type === 'state') show(m.payload);
+    if (m.type === 'result') {
+      const msg = $('msg'); msg.className = m.ok ? 'ok' : 'err';
+      msg.textContent = m.ok ? 'Applied.' : m.error;
+    }
+  });
+  root.addEventListener('click', e => {
+    const c = e.target.closest('[data-c]'); if (c) { send({ type: 'cmd', cmd: c.dataset.c }); return; }
+    const li = e.target.closest('#races li'); if (li) send({ type: 'cmd', cmd: 'race', i: +li.dataset.i });
+  });
+  $('hold').addEventListener('change', () => send({ type: 'cmd', cmd: 'hold', value: $('hold').value }));
+  $('apply').onclick = () => {
+    let parsed;
+    try { parsed = JSON.parse($('json').value); } catch (err) { const m = $('msg'); m.className = 'err'; m.textContent = 'That is not valid JSON: ' + err.message; return; }
+    send({ type: 'cmd', cmd: 'load', data: parsed });
+  };
+  $('sample').onclick = () => { lastJson = ''; send({ type: 'cmd', cmd: 'sample' }); $('msg').textContent = ''; };
+  addEventListener('keydown', e => {
+    if (e.metaKey || e.ctrlKey || e.altKey || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+    const k = e.key;
+    if (['ArrowRight', 'ArrowDown', ' ', 'PageDown', 'Enter'].includes(k)) { e.preventDefault(); send({ type: 'cmd', cmd: 'next' }); }
+    else if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(k)) { e.preventDefault(); send({ type: 'cmd', cmd: 'prev' }); }
+    else if (k.toLowerCase() === 'b') send({ type: 'cmd', cmd: 'black' });
+  });
+  send({ type: 'hello' });
+}
+
+CONTROL ? bootControl() : bootDisplay();
+})();
+</script>
+</body>
+</html>

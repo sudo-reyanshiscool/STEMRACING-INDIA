@@ -4,6 +4,7 @@ import {FILE_KINDS,type SubmissionRule} from '../api';
 import {h} from './dom';
 import {errorText,notFound} from './common';
 import {teamFilesScreen} from './team-files';
+import {teamPhotoUploadSection} from './team-photo-upload';
 const when=(value:string|null)=>value?new Date(value).toLocaleString('en-IN',{timeZone:'Asia/Kolkata',dateStyle:'medium',timeStyle:'short'})+' IST':'Not set';
 const localInput=(value:string|null)=>value?new Date(Date.parse(value)+330*60000).toISOString().slice(0,16):'';
 export async function submissionsScreen(ctx:Ctx,eventId:string):Promise<HTMLElement> {
@@ -25,6 +26,7 @@ export async function submissionsScreen(ctx:Ctx,eventId:string):Promise<HTMLElem
   root.append(h('details',null,h('summary',null,'Submission deadlines and penalties'),form));
  }
  root.append(await teamFilesScreen(ctx,eventId,true));
+ root.append(await teamPhotoUploadSection(ctx, eventId, teams, roles.filter(r => r.role === 'team_manager').map(r => r.teamId).filter((id): id is string => Boolean(id)), staff));
  const labels={not_open:'Deadline not set',pending:'Awaiting submission',overdue:'Overdue · not submitted',on_time:'Submitted on time',late:'Submitted late'};
  const team=h('select',{'aria-label':'Filter submissions by team'},h('option',{value:''},'All available teams'),teams.filter(t=>state.rows.some(r=>r.teamId===t.id)).map(t=>h('option',{value:t.id},`${t.number} · ${t.name}`)));
  const list=h('div',{class:manager?'garage-submission-grid':'stack'});

@@ -8,6 +8,80 @@ import type { RaceHeat, RaceInput, TimingState, TimingPair } from '../racing';
 import type { PanelId, RankRow, Ruleset } from '../engine';
 import type { CardReview, FeedbackRow, NominationRow } from './review';
 
+export type PhotoProcessingStatus = 'pending' | 'processing' | 'completed' | 'failed';
+export type PhotoApprovalStatus = 'pending' | 'approved' | 'rejected';
+
+export interface TeamPhoto {
+  id: string;
+  eventId: string;
+  teamId: string;
+  revision: number;
+  version: number;
+  originalName: string;
+  originalMime: string;
+  originalSize: number;
+  originalWidth: number | null;
+  originalHeight: number | null;
+  originalPath: string;
+  processedPath: string | null;
+  processedSize: number | null;
+  processedWidth: number | null;
+  processedHeight: number | null;
+  approvedPath: string | null;
+  approvedSize: number | null;
+  approvedWidth: number | null;
+  approvedHeight: number | null;
+  processingStatus: PhotoProcessingStatus;
+  approvalStatus: PhotoApprovalStatus;
+  processingError: string | null;
+  retryCount: number;
+  mediaConsent: boolean;
+  uploadedAt: string;
+  processedAt: string | null;
+  approvedAt: string | null;
+  approvedBy: string | null;
+  correctionNotes: string | null;
+  hasOriginal: boolean;
+  hasProcessed: boolean;
+  hasApproved: boolean;
+}
+
+export interface TeamPhotoUploadInput {
+  name: string;
+  mime: string;
+  base64: string;
+  mediaConsent: boolean;
+  width?: number;
+  height?: number;
+}
+
+export interface TeamPhotoHistoryItem {
+  id: string;
+  eventId: string;
+  teamId: string;
+  version: number;
+  approvedPath: string;
+  approvedSize: number;
+  approvedWidth: number | null;
+  approvedHeight: number | null;
+  approvedAt: string;
+  approvedBy: string | null;
+  correctionNotes: string | null;
+}
+
+export interface BroadcastPhoto {
+  teamId: string;
+  teamNumber: string;
+  teamName: string;
+  school: string;
+  isApprovedPhoto: boolean;
+  photoBase64: string | null;
+  photoWidth: number | null;
+  photoHeight: number | null;
+  logoBase64: string | null;
+  logoMime: string | null;
+}
+
 export type OrganiserScope = 'competition' | 'platform' | 'spectator';
 export interface PlatformAccess {
   viewerId?: string | null; ownerId?: string;
@@ -224,4 +298,17 @@ export interface Api {
   reopenInspection(inspectionId: string, reason: string): Promise<void>;
   listBroadcasts(eventId: string): Promise<BroadcastEmail[]>;
   sendBroadcast(eventId: string, input: NewBroadcastInput): Promise<BroadcastEmail>;
+  listTeamPhotos(eventId: string): Promise<TeamPhoto[]>;
+  downloadTeamPhoto(eventId: string, teamId: string, which: 'original' | 'processed' | 'approved'): Promise<{ mime: string; name: string; size: number; width?: number; height?: number; base64: string }>;
+  uploadTeamPhoto(eventId: string, teamId: string, revision: number, input: TeamPhotoUploadInput): Promise<{ photoId: string; revision: number; version: number; status: string }>;
+  queuePhotoProcessing(eventId: string, teamId: string): Promise<{ jobId: string; status: string }>;
+  queueBulkPhotoProcessing(eventId: string, teamIds?: string[]): Promise<{ queued: number }>;
+  completePhotoProcessing(jobId: string, status: 'completed' | 'failed', cutoutBase64?: string, error?: string): Promise<boolean>;
+  approveTeamPhoto(eventId: string, teamId: string, notes?: string): Promise<{ teamId: string; approvalStatus: string; approvedAt: string }>;
+  rejectTeamPhoto(eventId: string, teamId: string, reason?: string): Promise<{ teamId: string; approvalStatus: string }>;
+  uploadCorrectedTeamPhoto(eventId: string, teamId: string, input: { base64: string; notes?: string }): Promise<{ teamId: string; approvalStatus: string; isManual: boolean }>;
+  restoreTeamPhotoVersion(eventId: string, teamId: string, historyId: string): Promise<{ teamId: string; restoredVersion: number; approvalStatus: string }>;
+  listTeamPhotoHistory(eventId: string, teamId: string): Promise<TeamPhotoHistoryItem[]>;
+  deleteTeamPhoto(eventId: string, teamId: string): Promise<void>;
+  getBroadcastTeamPhoto(eventId: string, teamId: string): Promise<BroadcastPhoto>;
 }

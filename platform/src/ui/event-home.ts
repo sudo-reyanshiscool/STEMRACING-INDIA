@@ -52,6 +52,13 @@ export async function eventHomeScreen(ctx: Ctx, eventId: string): Promise<HTMLEl
         h('a', { class: 'btn btn--primary', href: showcaseHref(event.id) }, 'Open showcase'),
         h('a', { class: 'btn btn--ghost', href: showcaseHref(event.id, true) }, 'Six-team example'))) : null,
     h('div', { class: 'tiles' }, tiles.filter(t=>judgePageAllowed(roles, parseHash(t.getAttribute('href')??'').name))),
+    has('organiser', 'chair') ? h('section', { class: 'card stack' },
+      h('h2', null, 'Media Assets & Background Removal'),
+      h('p', null, 'Process team photographs with AI background removal, review transparent cutouts, and approve team assets for live arena broadcast graphics.'),
+      h('div', { class: 'actions' },
+        h('a', { class: 'btn btn--secondary', href: routeHref({ name: 'media', eventId }) }, 'Open Media Assets →')
+      )
+    ) : null,
     has('organiser','chair') ? await inspectionScopeControl(ctx,eventId) : null,
     has('organiser') ? deleteEventControl(ctx, event) : null,
   );

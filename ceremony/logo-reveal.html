@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>STEM Racing Logo Reveal</title>
+<link rel="icon" href="assets/brand/signifier.png">
+<style>
+  /* Logo reveal: SR mark builds in centred, slides left, wordmark wipes in, shine sweeps across.
+     Source art is logo-full-colour-white.png (1200x595). Mark sits at x 140-430, wordmark at x 430-1060. */
+  :root{--logo-w:1200px;--logo-h:595px;--slide:315px}
+  html,body{margin:0;height:100%;background:#000;overflow:hidden}
+  .stage{position:fixed;inset:0}
+  .scale{width:var(--logo-w);height:var(--logo-h);position:absolute;left:50%;top:50%;
+         transform:translate(-50%,-50%) scale(var(--s,1));transform-origin:center}
+  .layer{position:absolute;inset:0;background:url("assets/brand/logo-full-colour-white.png") center/100% 100% no-repeat}
+
+  .mark{clip-path:inset(0 770px 0 130px);opacity:0;transform:translateX(var(--slide)) scale(.55) rotate(-8deg);transform-origin:285px 300px;filter:blur(14px)}
+  .word{clip-path:inset(0 0 0 430px);opacity:0}
+  .shine{
+    -webkit-mask:url("assets/brand/logo-full-colour-white.png") center/100% 100% no-repeat;
+            mask:url("assets/brand/logo-full-colour-white.png") center/100% 100% no-repeat;
+    background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,.85) 50%,transparent 60%) -120% 0/60% 100% no-repeat;
+    opacity:0;mix-blend-mode:screen
+  }
+
+  .go .mark{animation:markIn .9s cubic-bezier(.2,.9,.25,1) .25s forwards,markSlide .8s cubic-bezier(.65,0,.2,1) 1.35s forwards}
+  .go .word{animation:wordIn .9s cubic-bezier(.2,.8,.2,1) 1.55s forwards}
+  .go .shine{animation:shine 1.1s ease-in-out 2.55s forwards}
+
+  @keyframes markIn{
+    0%{opacity:0;transform:translateX(var(--slide)) scale(.55) rotate(-8deg);filter:blur(14px)}
+    100%{opacity:1;transform:translateX(var(--slide)) scale(1) rotate(0);filter:blur(0)}
+  }
+  @keyframes markSlide{
+    from{transform:translateX(var(--slide)) scale(1)}
+    to{transform:translateX(0) scale(1)}
+  }
+  @keyframes wordIn{
+    0%{opacity:0;clip-path:inset(0 770px 0 430px);transform:translateX(-60px)}
+    1%{opacity:1}
+    100%{opacity:1;clip-path:inset(0 140px 0 430px);transform:translateX(0)}
+  }
+  @keyframes shine{
+    0%{opacity:1;background-position:-120% 0}
+    100%{opacity:1;background-position:220% 0}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .mark,.word{animation:none!important;opacity:1;transform:none;filter:none}
+    .mark{clip-path:inset(0 770px 0 130px)}
+    .word{clip-path:inset(0 140px 0 430px)}
+  }
+  .hint{position:fixed;left:0;right:0;bottom:16px;text-align:center;font:12px/1 system-ui,sans-serif;color:#555}
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="scale" id="scale">
+    <div class="layer mark"></div>
+    <div class="layer word"></div>
+    <div class="layer shine"></div>
+  </div>
+</div>
+<div class="hint">Click or press Space to replay</div>
+<script>
+  const stage = document.getElementById('stage');
+  const scale = document.getElementById('scale');
+  function fit(){
+    const s = Math.min(innerWidth * .8 / 910, innerHeight * .8 / 305);
+    scale.style.setProperty('--s', s);
+  }
+  function play(){
+    stage.classList.remove('go');
+    void stage.offsetWidth;            // restart the CSS animations
+    stage.classList.add('go');
+  }
+  addEventListener('resize', fit);
+  addEventListener('click', play);
+  addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); play(); } });
+  fit(); play();
+  if (new URLSearchParams(location.search).has('loop')) setInterval(play, 6000);
+</script>
+</body>
+</html>

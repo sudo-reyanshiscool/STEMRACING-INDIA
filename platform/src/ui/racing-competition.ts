@@ -1,6 +1,7 @@
 import type { TeamRow } from '../api';
 import { blankLane, raceStandings, seconds, type RaceHeat } from '../racing';
 import { defaultReactionScoring, adjustedTime, carCheck, competitionScores, POINT_NAMES, ROUND_NAMES, type RacingSetup } from '../racing/competition';
+import { openArenaPairingModal } from './broadcast-modal';
 import type { Inspection } from '../technical';
 import type { Ctx } from './ctx';
 import { h } from './dom';
@@ -118,6 +119,11 @@ export function competitionPanel(ctx: Ctx, eventId: string, get:()=>State, selec
           if(canRecord&&!m.resolved&&m.team1&&m.team2&&(m.reason==='Ready to race'||m.reason.includes('rerun required')||m.reason.startsWith('Pairing changed'))) {
             const queue=h('button',{class:'btn',type:'button'},m.heat?'Queue rerun':'Queue match');
             queue.onclick=()=>void run(queue,async()=>{const replace=m.reason.startsWith('Pairing changed')&&m.heat&&(m.heat.lane1.status==='pending'||m.heat.lane2.status==='pending')?m.heat:null;const row=m.heat && !replace ? await ctx.api.queueRaceFollowup(eventId,m.heat.id,m.heat.revision,'rerun') : await ctx.api.saveRace(eventId,replace?.id??crypto.randomUUID(),replace?.revision??0,{label,phase:'knockout',bracket:{round,slot:m.slot},lane1:blankLane(m.team1!),lane2:blankLane(m.team2!),note:replace?'Pairing repaired after the previous round changed':'',source:'manual',sourceRunId:null});await refresh();select(row);});node.append(queue);
+          }
+          if(m.team1&&m.team2) {
+            const arena=h('button',{class:'btn btn--ghost',type:'button'},'Arena screen');
+            arena.onclick=()=>void openArenaPairingModal(ctx,eventId,m.team1!,m.team2!,{roundName:ROUND_NAMES[round-1],label,winnerId:m.winner});
+            node.append(arena);
           }
           return node;
         });group.append(h('div',{class:'stack'},rows));section.append(group);

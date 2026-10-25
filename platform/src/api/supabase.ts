@@ -3,7 +3,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { INDIA_2026 } from '../rulesets';
 import {
   firstRow, mapAuthError, mapPgError, toBroadcastRow, toCardRow, toConflictRow, toEventRow, toInspectionRow, toInviteRow, toOverrideRow, toPenaltyRow, toRoleRow, toSnapshotRow,
-  toTeamRow,
+  toTeamRow, toTeamPhotoRow, toTeamPhotoHistoryRow,
 } from './mappers';
 import type { ResultMailState, ResultsPacket } from './result-mail';
 import type { Api, MfaEnrollResult, MfaFactor, MfaStatus, PlatformAccess, Session } from './types';
@@ -632,6 +632,57 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
         throw new ApiError('email-delivery', error.message || 'Failed to send broadcast');
       }
       return toBroadcastRow(data);
+    },
+    async listTeamPhotos(eventId) {
+      const rows = ok(await guard(() => sb.rpc('list_team_photos', { p_event: eventId }))) as never[];
+      return rows.map(toTeamPhotoRow);
+    },
+    async downloadTeamPhoto(eventId, teamId, which) {
+      const res = ok(await guard(() => sb.rpc('download_team_photo', { p_event: eventId, p_team: teamId, p_which: which }))) as any;
+      return res;
+    },
+    async uploadTeamPhoto(eventId, teamId, revision, input) {
+      const res = ok(await guard(() => sb.rpc('upload_team_photo', { p_event: eventId, p_team: teamId, p_revision: revision, p_input: input }))) as any;
+      return res;
+    },
+    async queuePhotoProcessing(eventId, teamId) {
+      const res = ok(await guard(() => sb.rpc('queue_photo_processing', { p_event: eventId, p_team: teamId }))) as any;
+      return res;
+    },
+    async queueBulkPhotoProcessing(eventId, teamIds) {
+      const res = ok(await guard(() => sb.rpc('queue_bulk_photo_processing', { p_event: eventId, p_team_ids: teamIds ?? null }))) as any;
+      return res;
+    },
+    async completePhotoProcessing(jobId, status, cutoutBase64, error) {
+      const res = ok(await guard(() => sb.rpc('complete_photo_processing', { p_job_id: jobId, p_status: status, p_cutout_base64: cutoutBase64 ?? null, p_error: error ?? null }))) as boolean;
+      return res;
+    },
+    async approveTeamPhoto(eventId, teamId, notes) {
+      const res = ok(await guard(() => sb.rpc('approve_team_photo', { p_event: eventId, p_team: teamId, p_notes: notes ?? null }))) as any;
+      return res;
+    },
+    async rejectTeamPhoto(eventId, teamId, reason) {
+      const res = ok(await guard(() => sb.rpc('reject_team_photo', { p_event: eventId, p_team: teamId, p_reason: reason ?? null }))) as any;
+      return res;
+    },
+    async uploadCorrectedTeamPhoto(eventId, teamId, input) {
+      const res = ok(await guard(() => sb.rpc('upload_corrected_team_photo', { p_event: eventId, p_team: teamId, p_input: input }))) as any;
+      return res;
+    },
+    async restoreTeamPhotoVersion(eventId, teamId, historyId) {
+      const res = ok(await guard(() => sb.rpc('restore_team_photo_version', { p_event: eventId, p_team: teamId, p_history_id: historyId }))) as any;
+      return res;
+    },
+    async listTeamPhotoHistory(eventId, teamId) {
+      const rows = ok(await guard(() => sb.rpc('list_team_photo_history', { p_event: eventId, p_team: teamId }))) as never[];
+      return rows.map(toTeamPhotoHistoryRow);
+    },
+    async deleteTeamPhoto(eventId, teamId) {
+      ok(await guard(() => sb.rpc('delete_team_photo', { p_event: eventId, p_team: teamId })));
+    },
+    async getBroadcastTeamPhoto(eventId, teamId) {
+      const res = ok(await guard(() => sb.rpc('get_broadcast_team_photo', { p_event: eventId, p_team: teamId }))) as any;
+      return res;
     },
   };
 }

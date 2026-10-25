@@ -1,6 +1,7 @@
 import {emptySchedule,validateSchedule,teamActivities,type ScheduleDoc,type ScheduleState} from '../scheduling';
 import {PORTFOLIOS,submissionRow,validateSubmissionRules,type SubmissionRule} from './submissions';
 import {FILE_PANEL, validateTeamFile, type TeamFile, type TeamFileInput} from './team-files';
+import {validatePhotoUpload, extractDimensions} from './team-photos';
 import { defaultRacingSetup, validateSetup, reactionPairings, type RacingSetup, type RacingSetupInput } from '../racing/competition';
 import { rerunEligible, followupInput, raceRecorded, validateRace, type RaceHeat, type RaceInput, type TimingState } from '../racing';
 import { validateScores, type Area } from '../engine';
@@ -8,7 +9,7 @@ import { INDIA_2026 } from '../rulesets';
 import type {ResultsPacket, ResultMailState, EventAward, TeamContact, ResultMailSelection} from './result-mail';
 import { validManagerEmail, cleanTeam, MAX_IMPORT_TEAMS } from './team-input';
 import { INDIA_TECHNICAL } from '../technical';
-import type { InspectionScope, TeamConcern, OrganiserScope, PlatformAccess, NewTeam } from './types';
+import type { InspectionScope, TeamConcern, OrganiserScope, PlatformAccess, NewTeam, TeamPhoto, TeamPhotoUploadInput, TeamPhotoHistoryItem, BroadcastPhoto, PhotoProcessingStatus } from './types';
 import type {DrawLotsState,TeamNumberAssignment,JudgeLotAssignment} from './draw-lots';
 import { blankReview, validateReview, type CardReview, type FeedbackRow, type NominationRow } from './review';
 import {
@@ -208,6 +209,51 @@ export class MemoryApi implements Api {
     api.snapshotInputs.set(seed.snapshot.id, seed.snapshotInputs);
     api.snapshotVersion.set(seed.snapshot.id, api.version);
     api.showcaseMode = true;
+
+    // Seed demo photos for showcase teams so Media Assets & Broadcast graphics are populated immediately
+    const sampleCutout = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    seed.teams.forEach((t, i) => {
+      const approved = i < 3;
+      const processing = i === 3;
+      api.teamPhotos.push({
+        id: `showcase-photo-${t.id}`,
+        teamId: t.id,
+        eventId: seed.event.id,
+        revision: 1,
+        version: 1,
+        originalName: `${t.name.toLowerCase().replace(/[^a-z0-9]+/g, '_')}_team_photo.jpg`,
+        originalMime: 'image/jpeg',
+        originalSize: 4200000,
+        originalWidth: 3840,
+        originalHeight: 2160,
+        originalPath: `team-photos/${seed.event.id}/${t.id}/v1/original.jpg`,
+        originalBase64: sampleCutout,
+        processedPath: approved ? `team-photos/${seed.event.id}/${t.id}/v1/cutout.png` : null,
+        processedSize: approved ? 1800000 : null,
+        processedWidth: approved ? 3840 : null,
+        processedHeight: approved ? 2160 : null,
+        processedBase64: approved ? sampleCutout : undefined,
+        approvedPath: approved ? `team-photos/${seed.event.id}/${t.id}/v1/approved.png` : null,
+        approvedSize: approved ? 1800000 : null,
+        approvedWidth: approved ? 3840 : null,
+        approvedHeight: approved ? 2160 : null,
+        approvedBase64: approved ? sampleCutout : undefined,
+        processingStatus: approved ? 'completed' : (processing ? 'processing' : 'pending'),
+        approvalStatus: approved ? 'approved' : 'pending',
+        processingError: null,
+        retryCount: 0,
+        mediaConsent: true,
+        uploadedAt: new Date().toISOString(),
+        processedAt: approved ? new Date().toISOString() : null,
+        approvedAt: approved ? new Date().toISOString() : null,
+        approvedBy: approved ? api.me?.userId ?? null : null,
+        correctionNotes: null,
+        hasOriginal: true,
+        hasProcessed: approved,
+        hasApproved: approved,
+      });
+    });
+
     return api;
   }
   private me: Session | null = null;
@@ -1233,5 +1279,390 @@ export class MemoryApi implements Api {
     };
     this.broadcasts.push(broadcast);
     return copy(broadcast);
+  }
+
+  private teamPhotos: Array<TeamPhoto & { originalBase64: string; processedBase64?: string; approvedBase64?: string }> = [];
+  private teamPhotoHistory: Array<TeamPhotoHistoryItem & { approvedBase64: string }> = [];
+  private photoJobs: Array<{ id: string; eventId: string; teamId: string; photoId: string; version: number; status: PhotoProcessingStatus; attempts: number; maxAttempts: number; scheduledAt: string; error?: string }> = [];
+
+  async listTeamPhotos(eventId: string): Promise<TeamPhoto[]> {
+    this.require(eventId, 'organiser', 'chair', 'spectator', 'team_manager');
+    const isStaff = this.has(eventId, 'organiser', 'chair', 'spectator');
+    const managedTeams = this.rolesOf(eventId).filter(r => r.role === 'team_manager').map(r => r.teamId);
+    return copy(this.teamPhotos
+      .filter(p => p.eventId === eventId && (isStaff || managedTeams.includes(p.teamId)))
+      .map(({ originalBase64, processedBase64, approvedBase64, ...rest }) => ({
+        ...rest,
+        hasOriginal: true,
+        hasProcessed: !!processedBase64,
+        hasApproved: !!approvedBase64,
+      })));
+  }
+
+  async downloadTeamPhoto(eventId: string, teamId: string, which: 'original' | 'processed' | 'approved') {
+    this.require(eventId, 'organiser', 'chair', 'spectator', 'team_manager', 'judge', 'lead_judge', 'scrutineer', 'race_official');
+    const p = this.teamPhotos.find(p => p.eventId === eventId && p.teamId === teamId);
+    if (!p) throw new ApiError('not-found', 'Photograph not found');
+
+    if (which === 'original') {
+      const isStaff = this.has(eventId, 'organiser', 'chair');
+      const isMgr = this.rolesOf(eventId).some(r => r.role === 'team_manager' && r.teamId === teamId);
+      if (!isStaff && !isMgr) throw new ApiError('forbidden', 'Only event staff or your team may access the original photograph');
+      return {
+        teamId,
+        which,
+        mime: p.originalMime,
+        name: p.originalName,
+        size: p.originalSize,
+        width: p.originalWidth ?? undefined,
+        height: p.originalHeight ?? undefined,
+        base64: p.originalBase64,
+      };
+    } else if (which === 'processed') {
+      const isStaff = this.has(eventId, 'organiser', 'chair', 'spectator');
+      const isMgr = this.rolesOf(eventId).some(r => r.role === 'team_manager' && r.teamId === teamId);
+      if (!isStaff && !isMgr) throw new ApiError('forbidden', 'Access denied');
+      if (!p.processedBase64) throw new ApiError('not-found', 'Processed cutout not ready');
+      return {
+        teamId,
+        which,
+        mime: 'image/png',
+        name: `${p.originalName.replace(/\.[^.]+$/, '')}-cutout.png`,
+        size: p.processedSize ?? 0,
+        width: p.processedWidth ?? undefined,
+        height: p.processedHeight ?? undefined,
+        base64: p.processedBase64,
+      };
+    } else {
+      const isStaff = this.has(eventId, 'organiser', 'chair', 'spectator');
+      const isMgr = this.rolesOf(eventId).some(r => r.role === 'team_manager' && r.teamId === teamId);
+      const isMember = this.rolesOf(eventId).length > 0 || this.released(eventId);
+      if (!isStaff && !isMgr && !isMember) throw new ApiError('forbidden', 'Access denied');
+      if (p.approvalStatus !== 'approved' || !p.approvedBase64) throw new ApiError('not-found', 'Approved photograph unavailable');
+      return {
+        teamId,
+        which,
+        mime: 'image/png',
+        name: `${p.originalName.replace(/\.[^.]+$/, '')}-approved.png`,
+        size: p.approvedSize ?? 0,
+        width: p.approvedWidth ?? undefined,
+        height: p.approvedHeight ?? undefined,
+        base64: p.approvedBase64,
+      };
+    }
+  }
+
+  async uploadTeamPhoto(eventId: string, teamId: string, revision: number, input: TeamPhotoUploadInput) {
+    this.require(eventId, 'organiser', 'chair', 'team_manager');
+    this.frozen(eventId, 'team photographs');
+    this.teamOrThrow(eventId, teamId);
+    const isStaff = this.has(eventId, 'organiser', 'chair');
+    const isMgr = this.rolesOf(eventId).some(r => r.role === 'team_manager' && r.teamId === teamId);
+    if (!isStaff && !isMgr) throw new ApiError('forbidden', 'Only your team or event staff may upload team photographs');
+
+    const { size, mime } = validatePhotoUpload(input);
+    const existing = this.teamPhotos.find(p => p.eventId === eventId && p.teamId === teamId);
+    if ((existing?.revision ?? 0) !== revision) throw new ApiError('conflict', 'Photograph was modified; reload');
+
+    const binary = atob(input.base64);
+    const dims = extractDimensions(binary) ?? { width: input.width ?? 3840, height: input.height ?? 2160 };
+    const curVer = (existing?.version ?? 0) + 1;
+    const curRev = (existing?.revision ?? 0) + 1;
+    const photoId = existing?.id ?? nid('photo');
+
+    const photoRow: TeamPhoto & { originalBase64: string; processedBase64?: string; approvedBase64?: string } = {
+      id: photoId,
+      eventId,
+      teamId,
+      revision: curRev,
+      version: curVer,
+      originalName: input.name.trim(),
+      originalMime: mime,
+      originalSize: size,
+      originalWidth: dims.width,
+      originalHeight: dims.height,
+      originalPath: `team-photos/${eventId}/${teamId}/v${curVer}/original.${mime === 'image/png' ? 'png' : 'jpg'}`,
+      originalBase64: input.base64,
+      processedPath: null,
+      processedSize: null,
+      processedWidth: null,
+      processedHeight: null,
+      approvedPath: null,
+      approvedSize: null,
+      approvedWidth: null,
+      approvedHeight: null,
+      processingStatus: 'pending',
+      approvalStatus: 'pending',
+      processingError: null,
+      retryCount: 0,
+      mediaConsent: true,
+      uploadedAt: new Date().toISOString(),
+      processedAt: null,
+      approvedAt: null,
+      approvedBy: null,
+      correctionNotes: null,
+      hasOriginal: true,
+      hasProcessed: false,
+      hasApproved: false,
+    };
+
+    this.teamPhotos = this.teamPhotos.filter(p => !(p.eventId === eventId && p.teamId === teamId));
+    this.teamPhotos.push(photoRow);
+
+    const jobId = nid('job');
+    this.photoJobs.push({
+      id: jobId,
+      eventId,
+      teamId,
+      photoId,
+      version: curVer,
+      status: 'pending',
+      attempts: 0,
+      maxAttempts: 3,
+      scheduledAt: new Date().toISOString(),
+    });
+
+    this.version++;
+    return { photoId, revision: curRev, version: curVer, status: 'pending' };
+  }
+
+  async queuePhotoProcessing(eventId: string, teamId: string) {
+    this.require(eventId, 'organiser', 'chair');
+    const p = this.teamPhotos.find(p => p.eventId === eventId && p.teamId === teamId);
+    if (!p) throw new ApiError('not-found', 'Photograph not found');
+    p.processingStatus = 'pending';
+    p.processingError = null;
+    p.retryCount++;
+    const jobId = nid('job');
+    this.photoJobs.push({
+      id: jobId,
+      eventId,
+      teamId,
+      photoId: p.id,
+      version: p.version,
+      status: 'pending',
+      attempts: 0,
+      maxAttempts: 3,
+      scheduledAt: new Date().toISOString(),
+    });
+    this.version++;
+    return { jobId, status: 'pending' };
+  }
+
+  async queueBulkPhotoProcessing(eventId: string, teamIds?: string[]) {
+    this.require(eventId, 'organiser', 'chair');
+    const targetPhotos = this.teamPhotos.filter(p =>
+      p.eventId === eventId &&
+      (!teamIds || !teamIds.length || teamIds.includes(p.teamId)) &&
+      (teamIds && teamIds.length > 0 || ['pending', 'failed'].includes(p.processingStatus))
+    );
+    for (const p of targetPhotos) {
+      p.processingStatus = 'pending';
+      p.processingError = null;
+      p.retryCount++;
+      this.photoJobs.push({
+        id: nid('job'),
+        eventId,
+        teamId: p.teamId,
+        photoId: p.id,
+        version: p.version,
+        status: 'pending',
+        attempts: 0,
+        maxAttempts: 3,
+        scheduledAt: new Date().toISOString(),
+      });
+    }
+    this.version++;
+    return { queued: targetPhotos.length };
+  }
+
+  async completePhotoProcessing(jobId: string, status: 'completed' | 'failed', cutoutBase64?: string, error?: string): Promise<boolean> {
+    const job = this.photoJobs.find(j => j.id === jobId);
+    if (!job) return false;
+    job.status = status;
+    job.error = error;
+    const p = this.teamPhotos.find(p => p.id === job.photoId);
+    if (!p) return false;
+
+    if (status === 'completed') {
+      const b64 = cutoutBase64 || p.originalBase64;
+      p.processedPath = `team-photos/${job.eventId}/${job.teamId}/v${job.version}/processed.png`;
+      p.processedBase64 = b64;
+      p.processedSize = Math.floor(b64.length * 0.75);
+      p.processedWidth = p.originalWidth;
+      p.processedHeight = p.originalHeight;
+      p.processingStatus = 'completed';
+      p.processedAt = new Date().toISOString();
+      p.processingError = null;
+      p.hasProcessed = true;
+    } else {
+      p.processingStatus = 'failed';
+      p.processingError = error ?? 'Background removal failed';
+    }
+    this.version++;
+    return true;
+  }
+
+  async approveTeamPhoto(eventId: string, teamId: string, notes?: string) {
+    this.require(eventId, 'organiser', 'chair');
+    const p = this.teamPhotos.find(p => p.eventId === eventId && p.teamId === teamId);
+    if (!p) throw new ApiError('not-found', 'Photograph not found');
+    if (!p.processedBase64 && !p.approvedBase64) throw new ApiError('locked', 'Cannot approve before background removal');
+
+    if (p.approvedBase64) {
+      this.teamPhotoHistory.push({
+        id: nid('hist'),
+        eventId,
+        teamId,
+        version: p.version,
+        approvedPath: p.approvedPath ?? '',
+        approvedSize: p.approvedSize ?? 0,
+        approvedWidth: p.approvedWidth,
+        approvedHeight: p.approvedHeight,
+        approvedAt: p.approvedAt ?? new Date().toISOString(),
+        approvedBy: p.approvedBy,
+        correctionNotes: p.correctionNotes,
+        approvedBase64: p.approvedBase64,
+      });
+    }
+
+    const b64 = p.processedBase64 ?? p.approvedBase64!;
+    p.approvedPath = `team-photos/${eventId}/${teamId}/v${p.version}/approved.png`;
+    p.approvedBase64 = b64;
+    p.approvedSize = p.processedSize ?? Math.floor(b64.length * 0.75);
+    p.approvedWidth = p.processedWidth ?? p.originalWidth;
+    p.approvedHeight = p.processedHeight ?? p.originalHeight;
+    p.approvalStatus = 'approved';
+    p.approvedAt = new Date().toISOString();
+    p.approvedBy = this.me?.userId ?? null;
+    p.correctionNotes = notes ?? null;
+    p.hasApproved = true;
+    this.version++;
+    return { teamId, approvalStatus: 'approved', approvedAt: p.approvedAt };
+  }
+
+  async rejectTeamPhoto(eventId: string, teamId: string, reason?: string) {
+    this.require(eventId, 'organiser', 'chair');
+    const p = this.teamPhotos.find(p => p.eventId === eventId && p.teamId === teamId);
+    if (!p) throw new ApiError('not-found', 'Photograph not found');
+    p.approvalStatus = 'rejected';
+    p.correctionNotes = reason ?? null;
+    this.version++;
+    return { teamId, approvalStatus: 'rejected' };
+  }
+
+  async uploadCorrectedTeamPhoto(eventId: string, teamId: string, input: { base64: string; notes?: string }) {
+    this.require(eventId, 'organiser', 'chair');
+    const p = this.teamPhotos.find(p => p.eventId === eventId && p.teamId === teamId);
+    if (!p) throw new ApiError('not-found', 'Photograph not found');
+
+    if (p.approvedBase64) {
+      this.teamPhotoHistory.push({
+        id: nid('hist'),
+        eventId,
+        teamId,
+        version: p.version,
+        approvedPath: p.approvedPath ?? '',
+        approvedSize: p.approvedSize ?? 0,
+        approvedWidth: p.approvedWidth,
+        approvedHeight: p.approvedHeight,
+        approvedAt: p.approvedAt ?? new Date().toISOString(),
+        approvedBy: p.approvedBy,
+        correctionNotes: p.correctionNotes,
+        approvedBase64: p.approvedBase64,
+      });
+    }
+
+    p.approvedPath = `team-photos/${eventId}/${teamId}/v${p.version}/manual-approved.png`;
+    p.approvedBase64 = input.base64;
+    p.approvedSize = Math.floor(input.base64.length * 0.75);
+    p.approvedWidth = p.originalWidth;
+    p.approvedHeight = p.originalHeight;
+    p.approvalStatus = 'approved';
+    p.approvedAt = new Date().toISOString();
+    p.approvedBy = this.me?.userId ?? null;
+    p.correctionNotes = input.notes ?? 'Manually corrected cutout';
+    p.hasApproved = true;
+    this.version++;
+    return { teamId, approvalStatus: 'approved', isManual: true };
+  }
+
+  async restoreTeamPhotoVersion(eventId: string, teamId: string, historyId: string) {
+    this.require(eventId, 'organiser', 'chair');
+    const p = this.teamPhotos.find(p => p.eventId === eventId && p.teamId === teamId);
+    if (!p) throw new ApiError('not-found', 'Photograph not found');
+    const h = this.teamPhotoHistory.find(h => h.id === historyId && h.eventId === eventId && h.teamId === teamId);
+    if (!h) throw new ApiError('not-found', 'Historical version not found');
+
+    if (p.approvedBase64) {
+      this.teamPhotoHistory.push({
+        id: nid('hist'),
+        eventId,
+        teamId,
+        version: p.version,
+        approvedPath: p.approvedPath ?? '',
+        approvedSize: p.approvedSize ?? 0,
+        approvedWidth: p.approvedWidth,
+        approvedHeight: p.approvedHeight,
+        approvedAt: p.approvedAt ?? new Date().toISOString(),
+        approvedBy: p.approvedBy,
+        correctionNotes: p.correctionNotes,
+        approvedBase64: p.approvedBase64,
+      });
+    }
+
+    p.approvedPath = h.approvedPath;
+    p.approvedBase64 = h.approvedBase64;
+    p.approvedSize = h.approvedSize;
+    p.approvedWidth = h.approvedWidth;
+    p.approvedHeight = h.approvedHeight;
+    p.approvalStatus = 'approved';
+    p.approvedAt = new Date().toISOString();
+    p.approvedBy = this.me?.userId ?? null;
+    p.correctionNotes = `Restored from version ${h.version}`;
+    this.version++;
+    return { teamId, restoredVersion: h.version, approvalStatus: 'approved' };
+  }
+
+  async listTeamPhotoHistory(eventId: string, teamId: string): Promise<TeamPhotoHistoryItem[]> {
+    this.require(eventId, 'organiser', 'chair', 'spectator');
+    return copy(this.teamPhotoHistory
+      .filter(h => h.eventId === eventId && h.teamId === teamId)
+      .map(({ approvedBase64, ...rest }) => rest));
+  }
+
+  async deleteTeamPhoto(eventId: string, teamId: string): Promise<void> {
+    this.require(eventId, 'organiser', 'chair', 'team_manager');
+    this.frozen(eventId, 'team photographs');
+    const isStaff = this.has(eventId, 'organiser', 'chair');
+    const isMgr = this.rolesOf(eventId).some(r => r.role === 'team_manager' && r.teamId === teamId);
+    if (!isStaff && !isMgr) throw new ApiError('forbidden', 'Only your team or event staff may delete team photographs');
+
+    this.teamPhotos = this.teamPhotos.filter(p => !(p.eventId === eventId && p.teamId === teamId));
+    this.teamPhotoHistory = this.teamPhotoHistory.filter(h => !(h.eventId === eventId && h.teamId === teamId));
+    this.photoJobs = this.photoJobs.filter(j => !(j.eventId === eventId && j.teamId === teamId));
+    this.version++;
+  }
+
+  async getBroadcastTeamPhoto(eventId: string, teamId: string): Promise<BroadcastPhoto> {
+    const team = this.teams.find(t => t.eventId === eventId && t.id === teamId);
+    if (!team) throw new ApiError('not-found', 'Team not found');
+
+    const photo = this.teamPhotos.find(p => p.eventId === eventId && p.teamId === teamId);
+    const isApproved = !!(photo && photo.approvalStatus === 'approved' && photo.approvedBase64);
+    const logoFile = this.teamFiles.find(f => f.eventId === eventId && f.teamId === teamId && f.kind === 'logo');
+
+    return {
+      teamId: team.id,
+      teamNumber: team.number,
+      teamName: team.name,
+      school: team.school,
+      isApprovedPhoto: isApproved,
+      photoBase64: isApproved ? photo!.approvedBase64! : null,
+      photoWidth: isApproved ? photo!.approvedWidth : null,
+      photoHeight: isApproved ? photo!.approvedHeight : null,
+      logoBase64: logoFile ? logoFile.base64 : null,
+      logoMime: logoFile ? logoFile.mime : null,
+    };
   }
 }

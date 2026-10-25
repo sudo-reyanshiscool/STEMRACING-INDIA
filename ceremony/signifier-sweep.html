@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>STEM Racing Signifier Sweep</title>
+<link rel="icon" href="assets/brand/signifier.png">
+<style>
+  /* The SR signifier is revealed through a wide stroke that follows a race-track line.
+     A bright head runs the line, leaves a gradient trail, then the trail fades and a shine crosses the mark.
+     Every moving part shares one --t duration and easing so the head always leads the reveal. */
+  :root{--sweep:2.1s;--ease:cubic-bezier(.45,.05,.25,1)}
+  html,body{margin:0;height:100%;background:#000;overflow:hidden}
+  svg{position:fixed;inset:0;width:100%;height:100%}
+
+  .reveal{stroke-dasharray:1 2;stroke-dashoffset:1}
+  .head  {stroke-dasharray:.05 2;stroke-dashoffset:.05;opacity:0}
+  .trail {stroke-dasharray:1 2;stroke-dashoffset:1;opacity:0}
+  .guide {opacity:0}
+  .shine {opacity:0}
+
+  .go .guide {animation:guide .5s ease-out forwards, guideOut .6s ease-in 2.3s forwards}
+  .go .reveal{animation:draw var(--sweep) var(--ease) .35s forwards}
+  .go .trail {animation:draw var(--sweep) var(--ease) .35s forwards, trailIn .01s linear .35s forwards, trailOut .7s ease-in 2.55s forwards}
+  .go .head  {animation:run  var(--sweep) var(--ease) .35s forwards, headIn .01s linear .35s forwards, headOut .01s linear 2.45s forwards}
+  .go .shine {animation:shine .9s ease-in-out 2.6s forwards}
+  .go .mark  {animation:settle .5s ease-out 2.35s both}
+
+  @keyframes draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+  @keyframes run {from{stroke-dashoffset:.05}to{stroke-dashoffset:-1}}
+  @keyframes guide{to{opacity:.35}}
+  @keyframes guideOut{to{opacity:0}}
+  @keyframes trailIn{to{opacity:1}}
+  @keyframes trailOut{to{opacity:0}}
+  @keyframes headIn{to{opacity:1}}
+  @keyframes headOut{to{opacity:0}}
+  @keyframes shine{0%{opacity:1;transform:translateX(-700px)}100%{opacity:1;transform:translateX(700px)}}
+  @keyframes settle{from{transform:scale(1.015)}to{transform:scale(1)}}
+
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important}
+    .reveal{stroke-dashoffset:0}
+  }
+  .hint{position:fixed;left:0;right:0;bottom:16px;text-align:center;font:12px/1 system-ui,sans-serif;color:#555;pointer-events:none}
+</style>
+</head>
+<body>
+<svg id="stage" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid meet" aria-label="STEM Racing signifier">
+  <defs>
+    <linearGradient id="g" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="1920" y2="0">
+      <stop offset="0"   stop-color="#4b2a8a"/>
+      <stop offset=".4"  stop-color="#e6007e"/>
+      <stop offset=".7"  stop-color="#f08a00"/>
+      <stop offset="1"   stop-color="#f9b000"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="8"/>
+    </filter>
+    <path id="track" pathLength="1"
+      d="M -150 820 C 250 820 520 860 760 760 C 1000 660 1180 840 1360 700 C 1540 560 1360 430 1100 470 C 840 510 640 380 760 300 C 880 220 1120 250 1300 330 C 1500 420 1700 330 2100 160"/>
+    <mask id="m" maskUnits="userSpaceOnUse" x="0" y="0" width="1920" height="1080">
+      <use href="#track" class="reveal" fill="none" stroke="#fff" stroke-width="300" stroke-linejoin="round"/>
+    </mask>
+    <mask id="logoMask" maskUnits="userSpaceOnUse" x="0" y="0" width="1920" height="1080">
+      <image href="assets/brand/signifier.png" x="713" y="270" width="494" height="540"/>
+    </mask>
+  </defs>
+
+  <!-- faint outline of the whole circuit, so the line reads as a track before the car arrives -->
+  <use href="#track" class="guide" fill="none" stroke="#2a2a33" stroke-width="2" stroke-dasharray="14 12" pathLength="1" style="stroke-dasharray:.012 .01"/>
+
+  <!-- the signifier, only visible where the sweep has been -->
+  <g mask="url(#m)">
+    <g class="mark" style="transform-origin:960px 540px">
+      <image href="assets/brand/signifier.png" x="713" y="270" width="494" height="540"/>
+      <!-- shine band, clipped to the signifier's own shape -->
+      <g mask="url(#logoMask)">
+        <rect class="shine" x="470" y="200" width="160" height="700" fill="#fff" opacity="0" transform="skewX(-20)"
+              style="mix-blend-mode:soft-light;filter:blur(14px)"/>
+      </g>
+    </g>
+  </g>
+
+  <!-- gradient trail + glowing head riding the same line -->
+  <use href="#track" class="trail" fill="none" stroke="url(#g)" stroke-width="7" stroke-linecap="round"/>
+  <use href="#track" class="head" fill="none" stroke="#fff" stroke-width="16" stroke-linecap="round" filter="url(#glow)"/>
+  <use href="#track" class="head" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+</svg>
+<div class="hint">Click or press Space to replay</div>
+<script>
+  const svg = document.getElementById('stage');
+  function play(){
+    document.body.classList.remove('go');
+    void document.body.offsetWidth;   // restart the CSS animations
+    document.body.classList.add('go');
+  }
+  addEventListener('click', play);
+  addEventListener('keydown', e => { if (e.code === 'Space') { e.preventDefault(); play(); } });
+  play();
+  if (new URLSearchParams(location.search).has('loop')) setInterval(play, 6000);
+</script>
+</body>
+</html>

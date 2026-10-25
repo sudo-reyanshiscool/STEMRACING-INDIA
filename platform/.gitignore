@@ -9,3 +9,5 @@ denford-connection*.json
 
 __pycache__/
 *.pyc
+.*.html
+*-preview.html

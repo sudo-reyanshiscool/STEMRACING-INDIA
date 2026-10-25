@@ -4,3 +4,8 @@ playwright-report
 test-results
 .DS_Store
 .superpowers
+output/
+tmp/
+platform/.*-preview.html
+.showcase-preview.html
+.*-preview.html

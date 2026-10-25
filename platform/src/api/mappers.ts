@@ -136,3 +136,53 @@ export const toBroadcastRow = (r: any): import('./types').BroadcastEmail => ({
   createdAt: r.created_at,
 });
 
+export const toTeamPhotoRow = (r: any): import('./types').TeamPhoto => ({
+  id: r.id,
+  eventId: r.eventId ?? r.event_id,
+  teamId: r.teamId ?? r.team_id,
+  revision: r.revision ?? 1,
+  version: r.version ?? 1,
+  originalName: r.originalName ?? r.original_name,
+  originalMime: r.originalMime ?? r.original_mime,
+  originalSize: r.originalSize ?? r.original_size,
+  originalWidth: r.originalWidth ?? r.original_width ?? null,
+  originalHeight: r.originalHeight ?? r.original_height ?? null,
+  originalPath: r.originalPath ?? r.original_path,
+  processedPath: r.processedPath ?? r.processed_path ?? null,
+  processedSize: r.processedSize ?? r.processed_size ?? null,
+  processedWidth: r.processedWidth ?? r.processed_width ?? null,
+  processedHeight: r.processedHeight ?? r.processed_height ?? null,
+  approvedPath: r.approvedPath ?? r.approved_path ?? null,
+  approvedSize: r.approvedSize ?? r.approved_size ?? null,
+  approvedWidth: r.approvedWidth ?? r.approved_width ?? null,
+  approvedHeight: r.approvedHeight ?? r.approved_height ?? null,
+  processingStatus: r.processingStatus ?? r.processing_status ?? 'pending',
+  approvalStatus: r.approvalStatus ?? r.approval_status ?? 'pending',
+  processingError: r.processingError ?? r.processing_error ?? null,
+  retryCount: r.retryCount ?? r.retry_count ?? 0,
+  mediaConsent: r.mediaConsent ?? r.media_consent ?? true,
+  uploadedAt: r.uploadedAt ?? r.uploaded_at,
+  processedAt: r.processedAt ?? r.processed_at ?? null,
+  approvedAt: r.approvedAt ?? r.approved_at ?? null,
+  approvedBy: r.approvedBy ?? r.approved_by ?? null,
+  correctionNotes: r.correctionNotes ?? r.correction_notes ?? null,
+  hasOriginal: r.hasOriginal ?? true,
+  hasProcessed: r.hasProcessed ?? !!(r.processedPath || r.processed_path),
+  hasApproved: r.hasApproved ?? !!(r.approvedPath || r.approved_path),
+});
+
+export const toTeamPhotoHistoryRow = (r: any): import('./types').TeamPhotoHistoryItem => ({
+  id: r.id,
+  eventId: r.eventId ?? r.event_id,
+  teamId: r.teamId ?? r.team_id,
+  version: r.version,
+  approvedPath: r.approvedPath ?? r.approved_path,
+  approvedSize: r.approvedSize ?? r.approved_size,
+  approvedWidth: r.approvedWidth ?? r.approved_width ?? null,
+  approvedHeight: r.approvedHeight ?? r.approved_height ?? null,
+  approvedAt: r.approvedAt ?? r.approved_at,
+  approvedBy: r.approvedBy ?? r.approved_by ?? null,
+  correctionNotes: r.correctionNotes ?? r.correction_notes ?? null,
+});
+
+
