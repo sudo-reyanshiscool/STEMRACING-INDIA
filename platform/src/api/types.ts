@@ -7,6 +7,7 @@ import type {DrawLotsState,TeamNumberAssignment,JudgeLotAssignment} from './draw
 import type { RaceHeat, RaceInput, TimingState, TimingPair } from '../racing';
 import type { PanelId, RankRow, Ruleset } from '../engine';
 import type { CardReview, FeedbackRow, NominationRow } from './review';
+import type { TeamCompulsoryAssets, TeamColours, TeamMemberPortrait, CompulsoryAssetKey, StoredCompulsoryFile } from './compulsory-assets';
 
 export type PhotoProcessingStatus = 'pending' | 'processing' | 'completed' | 'failed';
 export type PhotoApprovalStatus = 'pending' | 'approved' | 'rejected';
@@ -311,4 +312,9 @@ export interface Api {
   listTeamPhotoHistory(eventId: string, teamId: string): Promise<TeamPhotoHistoryItem[]>;
   deleteTeamPhoto(eventId: string, teamId: string): Promise<void>;
   getBroadcastTeamPhoto(eventId: string, teamId: string): Promise<BroadcastPhoto>;
+  getCompulsoryAssets(eventId: string, teamId: string): Promise<TeamCompulsoryAssets>;
+  saveTeamColours(eventId: string, teamId: string, colours: TeamColours): Promise<TeamColours>;
+  saveTeamMemberPortraits(eventId: string, teamId: string, members: TeamMemberPortrait[]): Promise<TeamMemberPortrait[]>;
+  uploadCompulsoryAsset(eventId: string, teamId: string, key: CompulsoryAssetKey, file: { name: string; mime: string; base64: string }): Promise<StoredCompulsoryFile>;
+  deleteCompulsoryAsset(eventId: string, teamId: string, key: CompulsoryAssetKey): Promise<void>;
 }

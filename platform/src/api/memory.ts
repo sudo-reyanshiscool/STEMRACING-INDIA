@@ -3,6 +3,16 @@ import {PORTFOLIOS,submissionRow,validateSubmissionRules,type SubmissionRule} fr
 import {FILE_PANEL, validateTeamFile, type TeamFile, type TeamFileInput} from './team-files';
 import {validatePhotoUpload, extractDimensions} from './team-photos';
 import {DEFAULT_SAMPLE_CUTOUT} from './sample-cutout';
+import {
+  type CompulsoryAssetKey,
+  type TeamColours,
+  type TeamMemberPortrait,
+  type StoredCompulsoryFile,
+  type TeamCompulsoryAssets,
+  validateTeamColours,
+  extractPngDimensionsFromBase64,
+  computeCompulsoryAssetStatus,
+} from './compulsory-assets';
 import { defaultRacingSetup, validateSetup, reactionPairings, type RacingSetup, type RacingSetupInput } from '../racing/competition';
 import { rerunEligible, followupInput, raceRecorded, validateRace, type RaceHeat, type RaceInput, type TimingState } from '../racing';
 import { validateScores, type Area } from '../engine';
@@ -252,6 +262,59 @@ export class MemoryApi implements Api {
         hasProcessed: approved,
         hasApproved: approved,
       });
+
+      api.compulsoryAssets.set(`${seed.event.id}:${t.id}`, {
+        eventId: seed.event.id,
+        teamId: t.id,
+        teamLogo: {
+          name: 'team_logo.svg',
+          mime: 'image/svg+xml',
+          size: 14500,
+          updatedAt: new Date().toISOString(),
+        },
+        carRenderFL: {
+          name: 'car_render_front_left.png',
+          mime: 'image/png',
+          size: 2450000,
+          width: 3840,
+          height: 2160,
+          base64: DEFAULT_SAMPLE_CUTOUT,
+          updatedAt: new Date().toISOString(),
+        },
+        carRenderFR: {
+          name: 'car_render_front_right.png',
+          mime: 'image/png',
+          size: 2420000,
+          width: 3840,
+          height: 2160,
+          base64: DEFAULT_SAMPLE_CUTOUT,
+          updatedAt: new Date().toISOString(),
+        },
+        carModel3D: {
+          name: 'competition_car_v2.obj',
+          mime: 'model/obj',
+          size: 420000,
+          updatedAt: new Date().toISOString(),
+        },
+        modelMaterials: {
+          name: 'materials_and_textures.zip',
+          mime: 'application/zip',
+          size: 1850000,
+          updatedAt: new Date().toISOString(),
+        },
+        officialPhoto: api.teamPhotos.find(p => p.teamId === t.id),
+        teamColours: {
+          primary: '#E6007E',
+          secondary: '#312783',
+          accent: '#FCBC00',
+        },
+        memberPortraits: [
+          { id: `mem-1-${t.id}`, name: 'Aarav Sharma', role: 'Team Principal & Strategy', fileName: 'aarav_sharma.jpg', photoBase64: DEFAULT_SAMPLE_CUTOUT, photoMime: 'image/jpeg', updatedAt: new Date().toISOString() },
+          { id: `mem-2-${t.id}`, name: 'Ananya Patel', role: 'Lead Design Engineer', fileName: 'ananya_patel.jpg', photoBase64: DEFAULT_SAMPLE_CUTOUT, photoMime: 'image/jpeg', updatedAt: new Date().toISOString() },
+          { id: `mem-3-${t.id}`, name: 'Rohan Mehta', role: 'Aerodynamicist & Manufacturing', fileName: 'rohan_mehta.jpg', photoBase64: DEFAULT_SAMPLE_CUTOUT, photoMime: 'image/jpeg', updatedAt: new Date().toISOString() },
+          { id: `mem-4-${t.id}`, name: 'Diya Iyer', role: 'Graphics & Telemetry Analyst', fileName: 'diya_iyer.jpg', photoBase64: DEFAULT_SAMPLE_CUTOUT, photoMime: 'image/jpeg', updatedAt: new Date().toISOString() },
+        ],
+      });
     });
 
     return api;
@@ -263,6 +326,7 @@ export class MemoryApi implements Api {
   private roles: RoleRow[] = [];
   private invites: InviteRow[] = [];
   private teams: TeamRow[] = [];
+  private compulsoryAssets = new Map<string, Partial<TeamCompulsoryAssets>>();
   private exemptions: {eventId:string;judgeId:string;teamId:string;reason:string}[]=[];
   private conflicts: { eventId: string; judgeId: string; teamId: string }[] = [];
   private cards: CardRow[] = [];
@@ -1664,5 +1728,142 @@ export class MemoryApi implements Api {
       logoBase64: logoFile ? logoFile.base64 : null,
       logoMime: logoFile ? logoFile.mime : null,
     };
+  }
+
+  async getCompulsoryAssets(eventId: string, teamId: string): Promise<TeamCompulsoryAssets> {
+    const key = `${eventId}:${teamId}`;
+    const raw = this.compulsoryAssets.get(key) || { eventId, teamId };
+    if (!raw.teamLogo) {
+      const logo = this.teamFiles.find(f => f.eventId === eventId && f.teamId === teamId && f.kind === 'logo');
+      if (logo) {
+        raw.teamLogo = {
+          name: logo.name,
+          mime: logo.mime,
+          size: logo.size,
+          base64: logo.base64,
+          updatedAt: logo.updatedAt,
+        };
+      }
+    }
+    if (!raw.officialPhoto) {
+      const photo = this.teamPhotos.find(p => p.eventId === eventId && p.teamId === teamId);
+      if (photo) {
+        raw.officialPhoto = photo;
+      }
+    }
+    return computeCompulsoryAssetStatus(eventId, teamId, raw);
+  }
+
+  async saveTeamColours(eventId: string, teamId: string, colours: TeamColours): Promise<TeamColours> {
+    this.require(eventId, 'organiser', 'chair', 'team_manager');
+    this.frozen(eventId, 'team colours');
+    const valid = validateTeamColours(colours);
+    const key = `${eventId}:${teamId}`;
+    const current = this.compulsoryAssets.get(key) || { eventId, teamId };
+    current.teamColours = valid;
+    this.compulsoryAssets.set(key, current);
+    this.version++;
+    return valid;
+  }
+
+  async saveTeamMemberPortraits(eventId: string, teamId: string, members: TeamMemberPortrait[]): Promise<TeamMemberPortrait[]> {
+    this.require(eventId, 'organiser', 'chair', 'team_manager');
+    this.frozen(eventId, 'member portraits');
+    if (!Array.isArray(members)) throw new ApiError('invalid', 'Provide a list of team members.');
+    const key = `${eventId}:${teamId}`;
+    const current = this.compulsoryAssets.get(key) || { eventId, teamId };
+    current.memberPortraits = members;
+    this.compulsoryAssets.set(key, current);
+    this.version++;
+    return members;
+  }
+
+  async uploadCompulsoryAsset(
+    eventId: string,
+    teamId: string,
+    assetKey: CompulsoryAssetKey,
+    file: { name: string; mime: string; base64: string }
+  ): Promise<StoredCompulsoryFile> {
+    this.require(eventId, 'organiser', 'chair', 'team_manager');
+    this.frozen(eventId, 'compulsory assets');
+    const key = `${eventId}:${teamId}`;
+    const current = this.compulsoryAssets.get(key) || { eventId, teamId };
+
+    let width: number | null = null;
+    let height: number | null = null;
+    if (file.mime === 'image/png') {
+      const dims = extractPngDimensionsFromBase64(file.base64);
+      if (dims) {
+        width = dims.width;
+        height = dims.height;
+      }
+    }
+
+    const size = Math.round((file.base64.length * 3) / 4);
+    const stored: StoredCompulsoryFile = {
+      name: file.name,
+      mime: file.mime,
+      size,
+      width,
+      height,
+      base64: file.base64,
+      updatedAt: new Date().toISOString(),
+    };
+
+    switch (assetKey) {
+      case 'team_logo':
+        current.teamLogo = stored;
+        break;
+      case 'car_render_fl':
+        current.carRenderFL = stored;
+        break;
+      case 'car_render_fr':
+        current.carRenderFR = stored;
+        break;
+      case 'car_model_3d':
+        current.carModel3D = stored;
+        break;
+      case 'model_materials':
+        current.modelMaterials = stored;
+        break;
+    }
+
+    this.compulsoryAssets.set(key, current);
+    this.version++;
+    return stored;
+  }
+
+  async deleteCompulsoryAsset(eventId: string, teamId: string, assetKey: CompulsoryAssetKey): Promise<void> {
+    this.require(eventId, 'organiser', 'chair', 'team_manager');
+    this.frozen(eventId, 'compulsory assets');
+    const key = `${eventId}:${teamId}`;
+    const current = this.compulsoryAssets.get(key) || { eventId, teamId };
+
+    switch (assetKey) {
+      case 'team_logo':
+        delete current.teamLogo;
+        break;
+      case 'car_render_fl':
+        delete current.carRenderFL;
+        break;
+      case 'car_render_fr':
+        delete current.carRenderFR;
+        break;
+      case 'car_model_3d':
+        delete current.carModel3D;
+        break;
+      case 'model_materials':
+        delete current.modelMaterials;
+        break;
+      case 'team_colours':
+        delete current.teamColours;
+        break;
+      case 'member_portraits':
+        delete current.memberPortraits;
+        break;
+    }
+
+    this.compulsoryAssets.set(key, current);
+    this.version++;
   }
 }

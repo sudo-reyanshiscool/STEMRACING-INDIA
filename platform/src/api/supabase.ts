@@ -9,6 +9,17 @@ import type { ResultMailState, ResultsPacket } from './result-mail';
 import type { Api, MfaEnrollResult, MfaFactor, MfaStatus, PlatformAccess, Session } from './types';
 import { ApiError } from './types';
 import { blankReview } from './review';
+import {
+  type CompulsoryAssetKey,
+  type TeamColours,
+  type TeamMemberPortrait,
+  type StoredCompulsoryFile,
+  type TeamCompulsoryAssets,
+  validateTeamColours,
+  extractPngDimensionsFromBase64,
+  computeCompulsoryAssetStatus,
+} from './compulsory-assets';
+import { localStorageKV, memoryKV } from './queue';
 
 type Failure = { message: string; code?: string } | null;
 
@@ -69,6 +80,19 @@ export interface SupabaseApiOptions {
 
 /** The adapter over an existing client. Split from createSupabaseApi so tests can drive it with a scripted client. */
 export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: SupabaseApiOptions = {}): Api {
+  const compulsoryMem = new Map<string, string>();
+  const getCompulsoryItem = (k: string): string | null => {
+    try {
+      if (typeof localStorage !== 'undefined') return localStorage.getItem(`compulsory:${k}`);
+    } catch {}
+    return compulsoryMem.get(k) ?? null;
+  };
+  const setCompulsoryItem = (k: string, v: string): void => {
+    try {
+      if (typeof localStorage !== 'undefined') localStorage.setItem(`compulsory:${k}`, v);
+    } catch {}
+    compulsoryMem.set(k, v);
+  };
   const pageSize = options.pageSize ?? PAGE_SIZE;
   const toSession = (u: { id: string; email?: string | null } | null | undefined): Session | null =>
     u ? { userId: u.id, email: (u.email ?? '').toLowerCase() } : null;
@@ -683,6 +707,116 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
     async getBroadcastTeamPhoto(eventId, teamId) {
       const res = ok(await guard(() => sb.rpc('get_broadcast_team_photo', { p_event: eventId, p_team: teamId }))) as any;
       return res;
+    },
+    async getCompulsoryAssets(eventId, teamId) {
+      const stored = getCompulsoryItem(`${eventId}:${teamId}`);
+      let raw: Partial<TeamCompulsoryAssets> = {};
+      if (stored) {
+        try { raw = JSON.parse(stored); } catch {}
+      }
+      if (!raw.teamLogo) {
+        try {
+          const files = (ok(await guard(() => sb.rpc('list_team_files', { p_event: eventId }))) as any[]) || [];
+          const logo = files.find(f => f.teamId === teamId && f.kind === 'logo');
+          if (logo) {
+            raw.teamLogo = {
+              name: logo.name,
+              mime: logo.mime,
+              size: logo.size,
+              updatedAt: logo.updatedAt,
+            };
+          }
+        } catch {}
+      }
+      if (!raw.officialPhoto) {
+        try {
+          const photos = (ok(await guard(() => sb.rpc('list_team_photos', { p_event: eventId }))) as any[]) || [];
+          const p = photos.find(p => p.team_id === teamId);
+          if (p) raw.officialPhoto = toTeamPhotoRow(p);
+        } catch {}
+      }
+      return computeCompulsoryAssetStatus(eventId, teamId, raw);
+    },
+    async saveTeamColours(eventId, teamId, colours) {
+      const valid = validateTeamColours(colours);
+      const key = `${eventId}:${teamId}`;
+      const stored = getCompulsoryItem(key);
+      let raw: Partial<TeamCompulsoryAssets> = {};
+      if (stored) {
+        try { raw = JSON.parse(stored); } catch {}
+      }
+      raw.teamColours = valid;
+      setCompulsoryItem(key, JSON.stringify(raw));
+      return valid;
+    },
+    async saveTeamMemberPortraits(eventId, teamId, members) {
+      if (!Array.isArray(members)) throw new ApiError('invalid', 'Provide a list of team members.');
+      const key = `${eventId}:${teamId}`;
+      const stored = getCompulsoryItem(key);
+      let raw: Partial<TeamCompulsoryAssets> = {};
+      if (stored) {
+        try { raw = JSON.parse(stored); } catch {}
+      }
+      raw.memberPortraits = members;
+      setCompulsoryItem(key, JSON.stringify(raw));
+      return members;
+    },
+    async uploadCompulsoryAsset(eventId, teamId, assetKey, file) {
+      const key = `${eventId}:${teamId}`;
+      const stored = getCompulsoryItem(key);
+      let raw: Partial<TeamCompulsoryAssets> = {};
+      if (stored) {
+        try { raw = JSON.parse(stored); } catch {}
+      }
+
+      let width: number | null = null;
+      let height: number | null = null;
+      if (file.mime === 'image/png') {
+        const dims = extractPngDimensionsFromBase64(file.base64);
+        if (dims) {
+          width = dims.width;
+          height = dims.height;
+        }
+      }
+
+      const size = Math.round((file.base64.length * 3) / 4);
+      const item: StoredCompulsoryFile = {
+        name: file.name,
+        mime: file.mime,
+        size,
+        width,
+        height,
+        base64: file.base64,
+        updatedAt: new Date().toISOString(),
+      };
+
+      switch (assetKey) {
+        case 'team_logo': raw.teamLogo = item; break;
+        case 'car_render_fl': raw.carRenderFL = item; break;
+        case 'car_render_fr': raw.carRenderFR = item; break;
+        case 'car_model_3d': raw.carModel3D = item; break;
+        case 'model_materials': raw.modelMaterials = item; break;
+      }
+
+      setCompulsoryItem(key, JSON.stringify(raw));
+      return item;
+    },
+    async deleteCompulsoryAsset(eventId, teamId, assetKey) {
+      const key = `${eventId}:${teamId}`;
+      const stored = getCompulsoryItem(key);
+      if (!stored) return;
+      let raw: Partial<TeamCompulsoryAssets> = {};
+      try { raw = JSON.parse(stored); } catch {}
+      switch (assetKey) {
+        case 'team_logo': delete raw.teamLogo; break;
+        case 'car_render_fl': delete raw.carRenderFL; break;
+        case 'car_render_fr': delete raw.carRenderFR; break;
+        case 'car_model_3d': delete raw.carModel3D; break;
+        case 'model_materials': delete raw.modelMaterials; break;
+        case 'team_colours': delete raw.teamColours; break;
+        case 'member_portraits': delete raw.memberPortraits; break;
+      }
+      setCompulsoryItem(key, JSON.stringify(raw));
     },
   };
 }

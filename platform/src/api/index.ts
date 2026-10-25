@@ -13,5 +13,6 @@ export * from './draw-lots';
 export * from './team-files';
 export * from './team-photos';
 export * from './sample-cutout';
+export * from './compulsory-assets';
 
 export * from './submissions';
