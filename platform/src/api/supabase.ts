@@ -261,8 +261,12 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
       return Boolean(res.data);
     },
     async platformAccess() {
-      if (!(await session())) return {kind:null,ownerEmail:'',canManage:false,organisers:[],invitations:[]};
-      return ok(await guard(() => sb.rpc('platform_access'))) as PlatformAccess;
+      const before=await session();
+      if (!before) return {kind:null,ownerEmail:'',canManage:false,organisers:[],invitations:[]};
+      const access=ok(await guard(() => sb.rpc('platform_access'))) as PlatformAccess;
+      const after=await session();
+      if(after?.userId!==before.userId || (access.viewerId!==undefined && access.viewerId!==after.userId)) throw new ApiError('unauthenticated','The account changed while loading organiser access');
+      return access;
     },
     async inviteOrganiser(email, scope) {
       const id = ok(await guard(() => sb.rpc('invite_organiser', {p_email: email.trim().toLowerCase(), p_scope: scope}))) as string;

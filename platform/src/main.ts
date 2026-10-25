@@ -167,7 +167,11 @@ async function boot(): Promise<void> {
     }
   }
 
-  api.onAuthChange(() => { if (!changingSession) void render(current); });
+  api.onAuthChange(() => {
+    // Remove the outgoing account's private DOM before fetching the next account's page.
+    token++; shell.main.replaceChildren();
+    if (!changingSession) void render(current);
+  });
   startRouter((route) => void render(route));
 }
 

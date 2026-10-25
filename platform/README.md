@@ -387,3 +387,8 @@ name and hide their email. The platform organiser listing and event People/invit
 listing redact the address on the server for everyone except the permanent Platform Admin. Direct browser reads of the corresponding
 contact columns are revoked; sign-in and server email delivery retain the private address.
 Existing event-member permissions still govern the listing RPCs. Migration 0032 adds the admin exception and prevents non-admin readers from recovering hidden addresses through audit or broadcast history.
+
+The home-page organiser response includes its viewer and owner identities. Restricted
+contacts are shown only when both match the current administrator. Account changes
+clear the outgoing page immediately, and the organiser list refreshes its privacy state.
+Migration 0033 adds this response binding without changing account permissions.

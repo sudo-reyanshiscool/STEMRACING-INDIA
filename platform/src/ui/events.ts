@@ -9,7 +9,7 @@ import { canShowcase, showcaseHref, SHOWCASE_EVENT_ID } from '../api/showcase';
 const today = () => new Date().toISOString().slice(0, 10);
 
 export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
-  const [events, deleted, canCreate, access] = await Promise.all([ctx.api.listEvents(), ctx.api.listDeletedEvents(), ctx.api.canCreateEvent(), ctx.api.platformAccess()]);
+  const [events, deleted, canCreate, access, viewer] = await Promise.all([ctx.api.listEvents(), ctx.api.listDeletedEvents(), ctx.api.canCreateEvent(), ctx.api.platformAccess(), ctx.api.getSession()]);
   const showcaseEvent = !ctx.demo ? events.find(e => e.id === SHOWCASE_EVENT_ID) : undefined;
   const showcaseAvailable = showcaseEvent ? canShowcase(showcaseEvent, await ctx.api.myRoles(showcaseEvent.id)) : false;
   let alive = true;
@@ -70,6 +70,6 @@ export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
               showcaseAvailable && e.id === SHOWCASE_EVENT_ID ? h('a', { class: 'btn btn--ghost btn--small', href: showcaseHref(e.id) }, 'Open showcase') : null)))),
     canCreate ? h('section', { class: 'section' }, h('h2', null, 'New event'), error, form) : null,
     deleted.length ? deletedSection : null,
-    access.canManage ? organiserControls(ctx,access) : null,
+    access.canManage ? organiserControls(ctx,access,viewer?.userId) : null,
   );
 }

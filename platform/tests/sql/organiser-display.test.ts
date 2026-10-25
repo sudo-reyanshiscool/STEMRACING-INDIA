@@ -4,8 +4,9 @@ let w:World;beforeAll(async()=>{w=await seedWorld(await makeDb());});afterAll(as
 it('redacts a named organiser address at the API boundary while retaining private delivery data',async()=>{
  await w.db.query("insert into platform_organisers(user_id,email,scope,granted_by,display_name,hide_email) values($1,'nelson-private@x.test','platform',$2,'Nelson',true)",[ids.outsider,ids.admin]);
  const result=await as(w.db,'outsider',q=>q('select platform_access() as access'));
+ expect(result.rows[0].access.viewerId).toBe(ids.outsider);expect(result.rows[0].access.ownerId).toBe(ids.admin);
  const nelson=result.rows[0].access.organisers.find((p:any)=>p.name==='Nelson');
- expect(nelson).toMatchObject({userId:ids.outsider,email:null,emailHidden:true,scope:'platform'});
+ expect(nelson).toMatchObject({userId:ids.outsider,email:null,emailHidden:true,contactRestricted:true,scope:'platform'});
  expect(JSON.stringify(result.rows)).not.toContain('nelson-private@x.test');
  const admin=await as(w.db,'admin',q=>q('select platform_access() as access'));
  expect(admin.rows[0].access.organisers.find((p:any)=>p.name==='Nelson')).toMatchObject({email:'nelson-private@x.test',emailHidden:false});
