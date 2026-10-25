@@ -2,6 +2,7 @@ import {emptySchedule,validateSchedule,teamActivities,type ScheduleDoc,type Sche
 import {PORTFOLIOS,submissionRow,validateSubmissionRules,type SubmissionRule} from './submissions';
 import {FILE_PANEL, validateTeamFile, type TeamFile, type TeamFileInput} from './team-files';
 import {validatePhotoUpload, extractDimensions} from './team-photos';
+import {DEFAULT_SAMPLE_CUTOUT} from './sample-cutout';
 import { defaultRacingSetup, validateSetup, reactionPairings, type RacingSetup, type RacingSetupInput } from '../racing/competition';
 import { rerunEligible, followupInput, raceRecorded, validateRace, type RaceHeat, type RaceInput, type TimingState } from '../racing';
 import { validateScores, type Area } from '../engine';
@@ -211,10 +212,9 @@ export class MemoryApi implements Api {
     api.showcaseMode = true;
 
     // Seed demo photos for showcase teams so Media Assets & Broadcast graphics are populated immediately
-    const sampleCutout = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
     seed.teams.forEach((t, i) => {
-      const approved = i < 3;
-      const processing = i === 3;
+      const approved = i < 16;
+      const processing = i === 16;
       api.teamPhotos.push({
         id: `showcase-photo-${t.id}`,
         teamId: t.id,
@@ -227,17 +227,17 @@ export class MemoryApi implements Api {
         originalWidth: 3840,
         originalHeight: 2160,
         originalPath: `team-photos/${seed.event.id}/${t.id}/v1/original.jpg`,
-        originalBase64: sampleCutout,
+        originalBase64: DEFAULT_SAMPLE_CUTOUT,
         processedPath: approved ? `team-photos/${seed.event.id}/${t.id}/v1/cutout.png` : null,
         processedSize: approved ? 1800000 : null,
         processedWidth: approved ? 3840 : null,
         processedHeight: approved ? 2160 : null,
-        processedBase64: approved ? sampleCutout : undefined,
+        processedBase64: approved ? DEFAULT_SAMPLE_CUTOUT : undefined,
         approvedPath: approved ? `team-photos/${seed.event.id}/${t.id}/v1/approved.png` : null,
         approvedSize: approved ? 1800000 : null,
         approvedWidth: approved ? 3840 : null,
         approvedHeight: approved ? 2160 : null,
-        approvedBase64: approved ? sampleCutout : undefined,
+        approvedBase64: approved ? DEFAULT_SAMPLE_CUTOUT : undefined,
         processingStatus: approved ? 'completed' : (processing ? 'processing' : 'pending'),
         approvalStatus: approved ? 'approved' : 'pending',
         processingError: null,

@@ -369,6 +369,7 @@ function sampleData(seed){
     c.winner = t[0]; c.school = t[1]; c.figure = figure;
     c.citation = AW[id].cite.replace('{t}', t[0]);
     c.nominees = noms.map(i=>teams[i][0]);
+    c.photo = 'assets/team-cutout.png';
     wins[ti]++;
   };
   const nomsFor = ti => S(teams.map((_,i)=>i).filter(i=>i!==ti)).slice(0,2).concat(ti).sort(()=>r()-.5);

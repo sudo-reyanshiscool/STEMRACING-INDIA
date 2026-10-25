@@ -85,16 +85,22 @@ export async function openArenaPairingModal(
     });
 
     if (p.isApprovedPhoto && p.photoBase64) {
+      const src = p.photoBase64.startsWith('data:')
+        ? p.photoBase64
+        : `data:${p.photoBase64.startsWith('PHN2Zy') || p.photoBase64.startsWith('<svg') ? 'image/svg+xml' : 'image/png'};base64,${p.photoBase64}`;
       const img = h('img', {
-        src: `data:image/png;base64,${p.photoBase64}`,
+        src,
         alt: `${p.teamName} team photo`,
         style:
           'max-width: 90%; max-height: 100%; object-fit: contain; filter: drop-shadow(0 15px 25px rgba(0,0,0,0.8)) drop-shadow(0 0 35px rgba(230,0,126,0.35)); transition: transform 0.4s ease;',
       });
       imgSlot.append(img);
     } else if (p.logoBase64) {
+      const src = p.logoBase64.startsWith('data:')
+        ? p.logoBase64
+        : `data:${p.logoMime || 'image/png'};base64,${p.logoBase64}`;
       const logo = h('img', {
-        src: `data:${p.logoMime || 'image/png'};base64,${p.logoBase64}`,
+        src,
         alt: `${p.teamName} logo`,
         style:
           'max-width: 60%; max-height: 80%; object-fit: contain; filter: drop-shadow(0 10px 20px rgba(0,0,0,0.8));',

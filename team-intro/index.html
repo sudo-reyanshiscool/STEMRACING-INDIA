@@ -189,7 +189,8 @@ function sample(){
   const teams = names.map((name, i) => ({
     id: 't' + (i + 1), name,
     school: schools[i % schools.length] + ', ' + cities[i % cities.length],
-    tagline: tags[i % tags.length]
+    tagline: tags[i % tags.length],
+    photo: 'assets/team-cutout.png'
   }));
   const races = [];
   for (let i = 0; i < teams.length; i += 2) races.push({ a: teams[i].id, b: teams[i + 1].id });
@@ -210,7 +211,7 @@ function sanitise(d){
     seen.add(id);
     teams.push({ id, name, school: clip(t.school, 90), tagline: clip(t.tagline, 60) || 'Ready to Race',
       logo: typeof t.logo === 'string' && /^(assets\/|data:image\/)/.test(t.logo) ? t.logo : '',
-      photo: typeof t.photo === 'string' && /^(assets\/|data:image\/|https?:\/\/)/.test(t.photo) ? t.photo : '' });
+      photo: typeof t.photo === 'string' && /^(assets\/|\/assets\/|data:image\/|https?:\/\/)/.test(t.photo) ? t.photo : (t.photo ? 'assets/team-cutout.png' : 'assets/team-cutout.png') });
   }
   const races = [];
   for (const [i, r] of d.races.entries()) {
