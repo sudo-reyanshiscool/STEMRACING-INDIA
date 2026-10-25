@@ -401,10 +401,10 @@ filters private identities when the current viewer does not match the administra
 
 ### Standard judge workspace
 
-Accounts assigned only Judge roles have exactly three event sections: **Event**,
-**My scorecards**, and **Scores**. The event home offers only the corresponding
+Accounts assigned only Judge roles have four event sections: **Event**,
+**My scorecards**, **Scores**, and **Results**. Results contain only released public standings for judges. The event home offers only the corresponding
 scorecard and scores tiles. Direct navigation to other event pages is refused before
 those screens load. Assigned scorecards and specification inspection detail pages
 remain reachable as part of My scorecards. This controls the judge interface;
 existing scorecard ownership, assignment and feedback permissions remain enforced
-by the API. Lead Judges have those same three sections plus Moderation. Separately assigned organiser, Chair and operational roles retain their workspaces.
+by the API. Lead Judges have those same four sections plus Moderation. Separately assigned organiser, Chair and operational roles retain their workspaces.

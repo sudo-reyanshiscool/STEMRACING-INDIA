@@ -178,7 +178,7 @@ async function boot(): Promise<void> {
 
 /** Later tasks add one case per screen. */
 async function screenFor(route: Route, ctx: Ctx): Promise<HTMLElement> {
-  if('eventId' in route && !judgePageAllowed(await ctx.api.myRoles(route.eventId),route.name)) return notFound('Your judge workspace includes Event, My scorecards and Scores.',`#/event/${encodeURIComponent(route.eventId)}`,'Back to event');
+  if('eventId' in route && !judgePageAllowed(await ctx.api.myRoles(route.eventId),route.name)) return notFound('Your judge workspace includes Event, My scorecards, Scores and Results.',`#/event/${encodeURIComponent(route.eventId)}`,'Back to event');
   switch (route.name) {
     case 'home': return eventsScreen(ctx);
     case 'security': return securityScreen(ctx);

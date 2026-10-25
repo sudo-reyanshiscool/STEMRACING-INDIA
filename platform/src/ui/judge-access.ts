@@ -5,5 +5,5 @@ export function judgeOnly(roles: RoleRow[]): boolean {
   return roles.length>0 && roles.every(r=>r.role==='judge'||r.role==='lead_judge');
 }
 export function judgePageAllowed(roles: RoleRow[], page: Route['name']): boolean {
-  return !judgeOnly(roles) || ['event','score','scorecard','inspection','scores'].includes(page) || (page==='moderate'&&roles.some(r=>r.role==='lead_judge'));
+  return !judgeOnly(roles) || ['event','score','scorecard','inspection','scores','results'].includes(page) || (page==='moderate'&&roles.some(r=>r.role==='lead_judge'));
 }
