@@ -384,6 +384,6 @@ See `../docs/2027-platform-work.md` for rollout order and the remaining physical
 
 Migrations 0030 and 0031 let protected platform-organiser profiles supply a display
 name and hide their email. The platform organiser listing and event People/invitation
-listing redact the address on the server. Direct browser reads of the corresponding
+listing redact the address on the server for everyone except the permanent Platform Admin. Direct browser reads of the corresponding
 contact columns are revoked; sign-in and server email delivery retain the private address.
-Existing event-member permissions still govern the listing RPCs.
+Existing event-member permissions still govern the listing RPCs. Migration 0032 adds the admin exception and prevents non-admin readers from recovering hidden addresses through audit or broadcast history.
