@@ -33,7 +33,41 @@ export function errorText(e: unknown): string {
 export const isPlausibleEmail = (v: string): boolean => /^[^\s@]+@[^\s@]+$/.test(v.trim());
 
 export function notFound(message: string, backHref = '#/', backLabel = 'Back'): HTMLElement {
-  return h('div', { class: 'stack' }, h('p', null, message), h('a', { class: 'back', href: backHref }, backLabel));
+  return h(
+    'div',
+    { class: 'stack off-track-card', role: 'region', 'aria-label': 'Off the Track' },
+    h(
+      'div',
+      { class: 'off-track-badge' },
+      h('span', { class: 'off-track-dot' }),
+      'YELLOW FLAG // SECTOR 04'
+    ),
+    h(
+      'div',
+      { class: 'off-track-header' },
+      h('div', { class: 'off-track-code' }, '404'),
+      h('h1', { class: 'off-track-title' }, 'Off the Track')
+    ),
+    h('p', { class: 'off-track-desc' }, message),
+    h(
+      'div',
+      { class: 'off-track-telemetry' },
+      h('div', { class: 'off-track-stat' },
+        h('span', { class: 'stat-label' }, 'STATUS'),
+        h('strong', { class: 'stat-val' }, 'OUT OF BOUNDS')
+      ),
+      h('div', { class: 'off-track-stat' },
+        h('span', { class: 'stat-label' }, 'RECOVERY'),
+        h('strong', { class: 'stat-val' }, 'REJOIN CIRCUIT')
+      )
+    ),
+    h(
+      'div',
+      { class: 'off-track-nav' },
+      h('a', { class: 'back btn btn--primary off-track-btn', href: backHref }, `← ${backLabel}`),
+      h('a', { class: 'btn btn--ghost off-track-btn', href: '#/' }, 'All Events')
+    )
+  );
 }
 
 /** Status is always a word, never colour alone. */

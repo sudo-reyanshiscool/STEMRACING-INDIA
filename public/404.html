@@ -1,0 +1,637 @@
+<!-- STEM Racing India 404 Page: Off the Track -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#05000B" />
+    <title>Off the Track (404) | STEM Racing India</title>
+    <meta name="description" content="Off the Track — The page you requested could not be found on the STEM Racing India circuit." />
+    <link rel="icon" href="/brand/signifier.png" />
+    <link rel="preload" href="/fonts/Magistral-BoldItalic.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/MachoModular-Medium.woff2" as="font" type="font/woff2" crossorigin />
+    <style>
+      @font-face {
+        font-family: "Magistral";
+        src: url("/fonts/Magistral-BoldItalic.woff2") format("woff2");
+        font-weight: 700;
+        font-style: italic;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "MachoModular";
+        src: url("/fonts/MachoModular-Medium.woff2") format("woff2");
+        font-weight: 400 500;
+        font-style: normal;
+        font-display: swap;
+      }
+      @font-face {
+        font-family: "MachoModular";
+        src: url("/fonts/MachoModular-Bold.woff2") format("woff2");
+        font-weight: 700;
+        font-style: normal;
+        font-display: swap;
+      }
+
+      :root {
+        --carbon-shadow: #05000B;
+        --carbon-900: #120A1F;
+        --carbon-800: #261A3D;
+        --carbon-700: #2E2347;
+        --carbon-500: #5B5376;
+        --carbon-300: #A39FB8;
+        --carbon-100: #D7D6E3;
+        --ignite-indigo: #312783;
+        --chicane-violet: #961B81;
+        --pitlane-pink: #E6007E;
+        --burnout-orange: #ED6D05;
+        --podium-gold: #FCBC00;
+        --surface-glass: rgba(38, 26, 61, 0.65);
+        --surface-border: rgba(230, 0, 126, 0.25);
+        --font-display: "Magistral", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        --font-body: "MachoModular", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        min-height: 100vh;
+        background-color: var(--carbon-shadow);
+        background-image: 
+          radial-gradient(ellipse 90% 60% at 50% 0%, rgba(150, 27, 129, 0.22) 0%, transparent 70%),
+          radial-gradient(circle 500px at 85% 25%, rgba(230, 0, 126, 0.12) 0%, transparent 60%),
+          radial-gradient(circle 450px at 15% 75%, rgba(49, 39, 131, 0.25) 0%, transparent 60%),
+          linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+        background-size: 100% 100%, 100% 100%, 100% 100%, 48px 48px, 48px 48px;
+        color: #FFFFFF;
+        font-family: var(--font-body);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        overflow-x: hidden;
+        position: relative;
+      }
+
+      /* Racing Chicane Kerb Header Stripe */
+      .rumble-strip {
+        height: 6px;
+        width: 100%;
+        background: repeating-linear-gradient(
+          -45deg,
+          var(--pitlane-pink) 0px,
+          var(--pitlane-pink) 20px,
+          #FFFFFF 20px,
+          #FFFFFF 40px,
+          var(--carbon-shadow) 40px,
+          var(--carbon-shadow) 48px
+        );
+        box-shadow: 0 0 15px rgba(230, 0, 126, 0.6);
+      }
+
+      /* Navigation Bar */
+      .top-nav {
+        padding: 24px 32px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        max-width: 1280px;
+        width: 100%;
+        margin: 0 auto;
+        z-index: 10;
+      }
+
+      .brand-lockup {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        text-decoration: none;
+      }
+
+      .brand-lockup img {
+        height: 38px;
+        width: auto;
+        display: block;
+        filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4));
+      }
+
+      .circuit-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 14px;
+        background: rgba(252, 188, 0, 0.1);
+        border: 1px solid rgba(252, 188, 0, 0.35);
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--podium-gold);
+        backdrop-filter: blur(8px);
+      }
+
+      .beacon-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: var(--podium-gold);
+        box-shadow: 0 0 10px var(--podium-gold);
+        animation: pulseBeacon 1.2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+      }
+
+      @keyframes pulseBeacon {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.3; transform: scale(1.3); }
+      }
+
+      /* Main Stage */
+      .stage-container {
+        max-width: 1180px;
+        width: 100%;
+        margin: auto;
+        padding: 40px 24px;
+        display: grid;
+        grid-template-columns: 1.15fr 0.85fr;
+        align-items: center;
+        gap: 56px;
+        position: relative;
+        z-index: 2;
+      }
+
+      /* Left Side: Typography & Actions */
+      .hero-content {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+
+      .eyebrow-container {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .sector-tag {
+        font-family: var(--font-display);
+        font-style: italic;
+        font-size: 14px;
+        letter-spacing: 0.12em;
+        color: var(--pitlane-pink);
+        text-transform: uppercase;
+        background: rgba(230, 0, 126, 0.12);
+        border: 1px solid rgba(230, 0, 126, 0.3);
+        padding: 4px 12px;
+        border-radius: 4px;
+      }
+
+      .speed-code {
+        font-family: var(--font-display);
+        font-style: italic;
+        font-weight: 700;
+        font-size: clamp(84px, 14vw, 150px);
+        line-height: 0.9;
+        letter-spacing: -0.04em;
+        background: linear-gradient(135deg, #FFFFFF 30%, var(--pitlane-pink) 75%, var(--burnout-orange) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        filter: drop-shadow(0 15px 30px rgba(230, 0, 126, 0.35));
+        position: relative;
+        display: inline-block;
+      }
+
+      .speed-code::after {
+        content: "404";
+        position: absolute;
+        left: 4px;
+        top: 4px;
+        z-index: -1;
+        background: linear-gradient(135deg, rgba(230,0,126,0.3), transparent);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .main-heading {
+        font-family: var(--font-display);
+        font-style: italic;
+        font-weight: 700;
+        font-size: clamp(34px, 5vw, 54px);
+        line-height: 1.05;
+        letter-spacing: -0.01em;
+        color: #FFFFFF;
+        text-transform: uppercase;
+      }
+
+      .main-heading span {
+        color: var(--pitlane-pink);
+      }
+
+      .narrative {
+        font-size: clamp(16px, 2vw, 19px);
+        line-height: 1.6;
+        color: var(--carbon-100);
+        max-width: 540px;
+      }
+
+      /* Racing Telemetry HUD Box */
+      .telemetry-hud {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+        padding: 18px 22px;
+        background: var(--surface-glass);
+        border: 1px solid var(--surface-border);
+        border-radius: 12px;
+        backdrop-filter: blur(12px);
+        max-width: 520px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      }
+
+      .telemetry-cell {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .hud-title {
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--carbon-300);
+        font-weight: 700;
+      }
+
+      .hud-data {
+        font-family: var(--font-display);
+        font-style: italic;
+        font-weight: 700;
+        font-size: 15px;
+        color: #FFFFFF;
+        letter-spacing: 0.02em;
+      }
+
+      .hud-data--alert {
+        color: var(--podium-gold);
+      }
+
+      .hud-data--pink {
+        color: var(--pitlane-pink);
+      }
+
+      /* Action Buttons */
+      .action-group {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 16px;
+        margin-top: 8px;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 14px 28px;
+        border-radius: 8px;
+        font-family: var(--font-body);
+        font-size: 15px;
+        font-weight: 700;
+        text-decoration: none;
+        letter-spacing: 0.04em;
+        cursor: pointer;
+        transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.2s ease, background 0.2s ease;
+        border: none;
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, var(--pitlane-pink), var(--chicane-violet));
+        color: #FFFFFF;
+        box-shadow: 0 6px 20px rgba(230, 0, 126, 0.45);
+      }
+
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 28px rgba(230, 0, 126, 0.65);
+      }
+
+      .btn-secondary {
+        background: rgba(255, 255, 255, 0.07);
+        color: #FFFFFF;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        backdrop-filter: blur(8px);
+      }
+
+      .btn-secondary:hover {
+        background: rgba(255, 255, 255, 0.14);
+        transform: translateY(-2px);
+      }
+
+      /* Circuit Graphic / Right Canvas */
+      .circuit-graphic-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+      }
+
+      .circuit-card {
+        width: 100%;
+        max-width: 440px;
+        aspect-ratio: 1 / 1;
+        background: radial-gradient(circle at 50% 50%, rgba(38, 26, 61, 0.5) 0%, rgba(5, 0, 11, 0.8) 100%);
+        border: 1px solid rgba(230, 0, 126, 0.22);
+        border-radius: 24px;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), inset 0 0 30px rgba(230, 0, 126, 0.06);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .circuit-card::before {
+        content: "";
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(230, 0, 126, 0.15) 0%, transparent 60%);
+        pointer-events: none;
+        animation: rotateGlow 14s linear infinite;
+      }
+
+      @keyframes rotateGlow {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+
+      .card-header-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        position: relative;
+        z-index: 2;
+      }
+
+      .card-header-bar span {
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--carbon-300);
+        font-weight: 700;
+      }
+
+      .svg-canvas {
+        width: 100%;
+        height: auto;
+        position: relative;
+        z-index: 2;
+        margin: auto 0;
+      }
+
+      .circuit-footer-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        position: relative;
+        z-index: 2;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        padding-top: 12px;
+        font-size: 12px;
+        color: var(--carbon-300);
+      }
+
+      /* Bottom Footer */
+      .page-footer {
+        padding: 24px 32px;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 16px;
+        max-width: 1280px;
+        width: 100%;
+        margin: 0 auto;
+        font-size: 13px;
+        color: var(--carbon-300);
+      }
+
+      .footer-links {
+        display: flex;
+        gap: 20px;
+      }
+
+      .footer-links a {
+        color: var(--carbon-100);
+        text-decoration: none;
+        transition: color 0.2s ease;
+      }
+
+      .footer-links a:hover {
+        color: var(--pitlane-pink);
+      }
+
+      /* Responsive Styles */
+      @media (max-width: 900px) {
+        .stage-container {
+          grid-template-columns: 1fr;
+          gap: 40px;
+          padding: 30px 20px;
+        }
+
+        .circuit-card {
+          max-width: 380px;
+          margin: 0 auto;
+        }
+      }
+
+      @media (max-width: 600px) {
+        .top-nav {
+          padding: 16px 20px;
+        }
+
+        .action-group {
+          flex-direction: column;
+          width: 100%;
+        }
+
+        .btn {
+          width: 100%;
+        }
+
+        .telemetry-hud {
+          grid-template-columns: 1fr;
+        }
+
+        .page-footer {
+          flex-direction: column;
+          align-items: flex-start;
+          padding: 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Top Chicane Accent Stripe -->
+    <div class="rumble-strip"></div>
+
+    <!-- Navigation Header -->
+    <header class="top-nav">
+      <a href="/" class="brand-lockup" title="STEM Racing India Home">
+        <img src="/brand/logo-full-colour-white.png" alt="STEM Racing India" onerror="this.onerror=null;this.src='/brand/signifier.png';" />
+      </a>
+      <div class="circuit-status">
+        <div class="beacon-dot"></div>
+        <span>Track Status // Sector 4 Flag</span>
+      </div>
+    </header>
+
+    <!-- Main Stage -->
+    <main class="stage-container">
+      <div class="hero-content">
+        <div class="eyebrow-container">
+          <span class="sector-tag">Code 404 // Runoff Area</span>
+        </div>
+
+        <div class="speed-code">404</div>
+
+        <h1 class="main-heading">Off the <span>Track</span></h1>
+
+        <p class="narrative">
+          Your vehicle has carried too much speed past the apex and run wide into sector 4. The link, event, or telemetry channel you are looking for is no longer on the racing surface.
+        </p>
+
+        <!-- Live Telemetry HUD Box -->
+        <div class="telemetry-hud">
+          <div class="telemetry-cell">
+            <span class="hud-title">Sector</span>
+            <span class="hud-data hud-data--pink">Turn 04 (Exceeded Limits)</span>
+          </div>
+          <div class="telemetry-cell">
+            <span class="hud-title">Telemetry Signal</span>
+            <span class="hud-data hud-data--alert">Yellow Flag // Lost Lock</span>
+          </div>
+          <div class="telemetry-cell">
+            <span class="hud-title">Surface Condition</span>
+            <span class="hud-data">Runoff Gravel Trap</span>
+          </div>
+          <div class="telemetry-cell">
+            <span class="hud-title">Recovery Protocol</span>
+            <span class="hud-data">Re-join Pit Lane</span>
+          </div>
+        </div>
+
+        <!-- Action Group -->
+        <div class="action-group">
+          <a href="/" class="btn btn-primary" id="returnPitBtn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+              <polyline points="9 22 9 12 15 12 15 22"></polyline>
+            </svg>
+            Return to Pit Lane
+          </a>
+
+          <button type="button" class="btn btn-secondary" onclick="if(window.history.length > 1){ window.history.back(); } else { window.location.href='/'; }">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12"></line>
+              <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+            Previous Split
+          </button>
+        </div>
+      </div>
+
+      <!-- Right Visual Circuit Illustration -->
+      <div class="circuit-graphic-wrap">
+        <div class="circuit-card">
+          <div class="card-header-bar">
+            <span>Circuit Telemetry Feed</span>
+            <span style="color: var(--podium-gold);">● LIVE DNF LOCATOR</span>
+          </div>
+
+          <!-- Animated Track SVG -->
+          <svg class="svg-canvas" viewBox="0 0 400 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Grid Lines -->
+            <path d="M20 160 H380 M200 20 V300" stroke="rgba(255,255,255,0.05)" stroke-dasharray="4 4" stroke-width="1"/>
+            
+            <!-- Circuit Asphalt Road Background -->
+            <path d="M40 260 C 100 260, 140 220, 160 160 C 180 100, 240 60, 310 60 C 350 60, 370 90, 370 140 C 370 210, 300 260, 230 260 L 150 260"
+                  stroke="#1E1430" stroke-width="44" stroke-linecap="round" stroke-linejoin="round" />
+            
+            <!-- Chicane Rumble Kerb Stripes at Apex -->
+            <path d="M150 170 C 168 115, 215 78, 280 78"
+                  stroke="repeating-linear-gradient(90deg, #E6007E 0, #E6007E 8px, #FFFFFF 8px, #FFFFFF 16px)"
+                  stroke-width="8" stroke-linecap="round" opacity="0.8" />
+
+            <!-- Ideal Racing Line -->
+            <path d="M40 260 C 100 260, 140 220, 160 160 C 180 100, 240 60, 310 60 C 350 60, 370 90, 370 140 C 370 210, 300 260, 230 260 L 150 260"
+                  stroke="rgba(255, 255, 255, 0.15)" stroke-width="3" stroke-linecap="round" stroke-dasharray="6 6" />
+
+            <!-- Trajectory Going "OFF THE TRACK" into Runoff Area -->
+            <!-- Starts on racing line, fails to make Turn 4 chicane apex, skids past track limits into gravel -->
+            <path d="M110 230 C 135 195, 155 160, 175 110 C 190 70, 215 25, 275 22"
+                  stroke="url(#offTrackGradient)" stroke-width="4" stroke-linecap="round" stroke-dasharray="8 6">
+              <animate attributeName="stroke-dashoffset" from="56" to="0" dur="2s" repeatCount="indefinite" />
+            </path>
+
+            <!-- Skidmark Accents -->
+            <path d="M150 135 C 165 98, 185 62, 235 40" stroke="#05000B" stroke-width="3" opacity="0.7" stroke-linecap="round"/>
+            <path d="M158 138 C 173 101, 193 65, 243 43" stroke="#05000B" stroke-width="3" opacity="0.7" stroke-linecap="round"/>
+
+            <!-- Off-Track Vehicle Location Marker -->
+            <g transform="translate(275, 22)">
+              <!-- Pulsing Radar Glow -->
+              <circle cx="0" cy="0" r="22" fill="rgba(230, 0, 126, 0.25)">
+                <animate attributeName="r" values="12;28;12" dur="2s" repeatCount="indefinite" />
+                <animate attributeName="opacity" values="0.8;0.2;0.8" dur="2s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="0" cy="0" r="10" fill="#E6007E" stroke="#FFFFFF" stroke-width="2.5" />
+              <!-- Racing Car Icon / Crosshair -->
+              <circle cx="0" cy="0" r="4" fill="#FFFFFF" />
+              
+              <!-- Floating Flag Indicator -->
+              <g transform="translate(14, -18)">
+                <rect x="0" y="0" width="70" height="24" rx="4" fill="#FCBC00" />
+                <text x="35" y="16" font-family="var(--font-display)" font-size="11" font-weight="700" font-style="italic" fill="#05000B" text-anchor="middle">OFF TRACK</text>
+              </g>
+            </g>
+
+            <!-- Definitions -->
+            <defs>
+              <linearGradient id="offTrackGradient" x1="110" y1="230" x2="275" y2="22" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#312783" />
+                <stop offset="50%" stop-color="#E6007E" />
+                <stop offset="100%" stop-color="#FCBC00" />
+              </linearGradient>
+            </defs>
+          </svg>
+
+          <div class="circuit-footer-bar">
+            <span>SECTOR 4 CHICANE RUNOFF</span>
+            <span style="font-family: var(--font-display); font-style: italic; color: var(--pitlane-pink);">LATERAL G-SPIKE DETECTED</span>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Bottom Footer -->
+    <footer class="page-footer">
+      <div>
+        STEM Racing India &copy; 2026 &bull; National Scoring &amp; Scrutineering Systems
+      </div>
+      <div class="footer-links">
+        <a href="/#/">Events Hub</a>
+        <a href="/#/security">Security Policy</a>
+        <a href="https://stemracingindia.com" target="_blank" rel="noopener noreferrer">Official Website</a>
+      </div>
+    </footer>
+  </body>
+</html>
