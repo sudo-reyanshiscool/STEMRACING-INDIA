@@ -20,7 +20,7 @@ export async function teamBrandingScreen(ctx:Ctx,eventId:string):Promise<HTMLEle
   try{
    const p=await ctx.api.teamBrandingProfile(eventId,select.value);if(!alive||current!==request)return;
    status.textContent='';
-   const identity=h('div',{class:'branding-identity'},h('div',{class:'stack'},h('p',{class:'eyebrow'},`${p.eventName} / TEAM ${p.team.number}`),h('h2',null,p.team.name),h('p',null,p.team.school),h('p',{class:'muted'},`${p.completedCount} of ${p.totalCount} media categories submitted`)));
+   const identity=h('div',{class:'branding-identity'},h('img',{class:'branding-track',src:'/brand/track-shape-pink.svg',alt:'','aria-hidden':'true'}),h('div',{class:'stack branding-identity__copy'},h('p',{class:'eyebrow'},`${p.eventName} / TEAM ${p.team.number}`),h('h2',null,p.team.name),h('p',null,p.team.school),h('p',{class:'muted'},`${p.completedCount} of ${p.totalCount} media categories submitted`)));
    const logo=p.assets.find(a=>a.key==='team_logo');
    if(logo?.mime==='image/png'){
     const img=h('img',{class:'branding-logo',alt:`${p.team.name} logo`});identity.prepend(img);
