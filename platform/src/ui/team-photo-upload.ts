@@ -1,6 +1,6 @@
 import type { Ctx } from './ctx';
 import type { TeamRow, TeamPhoto } from '../api';
-import { checkResolution, executeBackgroundRemoval, PHOTO_MAX_BYTES, RECOMMENDED_WIDTH, RECOMMENDED_HEIGHT } from '../api';
+import { checkResolution, PHOTO_MAX_BYTES, RECOMMENDED_WIDTH, RECOMMENDED_HEIGHT } from '../api';
 import { h } from './dom';
 import { errorText } from './common';
 
@@ -11,6 +11,7 @@ export async function teamPhotoUploadSection(
   managedTeamIds: string[],
   isStaff: boolean,
 ): Promise<HTMLElement> {
+  const event=await ctx.api.getEvent(eventId);
   const uploadTeams = teams.filter((t) => isStaff || managedTeamIds.includes(t.id));
   const container = h('section', { class: 'stack stack--md team-photo-section' });
 
@@ -132,6 +133,8 @@ export async function teamPhotoUploadSection(
       );
     }
 
+    if(event?.resultsReleased){currentPhotoHolder.append(h('p',{class:'notice'},'Results are released. Photograph uploads are locked.'));return;}
+
     // Upload Form
     const fileInput = h('input', {
       type: 'file',
@@ -223,6 +226,8 @@ export async function teamPhotoUploadSection(
             return;
           }
 
+          const targetTeamId=currentTeamId;
+          if(file.size>PHOTO_MAX_BYTES){notify('Photograph must be 25 MB or smaller.',true);return;}
           uploadBtn.disabled = true;
           progressBar.hidden = false;
           progressBar.value = 25;
@@ -239,7 +244,7 @@ export async function teamPhotoUploadSection(
             progressBar.value = 60;
             notify('Saving photograph to secure storage…');
 
-            await ctx.api.uploadTeamPhoto(eventId, currentTeamId, photo?.revision ?? 0, {
+            await ctx.api.uploadTeamPhoto(eventId, targetTeamId, photo?.revision ?? 0, {
               name: file.name,
               mime: file.type || (file.name.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg'),
               base64: btoa(binary),
@@ -248,19 +253,8 @@ export async function teamPhotoUploadSection(
               height: selectedDimensions?.height,
             });
 
-            progressBar.value = 85;
-            notify('Triggering automatic AI background removal…');
-
-            // Trigger background removal queue/worker
-            try {
-              const { cutoutBase64 } = await executeBackgroundRemoval(btoa(binary));
-              await ctx.api.completePhotoProcessing(currentTeamId, 'completed', cutoutBase64);
-              progressBar.value = 100;
-              notify('Photograph uploaded and AI cutout generated successfully! Awaiting organiser review.');
-            } catch {
-              progressBar.value = 100;
-              notify('Photograph uploaded and queued for background removal.');
-            }
+            progressBar.value = 100;
+            notify('Photograph saved and queued for organiser processing and review.');
 
             photos = await ctx.api.listTeamPhotos(eventId);
             renderCurrentState();

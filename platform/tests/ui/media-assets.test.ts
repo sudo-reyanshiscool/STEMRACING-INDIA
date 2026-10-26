@@ -75,3 +75,24 @@ it('renders media assets dashboard with metric cards, actions, and team list', a
   // Clean up modal
   modal?.remove();
 });
+
+it('completes the real queued job and saves the processor result instead of using a team ID',async()=>{
+ const api=new MemoryApi();api.setCreatorAllowlist(['org@x.test']);await api.signIn('org@x.test');const event=await api.createEvent({name:'Event'}),team=await api.createTeam(event.id,{number:'1',name:'Apex'});
+ const base64='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+ await api.uploadTeamPhoto(event.id,team.id,0,{name:'team.png',mime:'image/png',base64,mediaConsent:true});
+ const complete=vi.spyOn(api,'completePhotoProcessing');vi.stubGlobal('fetch',vi.fn().mockResolvedValue({ok:true,json:async()=>({base64,width:1,height:1})}));
+ const {ctx}=makeCtx(api),screen=await mediaAssetsScreen(ctx,event.id);document.body.append(screen);
+ (screen.querySelector('#media-process-pending-btn') as HTMLButtonElement).click();
+ await vi.waitFor(async()=>expect((await api.listTeamPhotos(event.id))[0].processingStatus).toBe('completed'));
+ expect(complete.mock.calls[0][0]).not.toBe(team.id);expect((await api.downloadTeamPhoto(event.id,team.id,'processed')).base64).toBe(base64);
+ vi.unstubAllGlobals();
+});
+
+it('marks processing failed and preserves the original when the worker is unavailable',async()=>{
+ const api=new MemoryApi();api.setCreatorAllowlist(['org@x.test']);await api.signIn('org@x.test');const event=await api.createEvent({name:'Event'}),team=await api.createTeam(event.id,{number:'1',name:'Apex'});
+ const base64='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+ await api.uploadTeamPhoto(event.id,team.id,0,{name:'team.png',mime:'image/png',base64,mediaConsent:true});vi.stubGlobal('fetch',vi.fn().mockRejectedValue(new Error('offline')));
+ const {ctx}=makeCtx(api),screen=await mediaAssetsScreen(ctx,event.id);document.body.append(screen);(screen.querySelector('#media-process-pending-btn') as HTMLButtonElement).click();
+ await vi.waitFor(async()=>expect((await api.listTeamPhotos(event.id))[0].processingStatus).toBe('failed'));
+ expect((await api.downloadTeamPhoto(event.id,team.id,'original')).base64).toBe(base64);await expect(api.downloadTeamPhoto(event.id,team.id,'processed')).rejects.toBeDefined();vi.unstubAllGlobals();
+});

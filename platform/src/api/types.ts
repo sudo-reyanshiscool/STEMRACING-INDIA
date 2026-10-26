@@ -315,8 +315,9 @@ export interface Api {
   deleteTeamPhoto(eventId: string, teamId: string): Promise<void>;
   getBroadcastTeamPhoto(eventId: string, teamId: string): Promise<BroadcastPhoto>;
   getCompulsoryAssets(eventId: string, teamId: string): Promise<TeamCompulsoryAssets>;
-  saveTeamColours(eventId: string, teamId: string, colours: TeamColours): Promise<TeamColours>;
-  saveTeamMemberPortraits(eventId: string, teamId: string, members: TeamMemberPortrait[]): Promise<TeamMemberPortrait[]>;
-  uploadCompulsoryAsset(eventId: string, teamId: string, key: CompulsoryAssetKey, file: { name: string; mime: string; base64: string }): Promise<StoredCompulsoryFile>;
+  saveTeamColours(eventId: string, teamId: string, colours: TeamColours, revision?: number): Promise<TeamColours>;
+  saveTeamMemberPortraits(eventId: string, teamId: string, members: TeamMemberPortrait[], revision?: number): Promise<TeamMemberPortrait[]>;
+  uploadCompulsoryAsset(eventId: string, teamId: string, key: CompulsoryAssetKey, file: { name: string; mime: string; base64: string }, revision?: number): Promise<StoredCompulsoryFile>;
+  downloadCompulsoryAsset(eventId: string, teamId: string, key: CompulsoryAssetKey): Promise<StoredCompulsoryFile>;
   deleteCompulsoryAsset(eventId: string, teamId: string, key: CompulsoryAssetKey): Promise<void>;
 }

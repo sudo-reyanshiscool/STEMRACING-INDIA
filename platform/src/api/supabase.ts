@@ -16,7 +16,8 @@ import {
   type StoredCompulsoryFile,
   type TeamCompulsoryAssets,
   validateTeamColours,
-  extractPngDimensionsFromBase64,
+  validateCompulsoryFile,
+  validateMemberPortraits,
   computeCompulsoryAssetStatus,
 } from './compulsory-assets';
 import { localStorageKV, memoryKV } from './queue';
@@ -80,19 +81,6 @@ export interface SupabaseApiOptions {
 
 /** The adapter over an existing client. Split from createSupabaseApi so tests can drive it with a scripted client. */
 export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: SupabaseApiOptions = {}): Api {
-  const compulsoryMem = new Map<string, string>();
-  const getCompulsoryItem = (k: string): string | null => {
-    try {
-      if (typeof localStorage !== 'undefined') return localStorage.getItem(`compulsory:${k}`);
-    } catch {}
-    return compulsoryMem.get(k) ?? null;
-  };
-  const setCompulsoryItem = (k: string, v: string): void => {
-    try {
-      if (typeof localStorage !== 'undefined') localStorage.setItem(`compulsory:${k}`, v);
-    } catch {}
-    compulsoryMem.set(k, v);
-  };
   const pageSize = options.pageSize ?? PAGE_SIZE;
   const toSession = (u: { id: string; email?: string | null } | null | undefined): Session | null =>
     u ? { userId: u.id, email: (u.email ?? '').toLowerCase() } : null;
@@ -713,120 +701,35 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
       return res;
     },
     async getCompulsoryAssets(eventId, teamId) {
-      const stored = getCompulsoryItem(`${eventId}:${teamId}`);
-      let raw: Partial<TeamCompulsoryAssets> = {};
-      if (stored) {
-        try { raw = JSON.parse(stored); } catch {}
-      }
-      if (!raw.teamLogo) {
-        try {
-          const files = (ok(await guard(() => sb.rpc('list_team_files', { p_event: eventId }))) as any[]) || [];
-          const logo = files.find(f => f.teamId === teamId && f.kind === 'logo');
-          if (logo) {
-            raw.teamLogo = {
-              name: logo.name,
-              mime: logo.mime,
-              size: logo.size,
-              updatedAt: logo.updatedAt,
-            };
-          }
-        } catch {}
-      }
-      if (!raw.officialPhoto) {
-        try {
-          const photos = (ok(await guard(() => sb.rpc('list_team_photos', { p_event: eventId }))) as any[]) || [];
-          const p = photos.find(p => p.team_id === teamId);
-          if (p) raw.officialPhoto = toTeamPhotoRow(p);
-        } catch {}
-      }
-      return computeCompulsoryAssetStatus(eventId, teamId, raw);
+      const [raw,photos]=await Promise.all([
+        guard(()=>sb.rpc('get_compulsory_assets',{p_event:eventId,p_team:teamId})).then(ok) as Promise<Partial<TeamCompulsoryAssets>>,
+        guard(()=>sb.rpc('list_team_photos',{p_event:eventId})).then(ok) as Promise<any[]>,
+      ]);
+      const photo=photos.find(p=>(p.teamId??p.team_id)===teamId);
+      return computeCompulsoryAssetStatus(eventId,teamId,{...raw,officialPhoto:photo?toTeamPhotoRow(photo):undefined});
     },
-    async saveTeamColours(eventId, teamId, colours) {
-      const guide = ok(await guard(() => sb.rpc('submission_guide_state', {p_event:eventId})));
-      if (guide.required && !guide.complete) throw new ApiError('guide-required','Watch the full submission guide before uploading.');
-      const valid = validateTeamColours(colours);
-      const key = `${eventId}:${teamId}`;
-      const stored = getCompulsoryItem(key);
-      let raw: Partial<TeamCompulsoryAssets> = {};
-      if (stored) {
-        try { raw = JSON.parse(stored); } catch {}
-      }
-      raw.teamColours = valid;
-      setCompulsoryItem(key, JSON.stringify(raw));
+    async saveTeamColours(eventId, teamId, colours, revision) {
+      const valid=validateTeamColours(colours);
+      ok(await guard(()=>sb.rpc('save_team_media_details',{p_event:eventId,p_team:teamId,p_key:'team_colours',p_value:valid,p_revision:revision??null})));
       return valid;
     },
-    async saveTeamMemberPortraits(eventId, teamId, members) {
-      const guide = ok(await guard(() => sb.rpc('submission_guide_state', {p_event:eventId})));
-      if (guide.required && !guide.complete) throw new ApiError('guide-required','Watch the full submission guide before uploading.');
-      if (!Array.isArray(members)) throw new ApiError('invalid', 'Provide a list of team members.');
-      const key = `${eventId}:${teamId}`;
-      const stored = getCompulsoryItem(key);
-      let raw: Partial<TeamCompulsoryAssets> = {};
-      if (stored) {
-        try { raw = JSON.parse(stored); } catch {}
-      }
-      raw.memberPortraits = members;
-      setCompulsoryItem(key, JSON.stringify(raw));
-      return members;
+    async saveTeamMemberPortraits(eventId, teamId, members, revision) {
+      const valid=validateMemberPortraits(members);
+      ok(await guard(()=>sb.rpc('save_team_media_details',{p_event:eventId,p_team:teamId,p_key:'member_portraits',p_value:valid,p_revision:revision??null})));
+      return valid;
     },
-    async uploadCompulsoryAsset(eventId, teamId, assetKey, file) {
-      const guide = ok(await guard(() => sb.rpc('submission_guide_state', {p_event:eventId})));
-      if (guide.required && !guide.complete) throw new ApiError('guide-required','Watch the full submission guide before uploading.');
-      const key = `${eventId}:${teamId}`;
-      const stored = getCompulsoryItem(key);
-      let raw: Partial<TeamCompulsoryAssets> = {};
-      if (stored) {
-        try { raw = JSON.parse(stored); } catch {}
-      }
-
-      let width: number | null = null;
-      let height: number | null = null;
-      if (file.mime === 'image/png') {
-        const dims = extractPngDimensionsFromBase64(file.base64);
-        if (dims) {
-          width = dims.width;
-          height = dims.height;
-        }
-      }
-
-      const size = Math.round((file.base64.length * 3) / 4);
-      const item: StoredCompulsoryFile = {
-        name: file.name,
-        mime: file.mime,
-        size,
-        width,
-        height,
-        base64: file.base64,
-        updatedAt: new Date().toISOString(),
-      };
-
-      switch (assetKey) {
-        case 'team_logo': raw.teamLogo = item; break;
-        case 'car_render_fl': raw.carRenderFL = item; break;
-        case 'car_render_fr': raw.carRenderFR = item; break;
-        case 'car_model_3d': raw.carModel3D = item; break;
-        case 'model_materials': raw.modelMaterials = item; break;
-      }
-
-      setCompulsoryItem(key, JSON.stringify(raw));
-      return item;
+    async uploadCompulsoryAsset(eventId, teamId, assetKey, file, revision) {
+      validateCompulsoryFile(assetKey,file);
+      ok(await guard(()=>sb.rpc('upload_compulsory_asset',{p_event:eventId,p_team:teamId,p_kind:assetKey,p_input:file,p_revision:revision??null})));
+      const state=ok(await guard(()=>sb.rpc('get_compulsory_assets',{p_event:eventId,p_team:teamId}))) as TeamCompulsoryAssets;
+      const field=({team_logo:'teamLogo',car_render_fl:'carRenderFL',car_render_fr:'carRenderFR',car_model_3d:'carModel3D',model_materials:'modelMaterials'} as const)[assetKey as 'team_logo'];
+      return state[field]!;
     },
-    async deleteCompulsoryAsset(eventId, teamId, assetKey) {
-      const key = `${eventId}:${teamId}`;
-      const stored = getCompulsoryItem(key);
-      if (!stored) return;
-      let raw: Partial<TeamCompulsoryAssets> = {};
-      try { raw = JSON.parse(stored); } catch {}
-      switch (assetKey) {
-        case 'team_logo': delete raw.teamLogo; break;
-        case 'car_render_fl': delete raw.carRenderFL; break;
-        case 'car_render_fr': delete raw.carRenderFR; break;
-        case 'car_model_3d': delete raw.carModel3D; break;
-        case 'model_materials': delete raw.modelMaterials; break;
-        case 'team_colours': delete raw.teamColours; break;
-        case 'member_portraits': delete raw.memberPortraits; break;
-      }
-      setCompulsoryItem(key, JSON.stringify(raw));
+    async downloadCompulsoryAsset(eventId,teamId,assetKey) {
+      return ok(await guard(()=>sb.rpc('download_compulsory_asset',{p_event:eventId,p_team:teamId,p_kind:assetKey}))) as StoredCompulsoryFile;
+    },
+    async deleteCompulsoryAsset(eventId,teamId,assetKey) {
+      ok(await guard(()=>sb.rpc('delete_compulsory_asset',{p_event:eventId,p_team:teamId,p_kind:assetKey})));
     },
   };
 }

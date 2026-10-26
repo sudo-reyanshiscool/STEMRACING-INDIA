@@ -518,3 +518,21 @@ describe('portfolio confirmation delivery',()=>{
   expect(refused.calls).toHaveLength(1);
  });
 });
+
+describe('server-backed compulsory media',()=>{
+ it('loads authorised server state rather than browser storage, preserving camel-case photo metadata',async()=>{
+  const {api,calls}=fake(c=>({data:c.name==='get_compulsory_assets'?{revision:4,teamColours:{primary:'#ABCDEF',secondary:'#123456',accent:'#FFFFFF'},memberPortraits:[]}:[{id:'p',eventId:'e',teamId:'t',originalName:'team.png',processingStatus:'pending'}]}));
+  const state=await api.getCompulsoryAssets('e','t');
+  expect(state).toMatchObject({revision:4,officialPhoto:{id:'p',teamId:'t'},completedCount:2});
+  expect(calls.map(c=>c.name)).toEqual(['get_compulsory_assets','list_team_photos']);
+ });
+ it('sends colour updates with the expected revision and surfaces server permission failures',async()=>{
+  const {api,calls}=fake(()=>({data:null,error:{code:'42501',message:'only your team'}}));
+  await expect(api.saveTeamColours('e','t',{primary:'#fff',secondary:'#000',accent:'#abc'},3)).rejects.toMatchObject({code:'forbidden'});
+  expect(calls[0]).toMatchObject({name:'save_team_media_details',args:{p_event:'e',p_team:'t',p_key:'team_colours',p_revision:3,p_value:{primary:'#FFFFFF',secondary:'#000000',accent:'#AABBCC'}}});
+ });
+ it('does not claim success when the server cannot save or delete media',async()=>{
+  const {api}=fake(()=>({error:{code:'40001',message:'file changed'}}));
+  await expect(api.deleteCompulsoryAsset('e','t','car_render_fl')).rejects.toMatchObject({code:'conflict'});
+ });
+});

@@ -1,3 +1,5 @@
+import {readFileSync} from 'node:fs';
+const portrait={fileName:'portrait.png',photoMime:'image/png',photoBase64:'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='};
 import { describe, expect, it } from 'vitest';
 import {
   COMPULSORY_ASSET_SPECS,
@@ -75,7 +77,7 @@ describe('Compulsory Submission Assets', () => {
       modelMaterials: { name: 'materials.zip', mime: 'application/zip', size: 4000, updatedAt: '' },
       officialPhoto: { id: 'p1' } as any,
       teamColours: { primary: '#E6007E', secondary: '#312783', accent: '#FCBC00' },
-      memberPortraits: [{ id: 'm1', name: 'Aarav', role: 'Driver' }],
+      memberPortraits: [{ id: 'm1', name: 'Aarav', role: 'Driver',...portrait }],
     });
     expect(fullStatus.completedCount).toBe(8);
     expect(fullStatus.isAllCompleted).toBe(true);
@@ -98,8 +100,8 @@ describe('Compulsory Submission Assets', () => {
 
     // Save member portraits
     const members = await api.saveTeamMemberPortraits(event.id, team.id, [
-      { id: '1', name: 'Aarav Sharma', role: 'Team Principal' },
-      { id: '2', name: 'Ananya Patel', role: 'Chief Engineer' },
+      { id: '1', name: 'Aarav Sharma', role: 'Team Principal',...portrait },
+      { id: '2', name: 'Ananya Patel', role: 'Chief Engineer',...portrait },
     ]);
     expect(members).toHaveLength(2);
 
@@ -108,7 +110,7 @@ describe('Compulsory Submission Assets', () => {
     const uploaded = await api.uploadCompulsoryAsset(event.id, team.id, 'car_render_fl', {
       name: 'render_fl.png',
       mime: 'image/png',
-      base64: dummyPng,
+      base64: readFileSync(new URL('../fixtures/car-render.png',import.meta.url)).toString('base64'),
     });
     expect(uploaded.name).toBe('render_fl.png');
 

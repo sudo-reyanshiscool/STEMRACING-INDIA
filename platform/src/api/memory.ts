@@ -11,7 +11,8 @@ import {
   type StoredCompulsoryFile,
   type TeamCompulsoryAssets,
   validateTeamColours,
-  extractPngDimensionsFromBase64,
+  validateMemberPortraits,
+  validateCompulsoryFile,
   computeCompulsoryAssetStatus,
 } from './compulsory-assets';
 import { defaultRacingSetup, validateSetup, reactionPairings, type RacingSetup, type RacingSetupInput } from '../racing/competition';
@@ -1453,7 +1454,7 @@ export class MemoryApi implements Api {
     if ((existing?.revision ?? 0) !== revision) throw new ApiError('conflict', 'Photograph was modified; reload');
 
     const binary = atob(input.base64);
-    const dims = extractDimensions(binary) ?? { width: input.width ?? 3840, height: input.height ?? 2160 };
+    const dims = extractDimensions(binary);if(!dims)throw new ApiError('invalid','Invalid photograph dimensions.');
     const curVer = (existing?.version ?? 0) + 1;
     const curRev = (existing?.revision ?? 0) + 1;
     const photoId = existing?.id ?? nid('photo');
@@ -1567,18 +1568,19 @@ export class MemoryApi implements Api {
   async completePhotoProcessing(jobId: string, status: 'completed' | 'failed', cutoutBase64?: string, error?: string): Promise<boolean> {
     const job = this.photoJobs.find(j => j.id === jobId);
     if (!job) return false;
-    job.status = status;
-    job.error = error;
+    this.require(job.eventId,'organiser','chair');this.frozen(job.eventId,'photo processing');
     const p = this.teamPhotos.find(p => p.id === job.photoId);
-    if (!p) return false;
+    if (!p||p.version!==job.version||!['pending','processing'].includes(job.status)) return false;
 
     if (status === 'completed') {
-      const b64 = cutoutBase64 || p.originalBase64;
+      if(!cutoutBase64)throw new ApiError('invalid','Processed PNG required');
+      const b64=cutoutBase64;validatePhotoUpload({name:'cutout.png',mime:'image/png',base64:b64,mediaConsent:true});
+      const dims=extractDimensions(atob(b64));if(!dims)throw new ApiError('invalid','Invalid processed PNG');
       p.processedPath = `team-photos/${job.eventId}/${job.teamId}/v${job.version}/processed.png`;
       p.processedBase64 = b64;
       p.processedSize = Math.floor(b64.length * 0.75);
-      p.processedWidth = p.originalWidth;
-      p.processedHeight = p.originalHeight;
+      p.processedWidth = dims.width;
+      p.processedHeight = dims.height;
       p.processingStatus = 'completed';
       p.processedAt = new Date().toISOString();
       p.processingError = null;
@@ -1587,12 +1589,12 @@ export class MemoryApi implements Api {
       p.processingStatus = 'failed';
       p.processingError = error ?? 'Background removal failed';
     }
-    this.version++;
+    job.status=status;job.error=error;this.version++;
     return true;
   }
 
   async approveTeamPhoto(eventId: string, teamId: string, notes?: string) {
-    this.require(eventId, 'organiser', 'chair');
+    this.require(eventId, 'organiser', 'chair');this.frozen(eventId,'team photographs');
     const p = this.teamPhotos.find(p => p.eventId === eventId && p.teamId === teamId);
     if (!p) throw new ApiError('not-found', 'Photograph not found');
     if (!p.processedBase64 && !p.approvedBase64) throw new ApiError('locked', 'Cannot approve before background removal');
@@ -1630,7 +1632,7 @@ export class MemoryApi implements Api {
   }
 
   async rejectTeamPhoto(eventId: string, teamId: string, reason?: string) {
-    this.require(eventId, 'organiser', 'chair');
+    this.require(eventId, 'organiser', 'chair');this.frozen(eventId,'team photographs');
     const p = this.teamPhotos.find(p => p.eventId === eventId && p.teamId === teamId);
     if (!p) throw new ApiError('not-found', 'Photograph not found');
     p.approvalStatus = 'rejected';
@@ -1640,7 +1642,7 @@ export class MemoryApi implements Api {
   }
 
   async uploadCorrectedTeamPhoto(eventId: string, teamId: string, input: { base64: string; notes?: string }) {
-    this.require(eventId, 'organiser', 'chair');
+    this.require(eventId, 'organiser', 'chair');this.frozen(eventId,'team photographs');
     const p = this.teamPhotos.find(p => p.eventId === eventId && p.teamId === teamId);
     if (!p) throw new ApiError('not-found', 'Photograph not found');
 
@@ -1676,7 +1678,7 @@ export class MemoryApi implements Api {
   }
 
   async restoreTeamPhotoVersion(eventId: string, teamId: string, historyId: string) {
-    this.require(eventId, 'organiser', 'chair');
+    this.require(eventId, 'organiser', 'chair');this.frozen(eventId,'team photographs');
     const p = this.teamPhotos.find(p => p.eventId === eventId && p.teamId === teamId);
     if (!p) throw new ApiError('not-found', 'Photograph not found');
     const h = this.teamPhotoHistory.find(h => h.id === historyId && h.eventId === eventId && h.teamId === teamId);
@@ -1733,6 +1735,7 @@ export class MemoryApi implements Api {
   }
 
   async getBroadcastTeamPhoto(eventId: string, teamId: string): Promise<BroadcastPhoto> {
+    this.mediaAccess(eventId,teamId);
     const team = this.teams.find(t => t.eventId === eventId && t.id === teamId);
     if (!team) throw new ApiError('not-found', 'Team not found');
 
@@ -1754,143 +1757,69 @@ export class MemoryApi implements Api {
     };
   }
 
-  async getCompulsoryAssets(eventId: string, teamId: string): Promise<TeamCompulsoryAssets> {
-    const key = `${eventId}:${teamId}`;
-    const raw = this.compulsoryAssets.get(key) || { eventId, teamId };
-    if (!raw.teamLogo) {
-      const logo = this.teamFiles.find(f => f.eventId === eventId && f.teamId === teamId && f.kind === 'logo');
-      if (logo) {
-        raw.teamLogo = {
-          name: logo.name,
-          mime: logo.mime,
-          size: logo.size,
-          base64: logo.base64,
-          updatedAt: logo.updatedAt,
-        };
-      }
-    }
-    if (!raw.officialPhoto) {
-      const photo = this.teamPhotos.find(p => p.eventId === eventId && p.teamId === teamId);
-      if (photo) {
-        raw.officialPhoto = photo;
-      }
-    }
-    return computeCompulsoryAssetStatus(eventId, teamId, raw);
+  private mediaAccess(eventId:string,teamId:string,write=false) {
+    this.require(eventId,...(write?['organiser','chair','team_manager'] as const:['organiser','chair','spectator','team_manager'] as const));
+    this.teamOrThrow(eventId,teamId);
+    if(!this.has(eventId,'organiser','chair','spectator')&&!this.rolesOf(eventId).some(r=>r.role==='team_manager'&&r.teamId===teamId))throw new ApiError('forbidden','Only your own team');
+    if(write)this.frozen(eventId,'team media');
   }
-
-  async saveTeamColours(eventId: string, teamId: string, colours: TeamColours): Promise<TeamColours> {
-    await this.requireSubmissionGuide(eventId);
-    this.require(eventId, 'organiser', 'chair', 'team_manager');
-    this.frozen(eventId, 'team colours');
-    const valid = validateTeamColours(colours);
-    const key = `${eventId}:${teamId}`;
-    const current = this.compulsoryAssets.get(key) || { eventId, teamId };
-    current.teamColours = valid;
-    this.compulsoryAssets.set(key, current);
-    this.version++;
-    return valid;
+  async getCompulsoryAssets(eventId:string,teamId:string):Promise<TeamCompulsoryAssets> {
+    this.mediaAccess(eventId,teamId);
+    const raw=copy(this.compulsoryAssets.get(`${eventId}:${teamId}`)??{});
+    const logo=this.teamFiles.find(f=>f.eventId===eventId&&f.teamId===teamId&&f.kind==='logo');
+    raw.teamLogo=logo?{name:logo.name,mime:logo.mime,size:logo.size,revision:logo.revision,updatedAt:logo.updatedAt}:undefined;
+    const photo=this.teamPhotos.find(p=>p.eventId===eventId&&p.teamId===teamId);raw.officialPhoto=photo?copy(photo):undefined;
+    return computeCompulsoryAssetStatus(eventId,teamId,raw);
   }
-
-  async saveTeamMemberPortraits(eventId: string, teamId: string, members: TeamMemberPortrait[]): Promise<TeamMemberPortrait[]> {
-    await this.requireSubmissionGuide(eventId);
-    this.require(eventId, 'organiser', 'chair', 'team_manager');
-    this.frozen(eventId, 'member portraits');
-    if (!Array.isArray(members)) throw new ApiError('invalid', 'Provide a list of team members.');
-    const key = `${eventId}:${teamId}`;
-    const current = this.compulsoryAssets.get(key) || { eventId, teamId };
-    current.memberPortraits = members;
-    this.compulsoryAssets.set(key, current);
-    this.version++;
-    return members;
+  private mediaRevision(current:Partial<TeamCompulsoryAssets>,revision?:number) {
+    if(revision!==undefined&&revision!==(current.revision??0))throw new ApiError('conflict','Media changed. Reload before saving.');
   }
-
-  async uploadCompulsoryAsset(
-    eventId: string,
-    teamId: string,
-    assetKey: CompulsoryAssetKey,
-    file: { name: string; mime: string; base64: string }
-  ): Promise<StoredCompulsoryFile> {
-    await this.requireSubmissionGuide(eventId);
-    this.require(eventId, 'organiser', 'chair', 'team_manager');
-    this.frozen(eventId, 'compulsory assets');
-    const key = `${eventId}:${teamId}`;
-    const current = this.compulsoryAssets.get(key) || { eventId, teamId };
-
-    let width: number | null = null;
-    let height: number | null = null;
-    if (file.mime === 'image/png') {
-      const dims = extractPngDimensionsFromBase64(file.base64);
-      if (dims) {
-        width = dims.width;
-        height = dims.height;
-      }
-    }
-
-    const size = Math.round((file.base64.length * 3) / 4);
-    const stored: StoredCompulsoryFile = {
-      name: file.name,
-      mime: file.mime,
-      size,
-      width,
-      height,
-      base64: file.base64,
-      updatedAt: new Date().toISOString(),
-    };
-
-    switch (assetKey) {
-      case 'team_logo':
-        current.teamLogo = stored;
-        break;
-      case 'car_render_fl':
-        current.carRenderFL = stored;
-        break;
-      case 'car_render_fr':
-        current.carRenderFR = stored;
-        break;
-      case 'car_model_3d':
-        current.carModel3D = stored;
-        break;
-      case 'model_materials':
-        current.modelMaterials = stored;
-        break;
-    }
-
-    this.compulsoryAssets.set(key, current);
-    this.version++;
-    return stored;
+  async saveTeamColours(eventId:string,teamId:string,colours:TeamColours,revision?:number) {
+    this.mediaAccess(eventId,teamId,true);await this.requireSubmissionGuide(eventId);
+    const key=`${eventId}:${teamId}`,current=this.compulsoryAssets.get(key)??{};
+    this.mediaRevision(current,revision);const valid=validateTeamColours(colours);
+    this.compulsoryAssets.set(key,{...current,teamColours:valid,revision:(current.revision??0)+1});this.version++;return copy(valid);
   }
-
-  async deleteCompulsoryAsset(eventId: string, teamId: string, assetKey: CompulsoryAssetKey): Promise<void> {
-    this.require(eventId, 'organiser', 'chair', 'team_manager');
-    this.frozen(eventId, 'compulsory assets');
-    const key = `${eventId}:${teamId}`;
-    const current = this.compulsoryAssets.get(key) || { eventId, teamId };
-
-    switch (assetKey) {
-      case 'team_logo':
-        delete current.teamLogo;
-        break;
-      case 'car_render_fl':
-        delete current.carRenderFL;
-        break;
-      case 'car_render_fr':
-        delete current.carRenderFR;
-        break;
-      case 'car_model_3d':
-        delete current.carModel3D;
-        break;
-      case 'model_materials':
-        delete current.modelMaterials;
-        break;
-      case 'team_colours':
-        delete current.teamColours;
-        break;
-      case 'member_portraits':
-        delete current.memberPortraits;
-        break;
+  async saveTeamMemberPortraits(eventId:string,teamId:string,members:TeamMemberPortrait[],revision?:number) {
+    this.mediaAccess(eventId,teamId,true);await this.requireSubmissionGuide(eventId);
+    const key=`${eventId}:${teamId}`,current=this.compulsoryAssets.get(key)??{};
+    this.mediaRevision(current,revision);const valid=validateMemberPortraits(members);
+    this.compulsoryAssets.set(key,{...current,memberPortraits:valid,revision:(current.revision??0)+1});this.version++;return copy(valid);
+  }
+  async uploadCompulsoryAsset(eventId:string,teamId:string,assetKey:CompulsoryAssetKey,file:{name:string;mime:string;base64:string},revision?:number):Promise<StoredCompulsoryFile> {
+    this.mediaAccess(eventId,teamId,true);await this.requireSubmissionGuide(eventId);
+    const checked=validateCompulsoryFile(assetKey,file);
+    if(assetKey==='team_logo'){
+      const old=this.teamFiles.find(f=>f.eventId===eventId&&f.teamId===teamId&&f.kind==='logo');
+      await this.uploadTeamFile(eventId,teamId,revision??old?.revision??0,{...file,kind:'logo'});return this.downloadCompulsoryAsset(eventId,teamId,assetKey);
     }
-
-    this.compulsoryAssets.set(key, current);
+    const key=`${eventId}:${teamId}`,current=this.compulsoryAssets.get(key)??{};
+    const field=({car_render_fl:'carRenderFL',car_render_fr:'carRenderFR',car_model_3d:'carModel3D',model_materials:'modelMaterials'} as const)[assetKey as 'car_render_fl'];
+    const old=current[field];if(revision!==undefined&&revision!==(old?.revision??0))throw new ApiError('conflict','File changed. Reload before saving.');
+    const stored={...file,...checked,revision:(old?.revision??0)+1,updatedAt:new Date().toISOString()};
+    this.compulsoryAssets.set(key,{...current,[field]:stored});this.version++;return copy(stored);
+  }
+  async downloadCompulsoryAsset(eventId:string,teamId:string,assetKey:CompulsoryAssetKey):Promise<StoredCompulsoryFile> {
+    this.mediaAccess(eventId,teamId);
+    if(assetKey==='team_logo'){
+      const f=this.teamFiles.find(f=>f.eventId===eventId&&f.teamId===teamId&&f.kind==='logo');
+      if(f)return copy({name:f.name,mime:f.mime,size:f.size,revision:f.revision,updatedAt:f.updatedAt,base64:f.base64});
+    }
+    const field=({car_render_fl:'carRenderFL',car_render_fr:'carRenderFR',car_model_3d:'carModel3D',model_materials:'modelMaterials'} as const)[assetKey as 'car_render_fl'];
+    const f=field?this.compulsoryAssets.get(`${eventId}:${teamId}`)?.[field]:undefined;
+    if(!f)throw new ApiError('not-found','Media file unavailable');return copy(f);
+  }
+  async deleteCompulsoryAsset(eventId:string,teamId:string,assetKey:CompulsoryAssetKey) {
+    this.mediaAccess(eventId,teamId,true);
+    if(assetKey==='team_logo')this.teamFiles=this.teamFiles.filter(f=>!(f.eventId===eventId&&f.teamId===teamId&&f.kind==='logo'));
+    else if(assetKey==='official_photo')await this.deleteTeamPhoto(eventId,teamId);
+    else {
+      const field=({car_render_fl:'carRenderFL',car_render_fr:'carRenderFR',car_model_3d:'carModel3D',model_materials:'modelMaterials',team_colours:'teamColours',member_portraits:'memberPortraits'} as const)[assetKey as 'car_render_fl'];
+      if(!field)throw new ApiError('invalid','Invalid media category');
+      const key=`${eventId}:${teamId}`,current=this.compulsoryAssets.get(key)??{};delete current[field];
+      if(assetKey==='team_colours'||assetKey==='member_portraits')current.revision=(current.revision??0)+1;
+      this.compulsoryAssets.set(key,current);
+    }
     this.version++;
   }
 }

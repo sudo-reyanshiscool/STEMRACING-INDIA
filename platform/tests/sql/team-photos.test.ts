@@ -48,8 +48,8 @@ describe('0041_team_photos migration', () => {
     expect(photos.rows[0].processingStatus).toBe('pending');
     expect(photos.rows[0].approvalStatus).toBe('pending');
     expect(photos.rows[0].mediaConsent).toBe(true);
-    expect(photos.rows[0].originalWidth).toBe(3840);
-    expect(photos.rows[0].originalHeight).toBe(2160);
+    expect(photos.rows[0].originalWidth).toBe(1);
+    expect(photos.rows[0].originalHeight).toBe(1);
 
     // Verify job queued in photo_processing_jobs
     const jobs = await db.query(
@@ -135,7 +135,7 @@ describe('0041_team_photos migration', () => {
     expect(p1.approvalStatus).toBe('pending');
 
     // Broadcast photo before approval is NOT available
-    const bcastBefore = await as(db, 'outsider', (q) =>
+    const bcastBefore = await as(db, 'organiser', (q) =>
       q('select get_broadcast_team_photo($1, $2) as res', [world.eventId, world.team1]),
     );
     expect(bcastBefore.rows[0].res.isApprovedPhoto).toBe(false);
@@ -150,7 +150,7 @@ describe('0041_team_photos migration', () => {
     );
 
     // Broadcast photo is now approved and accessible
-    const bcastAfter = await as(db, 'outsider', (q) =>
+    const bcastAfter = await as(db, 'organiser', (q) =>
       q('select get_broadcast_team_photo($1, $2) as res', [world.eventId, world.team1]),
     );
     expect(bcastAfter.rows[0].res.isApprovedPhoto).toBe(true);

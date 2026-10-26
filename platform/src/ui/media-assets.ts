@@ -407,17 +407,16 @@ export async function mediaAssetsScreen(ctx: Ctx, eventId: string): Promise<HTML
   }
 
   // Single photo processing execution
-  async function processSinglePhoto(teamId: string) {
+  async function processSinglePhoto(teamId:string) {
+    const {jobId}=await ctx.api.queuePhotoProcessing(eventId,teamId);
     try {
-      const orig = await ctx.api.downloadTeamPhoto(eventId, teamId, 'original');
-      showMessage(`Running AI background removal for team ${teamId}…`);
-      const { cutoutBase64 } = await executeBackgroundRemoval(orig.base64);
-      // Find active job if queued, or complete directly
-      await ctx.api.completePhotoProcessing(teamId, 'completed', cutoutBase64);
-      showMessage(`AI background removal complete for team.`);
-    } catch (err) {
-      showMessage(`Background removal failed: ${errorText(err)}`, true);
-      throw err;
+      const orig=await ctx.api.downloadTeamPhoto(eventId,teamId,'original');
+      const {cutoutBase64}=await executeBackgroundRemoval(orig.base64);
+      if(!await ctx.api.completePhotoProcessing(jobId,'completed',cutoutBase64))throw new Error('The photograph changed during processing. Reload and retry.');
+      showMessage('AI background removal complete. Review the cutout before approval.');
+    } catch(err) {
+      try{await ctx.api.completePhotoProcessing(jobId,'failed',undefined,errorText(err));}catch{/* Keep the original failure visible. */}
+      showMessage(`Background removal failed: ${errorText(err)}`,true);throw err;
     }
   }
 
@@ -438,9 +437,7 @@ export async function mediaAssetsScreen(ctx: Ctx, eventId: string): Promise<HTML
       while (queue.length > 0 && alive) {
         const teamId = queue.shift()!;
         try {
-          const orig = await ctx.api.downloadTeamPhoto(eventId, teamId, 'original');
-          const { cutoutBase64 } = await executeBackgroundRemoval(orig.base64);
-          await ctx.api.completePhotoProcessing(teamId, 'completed', cutoutBase64);
+          await processSinglePhoto(teamId);
           done++;
         } catch {
           failed++;

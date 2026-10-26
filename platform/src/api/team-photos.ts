@@ -104,50 +104,17 @@ export function extractDimensions(binary: string | Uint8Array): { width: number;
 
 export const DEFAULT_WORKER_URL = 'http://127.0.0.1:5195';
 
-/**
- * Executes AI background removal on photo base64.
- * First tries communicating with the Python worker service at DEFAULT_WORKER_URL.
- * If the worker service is unreachable (e.g. offline or client-only mock),
- * falls back to generating a valid transparent PNG cutout so testing and mock modes succeed.
- */
-export async function executeBackgroundRemoval(
-  imageBase64: string,
-  options: { workerUrl?: string; timeoutMs?: number } = {},
-): Promise<{ cutoutBase64: string; width: number; height: number }> {
-  const workerUrl = options.workerUrl ?? DEFAULT_WORKER_URL;
-  const timeoutMs = options.timeoutMs ?? 25000;
-
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-    const res = await fetch(`${workerUrl}/remove-background`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ base64: imageBase64 }),
-      signal: controller.signal,
-    });
-    clearTimeout(timer);
-
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.base64) {
-        return { cutoutBase64: data.base64, width: data.width, height: data.height };
-      }
-    }
-  } catch {
-    // Worker not reachable or timed out; proceed to fallback
-  }
-
-  // Fallback: in headless or standalone browser mode without the Python service active,
-  // return a clean transparent 1x1 PNG or parsed dimensions to avoid failing the job.
-  const binary = atob(imageBase64);
-  const dims = extractDimensions(binary) ?? { width: 3840, height: 2160 };
-
-  // Valid 1x1 transparent RGBA PNG base64 fallback
-  const fallbackPng =
-    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
-
-  return { cutoutBase64: fallbackPng, width: dims.width, height: dims.height };
+/** The original remains saved when the processor is unavailable; never fabricate a cutout. */
+export async function executeBackgroundRemoval(imageBase64:string,options:{workerUrl?:string;timeoutMs?:number}={}):Promise<{cutoutBase64:string;width:number;height:number}> {
+ const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),options.timeoutMs??25000);
+ try {
+  const res=await fetch(`${options.workerUrl??DEFAULT_WORKER_URL}/remove-background`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({base64:imageBase64}),signal:controller.signal});
+  if(!res.ok)throw new Error('Processor failed');
+  const data=await res.json();
+  validatePhotoUpload({name:'cutout.png',mime:'image/png',base64:data?.base64,mediaConsent:true});
+  const dims=extractDimensions(atob(data.base64));
+  if(!dims||dims.width<1||dims.height<1||dims.width>16000||dims.height>16000)throw new Error('Invalid processor image');
+  return {cutoutBase64:data.base64,...dims};
+ }catch{throw new ApiError('network','Background removal is unavailable. Your original photograph is saved. Retry processing or upload a corrected PNG.');}
+ finally{clearTimeout(timer);}
 }
-
