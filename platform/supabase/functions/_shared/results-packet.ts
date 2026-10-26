@@ -1,8 +1,10 @@
+import type {ReportBranding} from './event-branding.ts';
 interface TeamResult {rank:number;teamId:string;number:string;name:string;total:number;penalties:number;subtotal:number;areas:Record<string,number|null>}
 export interface ReportArea {id:string;name:string;max:number;categoryId?:string;panel?:string|null;criteria:Array<{id:string;name:string;max:number;bands?:Array<{min:number;max:number;description?:string}>}>}
 export interface Benchmark {low:number;median:number;high:number}
 export interface ReportRace {number:number;label:string;phase:string;lane:number;car:string;status:string;totalMs:number|null;reactionMs:number|null}
 export interface ResultsPacket {
+ branding?:ReportBranding;
  released?:boolean;awardsConfirmed?:boolean;eventName:string;eventId:string;snapshotId:string;createdAt:string;ruleset:{id:string;categories?:Array<{id:string;name:string}>;areas:ReportArea[]};
  team:{id:string;number:string;name:string;school:string};teamResult:TeamResult;
  standings:Array<{rank:number;teamId:string;number:string;name:string;total:number;school?:string}>;

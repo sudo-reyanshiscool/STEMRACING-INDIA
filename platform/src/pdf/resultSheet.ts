@@ -1,8 +1,10 @@
+import {drawNationalLogo,type ReportBranding} from '../../supabase/functions/_shared/event-branding';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { CarSummary, Result, RuleClass, Status } from '../technical';
 
 export interface SheetInput {
+  branding?:ReportBranding;
   eventName: string;
   teamNumber: string;
   teamName: string;
@@ -56,7 +58,7 @@ export function buildResultSheet(i: SheetInput): jsPDF {
   // Header band: official full-colour white logo on carbon-shadow, 12 mm high with 6 mm clear space.
   doc.setFillColor(...CARBON_SHADOW);
   doc.rect(0, 0, W, 24, 'F');
-  if (i.logoDataUrl) {
+  if (!drawNationalLogo(doc,M,5,32,14,true,i.branding)&&i.logoDataUrl) {
     try {
       doc.addImage(i.logoDataUrl, 'PNG', M, 6, 24.2, 12);
     } catch {
@@ -161,10 +163,10 @@ export function buildResultSheet(i: SheetInput): jsPDF {
   return doc;
 }
 
-async function loadLogo(): Promise<string | undefined> {
+async function loadLogo(src='/brand/logo-full-colour-white.png'): Promise<string | undefined> {
   if (typeof window === 'undefined' || typeof fetch === 'undefined') return undefined;
   try {
-    const res = await fetch('/brand/logo-full-colour-white.png');
+    const res = await fetch(src);
     if (!res.ok) return undefined;
     const blob = await res.blob();
     return await new Promise<string>((resolve, reject) => {
@@ -179,6 +181,6 @@ async function loadLogo(): Promise<string | undefined> {
 }
 
 export async function downloadSheet(i: SheetInput): Promise<void> {
-  const logoDataUrl = i.logoDataUrl ?? (await loadLogo());
+  const logoDataUrl = i.logoDataUrl ?? (i.branding?.level==='national'?undefined:await loadLogo(i.branding?.level==='regional'?'/brand/logo-regional-finals-white.png':undefined));
   buildResultSheet({ ...i, logoDataUrl }).save(sheetFileName(i));
 }

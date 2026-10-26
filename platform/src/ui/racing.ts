@@ -63,7 +63,7 @@ export async function racingScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
     try {
       const { buildHeatsPdf, heatsFileName } = await import('../pdf/heatsPdf');
       const doc = buildHeatsPdf({
-        eventName: event.name,
+        eventName: event.name,branding:event.competitionLevel?await ctx.api.eventBranding(event.id):undefined,
         startsOn: event.startsOn,
         teams,
         races,
@@ -85,7 +85,7 @@ export async function racingScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
     try {
       const { buildHeatsPdf, heatsFileName } = await import('../pdf/heatsPdf');
       const doc = buildHeatsPdf({
-        eventName: event.name,
+        eventName: event.name,branding:event.competitionLevel?await ctx.api.eventBranding(event.id):undefined,
         startsOn: event.startsOn,
         teams,
         races,

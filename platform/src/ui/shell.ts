@@ -1,3 +1,4 @@
+import {eventLogoSource,type EventBranding} from '../api';
 import type { Session } from '../api';
 import { h } from './dom';
 import { themeSwitcher } from './theme';
@@ -8,6 +9,7 @@ export interface Shell {
   syncBar: HTMLElement;
   showcaseBar: HTMLElement;
   setLoading(loading: boolean): void;
+  setBranding(branding:EventBranding|null):void;
   setUser(session: Session | null, onSignOut: () => void, showcase?: boolean): void;
 }
 
@@ -34,6 +36,12 @@ export function mountShell(root: HTMLElement): Shell {
   );
   return {
     main,
+    setBranding(branding){
+      const home=root.querySelector<HTMLElement>('.brand-home')!;home.classList.toggle('brand-home--regional',branding?.level==='regional');
+      const light=home.querySelector<HTMLImageElement>('.brand-logo--light')!,dark=home.querySelector<HTMLImageElement>('.brand-logo--dark')!;
+      light.src=eventLogoSource(branding,false)??'/brand/logo-india-mono-black.png';dark.src=eventLogoSource(branding,true)??'/brand/logo-india-mono-white.png';
+      light.alt=dark.alt=branding?.level?`STEM Racing India · ${branding.level==='national'?'National':'Regional'} finals`:'STEM Racing India';
+    },
     syncBar,
     showcaseBar,
     setLoading(value) {

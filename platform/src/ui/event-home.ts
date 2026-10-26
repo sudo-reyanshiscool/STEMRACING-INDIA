@@ -1,3 +1,4 @@
+import {eventIdentity} from './event-branding';
 import {managerOnly,teamGarage} from './team-garage';
 import {spectatorOnly,SPECTATOR_PAGES} from './spectator';
 import { judgePageAllowed } from './judge-access';
@@ -43,6 +44,7 @@ export async function eventHomeScreen(ctx: Ctx, eventId: string): Promise<HTMLEl
     h('div', { class: 'stack' },
       h('a', { class: 'back', href: '#/' }, 'All events'),
       h('p', { class: 'eyebrow' }, [event.startsOn, event.resultsReleased ? 'Results released' : null].filter(Boolean).join(' · ')),
+      event.competitionLevel?eventIdentity(event,await ctx.api.eventBranding(event.id)):null,
       h('h1', null, event.name),
       mine.length > 0 ? h('p', { class: 'lead' }, `You are: ${mine.join('; ')}`) : null,
     ),

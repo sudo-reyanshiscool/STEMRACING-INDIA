@@ -18,3 +18,4 @@ export * from './compulsory-assets';
 export * from './submissions';
 
 export * from './submission-guide';
+export * from './event-branding';

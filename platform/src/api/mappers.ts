@@ -61,6 +61,7 @@ export function firstRow(v: unknown): Row {
 }
 
 export const toEventRow = (r: Row): EventRow => ({
+  ...(r.competition_level?{competitionLevel:r.competition_level as import('./event-branding').CompetitionLevel}:{}),
   id: r.id, name: r.name, startsOn: r.starts_on ?? null, ruleset: r.ruleset, resultsReleased: !!r.results_released,
 });
 export const toTeamRow = (r: Row): TeamRow => ({ id: r.id, eventId: r.event_id, number: r.number, name: r.name, school: r.school ?? '' });

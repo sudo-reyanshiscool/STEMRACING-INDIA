@@ -1,3 +1,4 @@
+import {eventIdentity} from './event-branding';
 import type { Ctx } from './ctx';
 import type { BroadcastPhoto } from '../api';
 import { h } from './dom';
@@ -15,9 +16,9 @@ export async function openArenaPairingModal(
   team2Id: string,
   options: ArenaModalOptions,
 ): Promise<void> {
-  const [photo1, photo2] = await Promise.all([
+  const [photo1, photo2,event] = await Promise.all([
     ctx.api.getBroadcastTeamPhoto(eventId, team1Id),
-    ctx.api.getBroadcastTeamPhoto(eventId, team2Id),
+    ctx.api.getBroadcastTeamPhoto(eventId, team2Id),ctx.api.getEvent(eventId),
   ]);
 
   const backdrop = h('div', {
@@ -68,6 +69,7 @@ export async function openArenaPairingModal(
         'font-family: var(--display, system-ui); font-size: clamp(32px, 4vw, 56px); font-weight: 700; font-style: italic; background: linear-gradient(90deg, #961B81 -10%, #E6007E 50%, #ED6D05 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;',
     }, options.label ? `${titleText} · ${options.label}` : titleText),
   );
+  if(event?.competitionLevel){const identity=eventIdentity(event,await ctx.api.eventBranding(eventId));if(identity)head.prepend(identity);}
   stage.append(head);
 
   // Competitor Card Render

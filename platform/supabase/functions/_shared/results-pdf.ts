@@ -28,12 +28,12 @@ function document(title:string,p:ResultsPacket,logo?:string,cover=false) {
  if(cover){
   doc.setFillColor(...ink);doc.rect(0,0,210,41,'F');
   for(let i=0;i<100;i++){doc.setFillColor(211,Math.round(i*.7),116-Math.round(i*.7));doc.rect(i*2.1,39,2.2,2,'F');}
-  drawEventLockup(doc,60,5,90,31,true);
+  drawEventLockup(doc,60,5,90,31,true,p.branding);
   doc.setFont('ReportDisplay','normal');doc.setFontSize(19);doc.setTextColor(...ink);doc.text(title,13,52);
   const y=identity(doc,p,13,59,184);
   (doc as jsPDF & {reportStartY:number}).reportStartY=y+6;
  }else{
-  drawEventLockup(doc,153,7.3,40,14);
+  drawEventLockup(doc,153,7.3,40,14,false,p.branding);
   doc.setTextColor(...ink);doc.setFont('CardBody','bold');doc.setFontSize(16);
   const lines=doc.splitTextToSize(text(title),139) as string[];doc.text(lines,13,16);
   const y=identity(doc,p,13,Math.max(29,16+lines.length*6),184);
@@ -90,7 +90,7 @@ export function buildStandingsPdf(p:ResultsPacket,logo?:string):jsPDF {
   const pages=doc.getNumberOfPages();
   for(let page=1;page<=pages;page++){
    doc.setPage(page);doc.addImage(RESULTS_BANNER,'JPEG',0,0,210,30,undefined,'FAST');doc.addImage(RESULTS_ACCENT,'JPEG',0,30,210,1.3,undefined,'FAST');
-   drawEventLockup(doc,70,3,70,24,true);
+   drawEventLockup(doc,70,3,70,24,true,p.branding);
    doc.addImage(RESULTS_ACCENT,'JPEG',14,283,182,.6,undefined,'FAST');
    doc.setFont('ReportBody','normal');doc.setFontSize(5.2);doc.setTextColor(...muted);
    const footer=doc.splitTextToSize(text(`${p.eventName} · Final points and award winners · ${date}${preview(p)?' · PREVIEW':''}`),160) as string[];

@@ -258,12 +258,12 @@ describe('hardening across the whole schema after 0004', () => {
       expect(f.pub, `${f.proname} public`).toBe(false);
     }
     const anon = fns.rows.filter((f) => f.anon).map((f) => f.proname);
-    expect(anon).toEqual(['event_active', 'event_released', 'has_role', 'ingest_denford', 'is_chair_or_organiser', 'is_member', 'judges_panel', 'leads_panel', 'manages_team', 'public_standings', 'sees_all_teams']);
+    expect(anon).toEqual(['event_active', 'event_branding', 'event_released', 'has_role', 'ingest_denford', 'is_chair_or_organiser', 'is_member', 'judges_panel', 'leads_panel', 'manages_team', 'public_standings', 'sees_all_teams']);
     const auth = fns.rows.filter((f) => f.auth && !f.anon).map((f) => f.proname);
     expect(auth).toEqual([
       'acknowledge_result_email_retry', 'apply_judge_draw', 'apply_team_number_draw', 'approve_team_photo',
       'can_create_event', 'can_read_contact_audit', 'can_read_contact_broadcast', 'claim_invitations',
-      'complete_photo_processing', 'confirm_event_awards', 'create_event', 'delete_compulsory_asset', 'delete_event', 'delete_team',
+      'complete_photo_processing', 'confirm_event_awards', 'create_branded_event', 'create_event', 'delete_compulsory_asset', 'delete_event', 'delete_team',
       'delete_team_photo', 'download_compulsory_asset', 'download_team_file', 'download_team_photo', 'draw_lots_state', 'effective_event_roles',
       'get_broadcast_team_photo', 'get_compulsory_assets', 'import_teams', 'inspection_scope', 'invite_organiser', 'invite_platform_member',
       'is_conflicted', 'is_platform_owner', 'judge_can_score', 'judges_panel_any', 'leads_panel_any',

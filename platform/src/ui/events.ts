@@ -1,3 +1,5 @@
+import {ApiError,COMPETITION_LEVEL_LABEL,validateEventLogos,type CompetitionLevel} from '../api';
+import {readEventLogo} from './event-branding';
 import {managerOnly} from './team-garage';
 import { buttonBusy } from './button-busy';
 import { organiserControls } from './organisers';
@@ -18,10 +20,17 @@ export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
   ctx.onLeave(() => { alive = false; });
   const error = h('p', { class: 'alert', role: 'alert', hidden: true });
   const submitBtn = h('button', { class: 'btn btn--primary', type: 'submit' }, 'Create event');
+  const level=h('select',{name:'level','aria-label':'Competition level'},h('option',{value:'regional'},'Regional finals'),h('option',{value:'national'},'National finals'));
+  const regionalPreview=h('div',{class:'event-logo-preview event-logo-preview--dark'},h('img',{src:'/brand/logo-regional-finals-white.png',alt:'Regional finals logo'}));
+  const slots=(['light','dark'] as const).map(key=>({key,input:h('input',{type:'file',accept:'.png,image/png','aria-label':`Nationals logo for ${key} backgrounds`}),preview:h('div',{class:`event-logo-preview ${key==='dark'?'event-logo-preview--dark':''}`},h('span',{class:'muted'},`${key==='dark'?'Dark':'Light'} background preview`))}));
+  const nationals=h('fieldset',{class:'event-logo-set stack',hidden:true},h('legend',null,'This event’s nationals logos'),h('p',{class:'muted small'},'PNG files, up to 2 MB each. Upload the logo intended for each background. This set belongs to this event.'),h('div',{class:'event-logo-set__slots'},slots.map(slot=>h('label',{class:'field'},`Logo for ${slot.key} backgrounds`,slot.input,slot.preview))));
+  level.onchange=()=>{nationals.hidden=level.value!=='national';regionalPreview.hidden=level.value!=='regional';};
+  slots.forEach(slot=>{let request=0;slot.input.onchange=async()=>{const current=++request;const file=slot.input.files?.[0];slot.preview.replaceChildren();if(!file)return;try{const logo=await readEventLogo(file);validateEventLogos({light:logo,dark:logo});if(current===request)slot.preview.append(h('img',{src:`data:image/png;base64,${logo.base64}`,alt:`Nationals logo on a ${slot.key} background`}));}catch(err){if(current===request)slot.preview.append(h('span',{class:'alert'},err instanceof Error?err.message:'Check the logo file.'));}};});
   const form = h('form', { class: 'form', novalidate: true },
     h('label', { class: 'field' }, h('span', { class: 'field__label' }, 'Event name'), h('input', { name: 'name', required: true, maxlength: 120, autocomplete: 'off' })),
     h('label', { class: 'field' }, h('span', { class: 'field__label' }, 'Date'), h('input', { name: 'date', type: 'date', value: today() })),
-    submitBtn,
+    h('label',{class:'field'},h('span',{class:'field__label'},'Competition level'),level),
+    regionalPreview,nationals,submitBtn,
   );
   let busy = false;
   const deletedSection = h('details', { class: 'section' }, h('summary', null, `Deleted events (${deleted.length})`));
@@ -50,10 +59,13 @@ export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
     busy = true;
     const finish = buttonBusy(submitBtn, 'Creating event…');
     try {
-      const ev = await ctx.api.createEvent({ name: String(f.get('name')), startsOn: String(f.get('date') ?? '') || undefined });
+      const competitionLevel=level.value as CompetitionLevel;
+      let logos;
+      if(competitionLevel==='national'){const light=slots[0].input.files?.[0],dark=slots[1].input.files?.[0];if(!light||!dark)throw new Error('Upload nationals logos for both light and dark backgrounds.');logos=validateEventLogos({light:await readEventLogo(light),dark:await readEventLogo(dark)});}
+      const ev = await ctx.api.createEvent({ name: String(f.get('name')), startsOn: String(f.get('date') ?? '') || undefined,competitionLevel,logos });
       location.hash = routeHref({ name: 'event', eventId: ev.id });
     } catch (err) {
-      reportActionError(ctx, error, err);
+      if(err instanceof Error && !(err instanceof ApiError)){error.textContent=err.message;error.hidden=false;}else reportActionError(ctx, error, err);
     } finally {
       busy = false;
       finish();
@@ -68,7 +80,7 @@ export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
         ? h('p', { class: 'muted' }, canCreate ? 'No events yet. Create one, or ask an organiser to invite you.' : 'No events yet. Ask an organiser to invite you to an event.')
         : h('ul', { class: 'list event-list' }, events.map((e) =>
             h('li', null, h('a', { href: routeHref({ name: 'event', eventId: e.id }) }, h('strong', null, e.name)),
-              h('span', { class: 'muted small' }, e.startsOn ?? ''), e.resultsReleased ? h('span', { class: 'tag tag--pass' }, 'Results released') : null,
+              h('span', { class: 'muted small' }, e.startsOn ?? ''), e.competitionLevel?h('span',{class:'tag'},COMPETITION_LEVEL_LABEL[e.competitionLevel]):null,e.resultsReleased ? h('span', { class: 'tag tag--pass' }, 'Results released') : null,
               showcaseAvailable && e.id === SHOWCASE_EVENT_ID ? h('a', { class: 'btn btn--ghost btn--small', href: showcaseHref(e.id) }, 'Open showcase') : null)))),
     canCreate ? h('section', { class: 'section' }, h('h2', null, 'New event'), error, form) : null,
     deleted.length ? deletedSection : null,

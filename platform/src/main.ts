@@ -61,7 +61,7 @@ async function boot(): Promise<void> {
   const showcaseId = new URLSearchParams(location.search).get('showcase');
   const showcase = showcaseId !== null;
   if (showcase) {
-    shell.setLoading(true);
+    shell.setLoading(true);shell.setBranding(null);
     try {
       const owner = await sharedApi.getSession();
       api = await loadShowcase(sharedApi, showcaseId, new URLSearchParams(location.search).get('examples') === '6');
@@ -124,7 +124,7 @@ async function boot(): Promise<void> {
   async function render(route: Route): Promise<void> {
     current = route;
     const mine = ++token;
-    shell.setLoading(true);
+    shell.setLoading(true);shell.setBranding(null);
     for (const fn of leaves) {
       try { void Promise.resolve(fn()).catch(console.error); } catch (e) { console.error(e); }
     }
@@ -157,10 +157,10 @@ async function boot(): Promise<void> {
       }
       else node = await screenFor(route, ctx);
       if (mine !== token) return;
-      if ('eventId' in route && session) {
+      if ('eventId' in route) {
         const [event, roles] = await Promise.all([api.getEvent(route.eventId), api.myRoles(route.eventId)]);
         if (mine !== token) return;
-        if (event) node.prepend(eventNav(event, roles, route.name));
+        if (event){if(event.competitionLevel){const branding=await api.eventBranding(event.id);if(mine!==token)return;shell.setBranding(branding);}if(session)node.prepend(eventNav(event, roles, route.name));}
       }
       shell.main.replaceChildren(node);
       window.scrollTo(0, 0);

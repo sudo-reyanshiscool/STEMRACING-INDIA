@@ -1,3 +1,4 @@
+import {eventIdentity} from './event-branding';
 import type {EventRow,RoleRow,SubmissionState} from '../api';
 import {FILE_KINDS} from '../api';
 import type {Ctx} from './ctx';
@@ -33,7 +34,7 @@ export async function teamGarage(ctx:Ctx,event:EventRow,roles:RoleRow[]):Promise
   metric('Submission penalties',state?`${penalty} pts`:'Unavailable','Calculated automatically from your portfolio receipts'),
   metric('Competition status',event.resultsReleased?'Results released':'In progress',event.resultsReleased?'Your team results are ready to view':'Results appear here when the organisers release them'));
  const tile=(number:string,title:string,body:string,page:Route['name'])=>h('a',{class:'tile garage-link',href:href(page)},h('span',{class:'garage-link__number','aria-hidden':'true'},number),h('div',null,h('h3',null,title),h('p',{class:'muted'},body)),h('span',{class:'garage-link__arrow','aria-hidden':'true'},'↗'));
- return h('div',{class:'garage stack stack--lg'},h('a',{class:'back',href:'#/'},'All events'),hero,
+ return h('div',{class:'garage stack stack--lg'},h('a',{class:'back',href:'#/'},'All events'),event.competitionLevel?eventIdentity(event,await ctx.api.eventBranding(event.id)):null,hero,
   teams.length>1?h('p',{class:'notice'},`You manage ${teams.length} teams: ${teams.map(t=>`${t.number} · ${t.name}`).join(', ')}. Progress below covers all your teams.`):null,
   metrics,state?submissionProgress(state):h('p',{class:'notice'},'Submission progress could not be loaded. Open Submissions to try again.'),
   h('section',{class:'garage-progress stack'},h('div',{class:'garage-section-head'},h('h2',null,'My Schedule'),h('a',{class:'btn btn--ghost',href:href('my-schedule')},'Open schedule ↗')),schedule?.publishedAt?h('div',{class:'stack'},schedule.teams.map(own=>{const next=own.activities.find(a=>Date.parse(a.end??a.start)>=Date.now());return h('p',null,`${teams.find(t=>t.id===own.teamId)?.name??'Your team'} · ${own.stream??'Awaiting allocation'} · ${next?`${next.title} — ${garageDate(next.start,schedule?.timezone)}`:'No upcoming appointments'}`);})):h('p',{class:'muted'},schedule?'Your official stream and appointments will appear when the organisers publish the schedule.':'Schedule could not be loaded. Open My Schedule to try again.')),

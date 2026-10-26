@@ -1,3 +1,4 @@
+import type {CompetitionLevel,EventBranding,NewEvent} from './event-branding';
 import type {ScheduleDoc,ScheduleState,TeamSchedule} from '../scheduling';
 import type {SubmissionState,SubmissionRule} from './submissions';
 import type {TeamFile,TeamFileInput} from './team-files';
@@ -95,7 +96,7 @@ export interface PlatformAccess {
 export type Role = 'organiser' | 'chair' | 'lead_judge' | 'judge' | 'scrutineer' | 'race_official' | 'team_manager' | 'spectator';
 export type Panel = PanelId;
 export interface Session { userId: string; email: string }
-export interface EventRow { id: string; name: string; startsOn: string | null; ruleset: Ruleset; resultsReleased: boolean }
+export interface EventRow { competitionLevel?:CompetitionLevel; id: string; name: string; startsOn: string | null; ruleset: Ruleset; resultsReleased: boolean }
 export interface TeamRow { id: string; eventId: string; number: string; name: string; school: string }
 export interface NewTeam { number: string; name: string; school?: string; managerEmail?: string }
 export interface RoleRow { name?: string; id: string; eventId: string; userId: string; role: Role; panel: Panel | null; teamId: string | null; email: string | null }
@@ -217,7 +218,8 @@ export interface Api {
   setOrganiserVisibility(userId: string, name: string, hidden: boolean): Promise<void>;
   removeOrganiser(userId: string): Promise<void>;
   withdrawOrganiserInvitation(invitationId: string): Promise<void>;
-  createEvent(i: { name: string; startsOn?: string }): Promise<EventRow>;
+  createEvent(i: NewEvent): Promise<EventRow>;
+  eventBranding(eventId:string):Promise<EventBranding>;
   /** Restorable deletion; confirmation must exactly match the event's current name. Organisers only. */
   deleteEvent(eventId: string, confirmation: string): Promise<void>;
   listDeletedEvents(): Promise<EventRow[]>;

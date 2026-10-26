@@ -1,3 +1,4 @@
+import {drawNationalLogo,type ReportBranding} from '../../supabase/functions/_shared/event-branding';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { RaceHeat, RaceLane } from '../racing';
@@ -7,6 +8,7 @@ import { REGIONAL_FINALS_LOGO, BRAND_GRADIENT, MAGISTRAL_BOLD_ITALIC_FONT } from
 export type HeatsPhaseFilter = 'reaction' | 'knockout' | 'all';
 
 export interface HeatsPdfInput {
+  branding?:ReportBranding;
   eventName: string;
   startsOn?: string | null;
   teams: TeamRow[];
@@ -65,12 +67,12 @@ function registerFonts(doc: jsPDF): void {
   doc.addFont('Magistral-BoldItalic.ttf', 'Magistral', 'italic');
 }
 
-function drawHeroBanner(doc: jsPDF, W: number, M: number, title: string, subtitle: string): void {
+function drawHeroBanner(doc: jsPDF, W: number, M: number, title: string, subtitle: string,branding?:ReportBranding): void {
   const bannerHeight = 32;
   doc.addImage(BRAND_GRADIENT, 'PNG', 0, 0, W, bannerHeight, 'GRADIENT', 'FAST');
   doc.setFillColor(...PITLANE_PINK);
   doc.rect(0, bannerHeight, W, 1.4, 'F');
-  doc.addImage(REGIONAL_FINALS_LOGO, 'PNG', M, 5.5, 38, 19, 'LOGO', 'FAST');
+  if(!drawNationalLogo(doc,M,5.5,38,19,true,branding))doc.addImage(REGIONAL_FINALS_LOGO, 'PNG', M, 5.5, 38, 19, 'LOGO', 'FAST');
 
   doc.setFont('Magistral', 'bolditalic');
   doc.setFontSize(16);
@@ -83,11 +85,11 @@ function drawHeroBanner(doc: jsPDF, W: number, M: number, title: string, subtitl
   doc.text(subtitle, W - M, 24, { align: 'right' });
 }
 
-function drawContinuationBanner(doc: jsPDF, W: number, M: number, label: string): void {
+function drawContinuationBanner(doc: jsPDF, W: number, M: number, label: string,branding?:ReportBranding): void {
   doc.addImage(BRAND_GRADIENT, 'PNG', 0, 0, W, 20, 'GRADIENT', 'FAST');
   doc.setFillColor(...PITLANE_PINK);
   doc.rect(0, 20, W, 1, 'F');
-  doc.addImage(REGIONAL_FINALS_LOGO, 'PNG', M, 3.5, 26, 13, 'LOGO', 'FAST');
+  if(!drawNationalLogo(doc,M,3.5,26,13,true,branding))doc.addImage(REGIONAL_FINALS_LOGO, 'PNG', M, 3.5, 26, 13, 'LOGO', 'FAST');
 
   doc.setFont('Magistral', 'bolditalic');
   doc.setFontSize(12);
@@ -118,7 +120,7 @@ export function buildHeatsPdf(input: HeatsPdfInput): jsPDF {
     : input.races.filter((r) => r.phase === phase).sort((a, b) => a.number - b.number);
 
   // If separate phases requested or single phase
-  drawHeroBanner(doc, W, M, phaseTitle, phaseSub);
+  drawHeroBanner(doc, W, M, phaseTitle, phaseSub,input.branding);
 
   // Event Details Box
   doc.setFont('Magistral', 'bolditalic');
@@ -193,7 +195,7 @@ export function buildHeatsPdf(input: HeatsPdfInput): jsPDF {
     didDrawPage: (data) => {
       if (data.pageNumber > 1) {
         const contLabel = phase === 'knockout' ? 'KNOCKOUT HEATS (CONT.)' : 'REACTION HEATS (CONT.)';
-        drawContinuationBanner(doc, W, M, contLabel);
+        drawContinuationBanner(doc, W, M, contLabel,input.branding);
       }
     },
   });
@@ -213,7 +215,7 @@ export function buildHeatsPdf(input: HeatsPdfInput): jsPDF {
     doc.setFontSize(8);
     doc.setTextColor(...CARBON_500);
     doc.text(
-      pdfText(`${input.eventName} · STEM Racing India Regional Finals · ${footerLabel}`),
+      pdfText(`${input.eventName} · STEM Racing India ${input.branding?.level==='national'?'National':'Regional'} Finals · ${footerLabel}`),
       M,
       288.5,
     );

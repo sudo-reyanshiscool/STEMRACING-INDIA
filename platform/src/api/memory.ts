@@ -1,3 +1,4 @@
+import {validateEventLogos,type EventLogos,type NewEvent} from './event-branding';
 import {SUBMISSION_GUIDE_VERSION,SUBMISSION_GUIDE_DURATION,type SubmissionGuideState} from './submission-guide';
 import {emptySchedule,validateSchedule,teamActivities,type ScheduleDoc,type ScheduleState} from '../scheduling';
 import {PORTFOLIOS,submissionRow,validateSubmissionRules,type SubmissionRule} from './submissions';
@@ -425,7 +426,7 @@ export class MemoryApi implements Api {
   async previewResultsPacket(eventId:string,teamId:string):Promise<ResultsPacket> {
     this.require(eventId,'chair','organiser','spectator');const event=this.eventOrThrow(eventId),team=this.teamOrThrow(eventId,teamId);const snapshot=this.snapshots.filter(s=>s.eventId===eventId).at(-1);const row=snapshot?.rows.find(r=>r.teamId===teamId);
     if(!snapshot||!row)throw new ApiError('locked','Publish a ranking containing this team first');
-    return copy({released:event.resultsReleased,awardsConfirmed:this.mailSettings.get(eventId)?.confirmed??false,eventName:event.name,eventId,snapshotId:snapshot.id,createdAt:snapshot.createdAt,ruleset:event.ruleset,team,teamResult:row,
+    return copy({branding:await this.eventBranding(eventId),released:event.resultsReleased,awardsConfirmed:this.mailSettings.get(eventId)?.confirmed??false,eventName:event.name,eventId,snapshotId:snapshot.id,createdAt:snapshot.createdAt,ruleset:event.ruleset,team,teamResult:row,
       standings:snapshot.rows.map(({rank,teamId,number,name,total})=>({rank,teamId,number,name,total,school:this.teams.find(t=>t.id===teamId)?.school??''})),
       benchmarks:Object.fromEntries([...event.ruleset.areas.map(a=>a.id),'__total'].flatMap(key=>{
         const values=snapshot.rows.map(r=>key==='__total'?r.total:r.areas[key]).filter((v):v is number=>typeof v==='number').sort((a,b)=>a-b);
@@ -641,16 +642,22 @@ export class MemoryApi implements Api {
     if (this.creatorAllowlist.has(this.me.email.toLowerCase())) return true;
     return false;
   }
-  async createEvent(i: { name: string; startsOn?: string }) {
+  private eventLogoSets=new Map<string,EventLogos>();
+  async eventBranding(eventId:string){const e=await this.getEvent(eventId);if(!e)throw new ApiError('forbidden','Event branding unavailable');return {level:e.competitionLevel??null,logos:copy(this.eventLogoSets.get(eventId)??null)};}
+  async createEvent(i:NewEvent) {
     if (!this.me) throw new ApiError('unauthenticated', 'Sign in first');
     if (!(await this.canCreateEvent())) throw new ApiError('forbidden', 'Only organisers can create events');
+    if(i.competitionLevel&&!['regional','national'].includes(i.competitionLevel))throw new ApiError('invalid','Choose Regional finals or National finals.');
+    if(i.competitionLevel==='regional'&&i.logos)throw new ApiError('invalid','Regional events use the supplied regional logo.');
+    const logos=i.competitionLevel==='national'?validateEventLogos(i.logos!):null;
     const name = this.text(i.name, 'Event name', 120);
     if (i.startsOn !== undefined) {
       const d = new Date(`${i.startsOn}T00:00:00Z`);
       const ok = /^\d{4}-\d{2}-\d{2}$/.test(i.startsOn) && !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === i.startsOn;
       if (!ok) throw new ApiError('invalid', 'Start date must be a valid date (YYYY-MM-DD)');
     }
-    const ev: EventRow = { id: nid('event'), name, startsOn: i.startsOn ?? null, ruleset: copy(INDIA_2026), resultsReleased: false };
+    const ev: EventRow = { ...(i.competitionLevel?{competitionLevel:i.competitionLevel}:{}),id: nid('event'), name, startsOn: i.startsOn ?? null, ruleset: copy(INDIA_2026), resultsReleased: false };
+    if(logos)this.eventLogoSets.set(ev.id,copy(logos));
     this.events.push(ev);
     this.roles.push({ id: nid('role'), eventId: ev.id, userId: this.me.userId, role: 'organiser', panel: null, teamId: null, email: this.me.email });
     return copy(ev);

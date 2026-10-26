@@ -94,7 +94,7 @@ export async function inspectionScreen(ctx: Ctx, eventId: string, teamId: string
         const s = summarise(selectedRules(INDIA_TECHNICAL.rules, insp), measurements);
         const inspector = roles.find((r) => r.userId === insp.inspectorId)?.email || session?.email || '';
         await downloadSheet({
-          eventName: event.name,
+          eventName: event.name,branding:event.competitionLevel?await ctx.api.eventBranding(event.id):undefined,
           teamNumber: team.number,
           teamName: team.name,
           school: team.school,

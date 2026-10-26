@@ -1,3 +1,4 @@
+import {validateEventLogos} from './event-branding';
 import type { RaceHeat, RaceLane, TimingPair, TimingState } from '../racing';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { INDIA_2026 } from '../rulesets';
@@ -48,7 +49,7 @@ async function guard<T>(run: () => PromiseLike<T>): Promise<T> {
 
 // Explicit column lists, never `*`: ranking_snapshots.inputs is not readable through the table, so `select *` fails there,
 // and a list keeps every other query independent of columns the app does not use.
-const EVENT_COLS = 'id,name,starts_on,ruleset,results_released';
+const EVENT_COLS = 'id,name,starts_on,ruleset,results_released,competition_level';
 const TEAM_COLS = 'id,event_id,number,name,school';
 const CARD_COLS = 'id,event_id,team_id,area_id,panel,judge_id,status,reopened_count,scorecard_scores(criterion_id,score,comment)';
 const OVERRIDE_COLS = 'event_id,team_id,area_id,value,reason';
@@ -288,12 +289,14 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
     async removeOrganiser(userId) { ok(await guard(() => sb.rpc('remove_organiser', {p_user: userId}))); },
     async withdrawOrganiserInvitation(id) { ok(await guard(() => sb.rpc('withdraw_organiser_invitation', {p_invitation: id}))); },
     async createEvent(i) {
-      const data = ok(await guard(() => sb.rpc('create_event', { p_name: i.name, p_starts_on: i.startsOn ?? null, p_ruleset: INDIA_2026 })));
+      if(i.competitionLevel==='national')validateEventLogos(i.logos!);
+      const data = ok(await guard(() => i.competitionLevel?sb.rpc('create_branded_event',{p_name:i.name,p_starts_on:i.startsOn??null,p_ruleset:INDIA_2026,p_level:i.competitionLevel,p_logos:i.logos??null}):sb.rpc('create_event', { p_name: i.name, p_starts_on: i.startsOn ?? null, p_ruleset: INDIA_2026 })));
       return toEventRow(firstRow(data));
     },
     async deleteEvent(eventId, confirmation) {
       ok(await guard(() => sb.rpc('delete_event', { p_event: eventId, p_confirmation: confirmation })));
     },
+    async eventBranding(eventId){return ok(await guard(()=>sb.rpc('event_branding',{p_event:eventId}))) as import('./event-branding').EventBranding;},
     async listDeletedEvents() {
       if (!(await session())) return [];
       return (await pages<never>((a, b) => sb.rpc('list_deleted_events').order('created_at', { ascending: false }).order('id').range(a, b))).map(toEventRow);

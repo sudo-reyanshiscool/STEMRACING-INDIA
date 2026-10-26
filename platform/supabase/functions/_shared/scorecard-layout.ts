@@ -42,7 +42,7 @@ export function teamCardHeader(doc:jsPDF,p:ResultsPacket,title:string,kind:'scor
  const name=wrapped(doc,p.team.name,valueW,valueFont,feedback?11:11.2,feedback?'bold':'normal');
  const school=wrapped(doc,p.team.school||'Not provided',valueW,feedback?'CardBody':'ReportDisplay',feedback?9.5:9.2);
  const height=Math.max(feedback?17.4:19.2,3.2+5+name.length*4.1+school.length*3.4+(name.length>1||school.length>1?2:0),titleLines.length*mm(titleSize)*1.12+3);
- if(feedback)drawEventLockup(doc,153,7.3,40,14);
+ if(feedback)drawEventLockup(doc,153,7.3,40,14,false,p.branding);
  box(doc,x,y,w,height);doc.line(x+left,y,x+left,y+height);
  centerText(doc,titleLines,x+1.3,y,left-2.6,height,titleSize,titleFont,titleStyle);
  const labelFont=feedback?'CardBody':'ScoreLabel';
