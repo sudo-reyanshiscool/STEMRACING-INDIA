@@ -703,6 +703,8 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
       const res = ok(await guard(() => sb.rpc('get_broadcast_team_photo', { p_event: eventId, p_team: teamId }))) as any;
       return res;
     },
+    async teamBrandingProfile(eventId,teamId){return ok(await guard(()=>sb.rpc('team_branding_profile',{p_event:eventId,p_team:teamId}))) as import('./team-branding').TeamBrandingProfile;},
+    async downloadTeamBrandAsset(eventId,teamId,key,version){return ok(await guard(()=>sb.rpc('download_team_brand_asset',{p_event:eventId,p_team:teamId,p_key:key,p_version:version}))) as import('./team-branding').BrandingAssetFile;},
     async getCompulsoryAssets(eventId, teamId) {
       const [raw,photos]=await Promise.all([
         guard(()=>sb.rpc('get_compulsory_assets',{p_event:eventId,p_team:teamId})).then(ok) as Promise<Partial<TeamCompulsoryAssets>>,

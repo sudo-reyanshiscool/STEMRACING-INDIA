@@ -1,3 +1,4 @@
+import type {TeamBrandingProfile,BrandingAssetFile} from './team-branding';
 import type {CompetitionLevel,EventBranding,NewEvent} from './event-branding';
 import type {ScheduleDoc,ScheduleState,TeamSchedule} from '../scheduling';
 import type {SubmissionState,SubmissionRule} from './submissions';
@@ -316,6 +317,8 @@ export interface Api {
   listTeamPhotoHistory(eventId: string, teamId: string): Promise<TeamPhotoHistoryItem[]>;
   deleteTeamPhoto(eventId: string, teamId: string): Promise<void>;
   getBroadcastTeamPhoto(eventId: string, teamId: string): Promise<BroadcastPhoto>;
+  teamBrandingProfile(eventId:string,teamId:string):Promise<TeamBrandingProfile>;
+  downloadTeamBrandAsset(eventId:string,teamId:string,key:string,version:string):Promise<BrandingAssetFile>;
   getCompulsoryAssets(eventId: string, teamId: string): Promise<TeamCompulsoryAssets>;
   saveTeamColours(eventId: string, teamId: string, colours: TeamColours, revision?: number): Promise<TeamColours>;
   saveTeamMemberPortraits(eventId: string, teamId: string, members: TeamMemberPortrait[], revision?: number): Promise<TeamMemberPortrait[]>;

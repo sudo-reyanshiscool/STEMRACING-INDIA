@@ -40,7 +40,7 @@ describe('showcase navigation and presentation', () => {
     const seed = makeSeed();
     const api = MemoryApi.forShowcase(seed);
     const nav = eventNav((await api.getEvent(SHOWCASE_EVENT_ID))!, await api.myRoles(SHOWCASE_EVENT_ID), 'event');
-    expect([...nav.querySelectorAll('a')].map(text)).toEqual(['Event', 'Scheduling & Streams', 'Teams', 'Media Assets', 'People', 'Draw lots', 'Communications', 'Judge', 'Scores', 'Race control', 'Moderation', 'Rankings', 'Submissions', 'Team files', 'Team feedback', 'Results']);
+    expect([...nav.querySelectorAll('a')].map(text)).toEqual(['Event', 'Scheduling & Streams', 'Teams', 'Media Assets', 'People', 'Draw lots', 'Communications', 'Judge', 'Scores', 'Race control', 'Moderation', 'Rankings', 'Submissions', 'Team branding', 'Team files', 'Team feedback', 'Results']);
     for (const screen of [eventHomeScreen, teamsScreen, peopleScreen, drawLotsScreen, communicationsScreen,
       scoringScreen, scoresScreen, moderationScreen, rankingsScreen, resultsScreen, racingScreen, teamFeedbackScreen, teamFilesScreen]) {
       const {ctx, leaves} = makeCtx(api);

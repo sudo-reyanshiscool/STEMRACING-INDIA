@@ -32,6 +32,7 @@ export function eventNav(event: EventRow, roles: RoleRow[], current: Route['name
   if (has('organiser', 'chair')) items.push(['Rankings', { name: 'rankings', eventId: event.id }]);
   if(has('team_manager'))items.push(['My Schedule',{name:'my-schedule',eventId:event.id}]);
   if(has('organiser','chair','team_manager'))items.push(['Submissions',{name:'submissions',eventId:event.id}]);
+  if(has('organiser','chair','team_manager'))items.push(['Team branding',{name:'branding',eventId:event.id}]);
   if (roles.length) items.push(['Team files', {name:'team-files', eventId:event.id}]);
   if (has('organiser', 'chair', 'team_manager')) items.push(['Team feedback', {name:'team-feedback', eventId:event.id}]);
   items.push(['Results', { name: 'results', eventId: event.id }]);

@@ -1,3 +1,4 @@
+import {assembleTeamBrandingProfile,type BrandingAssetFile} from './team-branding';
 import {validateEventLogos,type EventLogos,type NewEvent} from './event-branding';
 import {SUBMISSION_GUIDE_VERSION,SUBMISSION_GUIDE_DURATION,type SubmissionGuideState} from './submission-guide';
 import {emptySchedule,validateSchedule,teamActivities,type ScheduleDoc,type ScheduleState} from '../scheduling';
@@ -1769,6 +1770,19 @@ export class MemoryApi implements Api {
     this.teamOrThrow(eventId,teamId);
     if(!this.has(eventId,'organiser','chair','spectator')&&!this.rolesOf(eventId).some(r=>r.role==='team_manager'&&r.teamId===teamId))throw new ApiError('forbidden','Only your own team');
     if(write)this.frozen(eventId,'team media');
+  }
+  async teamBrandingProfile(eventId:string,teamId:string){
+    const state=await this.getCompulsoryAssets(eventId,teamId);const event=await this.getEvent(eventId);
+    return assembleTeamBrandingProfile(event!,this.teamOrThrow(eventId,teamId),state);
+  }
+  async downloadTeamBrandAsset(eventId:string,teamId:string,key:string,version:string):Promise<BrandingAssetFile>{
+    const profile=await this.teamBrandingProfile(eventId,teamId);if(profile.version!==version)throw new ApiError('conflict','Branding changed. Refresh and try again.');
+    const asset=profile.assets.find(a=>a.key===key);if(!asset)throw new ApiError('not-found','Branding asset unavailable');
+    let base64:string;
+    if(key==='official_photo_original'||key==='official_photo_approved')base64=(await this.downloadTeamPhoto(eventId,teamId,key==='official_photo_approved'?'approved':'original')).base64;
+    else if(key.startsWith('portrait:')){const state=await this.getCompulsoryAssets(eventId,teamId);base64=state.memberPortraits?.find(m=>`portrait:${m.id}`===key)?.photoBase64??'';}
+    else base64=(await this.downloadCompulsoryAsset(eventId,teamId,key as CompulsoryAssetKey)).base64??'';
+    if(!base64)throw new ApiError('not-found','Branding asset unavailable');return {...asset,base64};
   }
   async getCompulsoryAssets(eventId:string,teamId:string):Promise<TeamCompulsoryAssets> {
     this.mediaAccess(eventId,teamId);
