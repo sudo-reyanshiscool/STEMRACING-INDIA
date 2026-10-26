@@ -1,4 +1,4 @@
-import {ApiError,COMPETITION_LEVEL_LABEL,validateEventLogos,type CompetitionLevel} from '../api';
+import {ApiError,EVENT_LOGO_SLOTS,COMPETITION_LEVEL_LABEL,validateEventLogos,type CompetitionLevel} from '../api';
 import {readEventLogo} from './event-branding';
 import {managerOnly} from './team-garage';
 import { buttonBusy } from './button-busy';
@@ -22,10 +22,10 @@ export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
   const submitBtn = h('button', { class: 'btn btn--primary', type: 'submit' }, 'Create event');
   const level=h('select',{name:'level','aria-label':'Competition level'},h('option',{value:'regional'},'Regional finals'),h('option',{value:'national'},'National finals'));
   const regionalPreview=h('div',{class:'event-logo-preview event-logo-preview--dark'},h('img',{src:'/brand/logo-regional-finals-white.png',alt:'Regional finals logo'}));
-  const slots=(['light','dark'] as const).map(key=>({key,input:h('input',{type:'file',accept:'.png,image/png','aria-label':`Nationals logo for ${key} backgrounds`}),preview:h('div',{class:`event-logo-preview ${key==='dark'?'event-logo-preview--dark':''}`},h('span',{class:'muted'},`${key==='dark'?'Dark':'Light'} background preview`))}));
-  const nationals=h('fieldset',{class:'event-logo-set stack',hidden:true},h('legend',null,'This event’s nationals logos'),h('p',{class:'muted small'},'PNG files, up to 2 MB each. Upload the logo intended for each background. This set belongs to this event.'),h('div',{class:'event-logo-set__slots'},slots.map(slot=>h('label',{class:'field'},`Logo for ${slot.key} backgrounds`,slot.input,slot.preview))));
+  const slots=EVENT_LOGO_SLOTS.map(slot=>({...slot,input:h('input',{type:'file',accept:'.png,image/png','aria-label':`Nationals ${slot.label} logo`}),preview:h('div',{class:`event-logo-preview ${slot.dark?'event-logo-preview--dark':''}`},h('span',{class:'muted'},`${slot.dark?'Dark':'Light'} background preview`))}));
+  const nationals=h('fieldset',{class:'event-logo-set stack',hidden:true},h('legend',null,'This event’s nationals logos'),h('p',{class:'muted small'},'PNG files, up to 2 MB each. Upload all four versions: two monochrome and two full-colour. This set belongs to this event.'),h('div',{class:'event-logo-set__slots'},slots.map(slot=>h('label',{class:'field'},slot.label,slot.input,slot.preview))));
   level.onchange=()=>{nationals.hidden=level.value!=='national';regionalPreview.hidden=level.value!=='regional';};
-  slots.forEach(slot=>{let request=0;slot.input.onchange=async()=>{const current=++request;const file=slot.input.files?.[0];slot.preview.replaceChildren();if(!file)return;try{const logo=await readEventLogo(file);validateEventLogos({light:logo,dark:logo});if(current===request)slot.preview.append(h('img',{src:`data:image/png;base64,${logo.base64}`,alt:`Nationals logo on a ${slot.key} background`}));}catch(err){if(current===request)slot.preview.append(h('span',{class:'alert'},err instanceof Error?err.message:'Check the logo file.'));}};});
+  slots.forEach(slot=>{let request=0;slot.input.onchange=async()=>{const current=++request;const file=slot.input.files?.[0];slot.preview.replaceChildren();if(!file)return;try{const logo=await readEventLogo(file);validateEventLogos({light:logo,dark:logo,monoBlack:logo,monoWhite:logo});if(current===request)slot.preview.append(h('img',{src:`data:image/png;base64,${logo.base64}`,alt:`Nationals ${slot.label} logo preview`}));}catch(err){if(current===request)slot.preview.append(h('span',{class:'alert'},err instanceof Error?err.message:'Check the logo file.'));}};});
   const form = h('form', { class: 'form', novalidate: true },
     h('label', { class: 'field' }, h('span', { class: 'field__label' }, 'Event name'), h('input', { name: 'name', required: true, maxlength: 120, autocomplete: 'off' })),
     h('label', { class: 'field' }, h('span', { class: 'field__label' }, 'Date'), h('input', { name: 'date', type: 'date', value: today() })),
@@ -61,7 +61,7 @@ export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
     try {
       const competitionLevel=level.value as CompetitionLevel;
       let logos;
-      if(competitionLevel==='national'){const light=slots[0].input.files?.[0],dark=slots[1].input.files?.[0];if(!light||!dark)throw new Error('Upload nationals logos for both light and dark backgrounds.');logos=validateEventLogos({light:await readEventLogo(light),dark:await readEventLogo(dark)});}
+      if(competitionLevel==='national'){const files=slots.map(s=>({key:s.key,file:s.input.files?.[0]}));if(files.some(s=>!s.file))throw new Error('Upload all four nationals logos: monochrome black, monochrome white, full colour with white text, and full colour with black text.');const uploads=await Promise.all(files.map(async s=>[s.key,await readEventLogo(s.file!)] as const));logos=validateEventLogos(Object.fromEntries(uploads) as unknown as import('../api').EventLogos);}
       const ev = await ctx.api.createEvent({ name: String(f.get('name')), startsOn: String(f.get('date') ?? '') || undefined,competitionLevel,logos });
       location.hash = routeHref({ name: 'event', eventId: ev.id });
     } catch (err) {

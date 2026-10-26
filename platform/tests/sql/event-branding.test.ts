@@ -4,7 +4,7 @@ import type {PGlite} from '@electric-sql/pglite';
 import {INDIA_2026} from '../../src/rulesets';
 let db:PGlite,w:World;
 const image={name:'logo.png',mime:'image/png',base64:'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='};
-const logos={light:image,dark:{...image,name:'dark.png'}};
+const logos={monoBlack:{...image,name:'mono-black.png'},monoWhite:{...image,name:'mono-white.png'},light:image,dark:{...image,name:'dark.png'}};
 beforeAll(async()=>{db=await makeDb();w=await seedWorld(db);});afterAll(async()=>db.close());
 const create=async(level:string,logo:unknown=null,who:'organiser'|'mgr1'|'outsider'='organiser')=>(await as(db,who,q=>q('select (create_branded_event($1,$2,$3,$4,$5::jsonb)).*',['New finals','2027-01-01',INDIA_2026,level,logo===null?null:JSON.stringify(logo)]))).rows[0];
 const brand=async(id:string,who:'organiser'|'outsider'|null='organiser')=>(await as(db,who,q=>q('select event_branding($1) as b',[id]))).rows[0].b;
@@ -19,7 +19,7 @@ it('keeps each national event’s independently uploaded logo set and derives di
 });
 it('rejects missing/invalid national logos atomically without leaving events behind',async()=>{
  const before=(await db.query('select count(*) from events')).rows;
- for(const value of [null,{}, {light:image}, {...logos,dark:{...image,base64:btoa('bad file')}},{...logos,light:{...image,mime:'image/svg+xml'}},{...logos,light:{...image,name:'../logo.png'}}])await expect(create('national',value)).rejects.toMatchObject({code:'22023'});
+ for(const value of [null,{}, {light:image,dark:image}, {...logos,monoWhite:null}, {...logos,dark:{...image,base64:btoa('bad file')}},{...logos,light:{...image,mime:'image/svg+xml'}},{...logos,light:{...image,name:'../logo.png'}}])await expect(create('national',value)).rejects.toMatchObject({code:'22023'});
  expect((await db.query('select count(*) from events')).rows).toEqual(before);
  await expect(create('other')).rejects.toMatchObject({code:'22023'});
  await expect(create('regional',logos)).rejects.toMatchObject({code:'22023'});

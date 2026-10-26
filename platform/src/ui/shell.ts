@@ -39,7 +39,7 @@ export function mountShell(root: HTMLElement): Shell {
     setBranding(branding){
       const home=root.querySelector<HTMLElement>('.brand-home')!;home.classList.toggle('brand-home--regional',branding?.level==='regional');
       const light=home.querySelector<HTMLImageElement>('.brand-logo--light')!,dark=home.querySelector<HTMLImageElement>('.brand-logo--dark')!;
-      light.src=eventLogoSource(branding,false)??'/brand/logo-india-mono-black.png';dark.src=eventLogoSource(branding,true)??'/brand/logo-india-mono-white.png';
+      light.src=eventLogoSource(branding,false,true)??'/brand/logo-india-mono-black.png';dark.src=eventLogoSource(branding,true,true)??'/brand/logo-india-mono-white.png';
       light.alt=dark.alt=branding?.level?`STEM Racing India · ${branding.level==='national'?'National':'Regional'} finals`:'STEM Racing India';
     },
     syncBar,
