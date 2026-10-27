@@ -15,12 +15,12 @@ export async function renderBrandingPdf(profile:TeamBrandingProfile,source:Brand
  frame.setAttribute('aria-hidden','true');frame.setAttribute('sandbox','allow-same-origin');
  frame.style.cssText='position:fixed;left:-10000px;top:0;width:794px;height:1123px;border:0;pointer-events:none';
  const resourceUrl=(path:string)=>{const resource=source.resources.find(r=>r.path===path);if(!resource)throw new Error('PDF letterhead is unavailable');return dataUrl(resource.mime,resource.bytes);};
- const letterhead=resourceUrl('brand/profile-letterhead.png'),footerRule=resourceUrl('brand/profile-footer-rule.png');
+ const letterhead=resourceUrl('brand/profile-letterhead.png'),footerBanner=resourceUrl('brand/profile-footer.png');
  let html=brandingProfileHtml(profile,source.resources);
  for(const file of [...source.resources,...source.files])html=html.replaceAll(`src="${file.path}"`,`src="${dataUrl(file.mime,file.bytes)}"`);
  html=html.replaceAll('loading="lazy"','loading="eager"').replace('</style>',`
  main{margin:0;width:794px;max-width:none}.masthead{display:none}.hero{min-height:170px;padding:30px 64px 24px;background:var(--white);color:var(--carbon);isolation:auto}.hero h1{font-size:40px;color:var(--carbon);margin:10px 0 14px}.hero-copy{width:100%}.hero .eyebrow{color:var(--pink)}.track-shape{display:none}.profile-body{padding:0 64px}.section{padding:24px 0}.members img{height:180px}.photo img{max-height:340px}
- .pdf-page{position:relative;width:794px;height:1123px;padding:0 0 80px;background:white;overflow:hidden}.pdf-letterhead{display:block;width:794px;height:153.59px;object-fit:contain}.pdf-footer{position:absolute;bottom:32px;left:64px;right:64px;font-size:9px;line-height:1.4;color:var(--muted)}.pdf-footer-rule{display:block;width:100%;height:2.5px;margin-bottom:8px}.pdf-footer-row{display:flex;justify-content:space-between;gap:16px}.pdf-footer-row span:last-child{white-space:nowrap}
+ .pdf-page{position:relative;width:794px;height:1123px;padding:0 0 112px;background:white;overflow:hidden}.pdf-letterhead{display:block;width:794px;height:153.59px;object-fit:contain}.pdf-footer{position:absolute;bottom:0;left:0;right:0;font-size:9px;line-height:1.4;color:var(--muted)}.pdf-footer-banner{display:block;width:794px;height:64.54px;object-fit:contain}.pdf-footer-row{margin:0 64px 12px;display:flex;justify-content:space-between;gap:16px}.pdf-footer-row span:last-child{white-space:nowrap}
  </style>`);
  try {
   await new Promise<void>((resolve,reject)=>{
@@ -56,7 +56,7 @@ export async function renderBrandingPdf(profile:TeamBrandingProfile,source:Brand
   const pdf=new jsPDF({format:'a4',unit:'mm',compress:true});
   pdf.setProperties({title:`${profile.team.name} - Team branding profile`,author:'STEM Racing India'});
   for(let i=0;i<pages.length;i++){
-   const footer=doc.createElement('div');footer.className='pdf-footer';const rule=doc.createElement('img');rule.className='pdf-footer-rule';rule.src=footerRule;rule.alt='';const row=doc.createElement('div');row.className='pdf-footer-row';const title=doc.createElement('span');title.textContent=`STEM Racing India | Team branding profile | Team ${profile.team.number}`;const number=doc.createElement('span');number.textContent=`${i+1} / ${pages.length}`;row.append(title,number);footer.append(rule,row);pages[i].append(footer);
+   const footer=doc.createElement('div');footer.className='pdf-footer';const banner=doc.createElement('img');banner.className='pdf-footer-banner';banner.src=footerBanner;banner.alt='STEM Racing global partners';const row=doc.createElement('div');row.className='pdf-footer-row';const title=doc.createElement('span');title.textContent=`STEM Racing India | Team branding profile | Team ${profile.team.number}`;const number=doc.createElement('span');number.textContent=`${i+1} / ${pages.length}`;row.append(title,number);footer.append(row,banner);pages[i].append(footer);
    const canvas=await html2canvas(pages[i],{scale:2,backgroundColor:'#ffffff',logging:false,windowWidth:794,windowHeight:1123});
    if(i)pdf.addPage();pdf.addImage(canvas.toDataURL('image/jpeg',.95),'JPEG',0,0,210,297,undefined,'FAST');canvas.width=canvas.height=0;
   }
