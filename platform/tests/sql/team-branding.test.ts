@@ -1,12 +1,14 @@
 import {beforeAll,beforeEach,afterAll,it,expect} from 'vitest';
 import {as,makeDb,seedWorld,ids,type World,type Who} from './harness';
-import {buildBrandingArchive,type TeamBrandingProfile,type BrandingAssetFile} from '../../src/api/team-branding';
+import {buildBrandingArchive,buildTeamBrandingPdf,type TeamBrandingProfile,type BrandingAssetFile} from '../../src/api/team-branding';
 import {readFileSync} from 'node:fs';
 import {BRANDING_RESOURCES} from '../../src/api/branding-resources';
 import {unzipSync,strFromU8} from 'fflate';
 let w:World;
 const png='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 const resources=async()=>BRANDING_RESOURCES.map(r=>({path:r.path,mime:r.mime,bytes:new Uint8Array(readFileSync(new URL('../../public'+r.url,import.meta.url)))}));
+const pdfBytes=new TextEncoder().encode('%PDF-1.4\nPDF renderer contract fixture');
+const renderPdf=async()=>pdfBytes;
 const colours={primary:'#E6007E',secondary:'#312783',accent:'#FCBC00'};
 beforeAll(async()=>{w=await seedWorld(await makeDb());});beforeEach(async()=>{w=await seedWorld(w.db);});afterAll(async()=>w.db.close());
 const profile=async(who:Who|null='mgr1',team=w.team1):Promise<TeamBrandingProfile>=>(await as(w.db,who,q=>q('select team_branding_profile($1,$2) p',[w.eventId,team]))).rows[0].p;
@@ -18,8 +20,8 @@ it('creates empty profiles automatically and updates from canonical assets and i
  await upload();await details('team_colours',colours);await details('member_portraits',[{id:'m1',name:'../Sample member',role:'Engineer',fileName:'portrait.png',photoMime:'image/png',photoBase64:png}]);
  const p=await profile();expect(p).toMatchObject({colours,completedCount:3,members:[{name:'../Sample member',role:'Engineer',assetKey:'portrait:m1'}]});expect(p.version).not.toBe(first.version);expect(p.assets).toHaveLength(2);
  expect(JSON.stringify(p)).not.toContain('photoBase64');expect(JSON.stringify(p)).not.toContain(png);expect(JSON.stringify(p)).not.toContain('@');
- const pack=unzipSync(await buildBrandingArchive({teamBrandingProfile:()=>profile(),downloadTeamBrandAsset:(_e,_t,k,v)=>file(k,v)},p,undefined,resources));
- expect(Object.keys(pack)).toEqual([...BRANDING_RESOURCES.map(r=>r.path),'identity/team-logo.png','members/01-Sample-member.png','profile.html','profile.json','colours.css','README.txt']);expect(Buffer.from(pack['identity/team-logo.png']).toString('base64')).toBe(png);expect(strFromU8(pack['profile.html'])).toContain('Team One');expect(strFromU8(pack['profile.html'])).toContain('data:font/woff2;base64,');expect(strFromU8(pack['profile.html'])).toContain('brand/track-shape-pink.svg');expect(pack['brand/track-shape-pink.svg']).toEqual((await resources())[1].bytes);expect(strFromU8(pack['colours.css'])).toContain(colours.primary);expect(JSON.parse(strFromU8(pack['profile.json'])).assets[0].path).toBe('identity/team-logo.png');
+ const pack=unzipSync(await buildBrandingArchive({teamBrandingProfile:()=>profile(),downloadTeamBrandAsset:(_e,_t,k,v)=>file(k,v)},p,undefined,resources,renderPdf));
+ expect(Object.keys(pack)).toEqual([...BRANDING_RESOURCES.map(r=>r.path),'identity/team-logo.png','members/01-Sample-member.png','profile.pdf','profile.json','colours.css','README.txt']);expect(Buffer.from(pack['identity/team-logo.png']).toString('base64')).toBe(png);expect(pack['profile.pdf']).toEqual(pdfBytes);expect(pack).not.toHaveProperty('profile.html');expect(pack['brand/track-shape-pink.svg']).toEqual((await resources())[1].bytes);expect(strFromU8(pack['colours.css'])).toContain(colours.primary);expect(JSON.parse(strFromU8(pack['profile.json'])).assets[0].path).toBe('identity/team-logo.png');
  await w.db.query('update teams set name=$1 where id=$2',['New identity',w.team1]);expect((await profile()).version).not.toBe(p.version);
  await expect(file('team_logo',p.version)).rejects.toMatchObject({code:'40001'});
 });
@@ -41,5 +43,15 @@ it('includes original photos immediately, approved cutouts only after approval, 
 });
 it('refuses an archive if sources change while it is being assembled',async()=>{
  await upload();const p=await profile();let reads=0;
- await expect(buildBrandingArchive({downloadTeamBrandAsset:(_e,_t,k,v)=>file(k,v),teamBrandingProfile:async()=>{reads++;await details('team_colours',colours);return profile();}},p,undefined,resources)).rejects.toThrow(/changed/);expect(reads).toBe(1);
+ await expect(buildBrandingArchive({downloadTeamBrandAsset:(_e,_t,k,v)=>file(k,v),teamBrandingProfile:async()=>{reads++;await details('team_colours',colours);return profile();}},p,undefined,resources,renderPdf)).rejects.toThrow(/changed/);expect(reads).toBe(1);
+});
+
+it('offers a direct PDF from current images and preserves the same authorised source checks',async()=>{
+ await upload();const p=await profile();let rendered=false;
+ const pdf=await buildTeamBrandingPdf({teamBrandingProfile:()=>profile(),downloadTeamBrandAsset:(_e,_t,k,v)=>file(k,v)},p,undefined,resources,async(_p,source)=>{rendered=true;expect(source.files.map(f=>f.path)).toEqual(['identity/team-logo.png']);expect(source.resources).toHaveLength(5);return pdfBytes;});
+ expect(rendered).toBe(true);expect(pdf).toEqual(pdfBytes);
+});
+it('refuses a PDF when team assets change during rendering',async()=>{
+ await upload();const p=await profile();
+ await expect(buildTeamBrandingPdf({teamBrandingProfile:()=>profile(),downloadTeamBrandAsset:(_e,_t,k,v)=>file(k,v)},p,undefined,resources,async()=>{await details('team_colours',colours);return pdfBytes;})).rejects.toThrow(/changed/);
 });

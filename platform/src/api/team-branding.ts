@@ -34,30 +34,43 @@ export function brandingAssetPath(asset:BrandingAsset,profile:TeamBrandingProfil
  const member=profile.members.find(m=>m.assetKey===asset.key);if(!member)throw new ApiError('invalid','Unknown branding asset');
  return `members/${String(profile.members.indexOf(member)+1).padStart(2,'0')}-${slug(member.name)}.${ext}`;
 }
-export async function buildBrandingArchive(api:Pick<Api,'teamBrandingProfile'|'downloadTeamBrandAsset'>,profile:TeamBrandingProfile,onProgress?:(message:string)=>void,loadResources=loadBrandingResources):Promise<Uint8Array<ArrayBuffer>> {
+type BrandingApi=Pick<Api,'teamBrandingProfile'|'downloadTeamBrandAsset'>;
+export type BrandingPdfRenderer=typeof import('../pdf/branding-profile').renderBrandingPdf;
+const defaultPdfRenderer:BrandingPdfRenderer=async(p,source)=>(await import('../pdf/branding-profile')).renderBrandingPdf(p,source);
+async function confirmBrandingVersion(api:BrandingApi,profile:TeamBrandingProfile){
+ if((await api.teamBrandingProfile(profile.eventId,profile.team.id)).version!==profile.version)throw new ApiError('conflict','Branding changed while preparing the download. Refresh and try again.');
+}
+async function prepareBranding(api:BrandingApi,profile:TeamBrandingProfile,onProgress:((message:string)=>void)|undefined,loadResources:typeof loadBrandingResources,imagesOnly=false){
+ onProgress?.('Preparing official STEM Racing branding…');
+ const resources=await loadResources(),files:Array<{path:string;mime:string;bytes:Uint8Array}>=[];
+ for(const asset of profile.assets.filter(a=>!imagesOnly||a.mime.startsWith('image/'))){
+  onProgress?.(`Preparing ${asset.label.toLowerCase()}…`);
+  const data=await api.downloadTeamBrandAsset(profile.eventId,profile.team.id,asset.key,profile.version);
+  if(data.key!==asset.key||data.mime!==asset.mime||data.revision!==asset.revision)throw new ApiError('conflict','Branding changed. Refresh the profile and try again.');
+  const bytes=Uint8Array.from(atob(data.base64),c=>c.charCodeAt(0));if(bytes.length!==asset.size)throw new ApiError('conflict','A branding file changed. Refresh and try again.');
+  files.push({path:brandingAssetPath(asset,profile),mime:asset.mime,bytes});
+ }
+ if((await api.teamBrandingProfile(profile.eventId,profile.team.id)).version!==profile.version)throw new ApiError('conflict','Branding changed while preparing the download. Refresh and try again.');
+ return {resources,files};
+}
+export async function buildTeamBrandingPdf(api:BrandingApi,profile:TeamBrandingProfile,onProgress?:(message:string)=>void,loadResources=loadBrandingResources,renderPdf=defaultPdfRenderer){
+ const source=await prepareBranding(api,profile,onProgress,loadResources,true);onProgress?.('Creating your PDF…');const pdf=await renderPdf(profile,source);await confirmBrandingVersion(api,profile);return pdf;
+}
+export async function buildBrandingArchive(api:BrandingApi,profile:TeamBrandingProfile,onProgress?:(message:string)=>void,loadResources=loadBrandingResources,renderPdf=defaultPdfRenderer):Promise<Uint8Array<ArrayBuffer>> {
  const {Zip,ZipPassThrough,strToU8}=await import('fflate');
+ const source=await prepareBranding(api,profile,onProgress,loadResources);
+ onProgress?.('Creating your PDF…');const pdf=await renderPdf(profile,source);await confirmBrandingVersion(api,profile);
  const chunks:Uint8Array<ArrayBuffer>[]=[];let failure:Error|null=null;
  const zip=new Zip((err,bytes)=>{if(err)failure=err;else chunks.push(new Uint8Array(bytes));});
  const add=(name:string,bytes:Uint8Array)=>{const entry=new ZipPassThrough(name);zip.add(entry);entry.push(bytes,true);};
- try {
-  onProgress?.('Preparing official STEM Racing branding…');
-  const resources=await loadResources();
-  for(const resource of resources)add(resource.path,resource.bytes);
-  const entries:Array<BrandingAsset&{path:string}>=[];
-  for(const asset of profile.assets){
-   onProgress?.(`Preparing ${asset.label.toLowerCase()}…`);
-   const data=await api.downloadTeamBrandAsset(profile.eventId,profile.team.id,asset.key,profile.version);
-   if(data.key!==asset.key||data.mime!==asset.mime||data.revision!==asset.revision)throw new ApiError('conflict','Branding changed. Refresh the profile and try again.');
-   const bytes=Uint8Array.from(atob(data.base64),c=>c.charCodeAt(0));if(bytes.length!==asset.size)throw new ApiError('conflict','A branding file changed. Refresh and try again.');
-   const path=brandingAssetPath(asset,profile);add(path,bytes);entries.push({...asset,path});
-  }
-  if((await api.teamBrandingProfile(profile.eventId,profile.team.id)).version!==profile.version)throw new ApiError('conflict','Branding changed while preparing the download. Refresh and try again.');
-  add('profile.html',strToU8(brandingProfileHtml(profile,resources)));
-  add('profile.json',strToU8(JSON.stringify({...profile,assets:entries},null,2)));
+ try{
+  for(const f of [...source.resources,...source.files])add(f.path,f.bytes);
+  add('profile.pdf',pdf);
+  add('profile.json',strToU8(JSON.stringify({...profile,assets:profile.assets.map(a=>({...a,path:brandingAssetPath(a,profile)}))},null,2)));
   const colors=profile.colours;add('colours.css',strToU8(colors?`:root {\n  --team-primary: ${colors.primary};\n  --team-secondary: ${colors.secondary};\n  --team-accent: ${colors.accent};\n}\n`:'/* Team colours have not been submitted. */\n'));
-  add('README.txt',strToU8(`${profile.team.number} · ${profile.team.name}\n${profile.team.school}\n${profile.eventName}\n\nAutomatically assembled from current submitted branding assets.\n${profile.completedCount}/8 media categories submitted.\nMissing: ${brandingMissingLabels(profile).join(', ')||'None'}\n\nOriginal files retain their submitted content. Approved cutouts are identified separately; an original photo is not an approved cutout.\nExtract this ZIP and open profile.html for the visual, printable team profile. Profile data and colours are included for branding workflows. The final designed download template can be added later.\nThis pack contains team/member photographs; share it only with the intended team and event organisers.\n`));
+  add('README.txt',strToU8(`${profile.team.number} · ${profile.team.name}\n${profile.team.school}\n${profile.eventName}\n\nOpen profile.pdf for the team branding profile. Original assets retain their submitted content. Approved cutouts are identified separately.\n${profile.completedCount}/8 media categories submitted.\nMissing: ${brandingMissingLabels(profile).join(', ')||'None'}\n\nThis pack contains team/member photographs; share only with the intended team and event organisers.\n`));
   zip.end();if(failure)throw failure;
-  const size=chunks.reduce((n,c)=>n+c.length,0),result=new Uint8Array(size);let at=0;for(const c of chunks){result.set(c,at);at+=c.length;}return result;
+  const result=new Uint8Array(chunks.reduce((n,c)=>n+c.length,0));let at=0;for(const c of chunks){result.set(c,at);at+=c.length;}return result;
  }catch(err){zip.terminate();throw err;}
 }
 

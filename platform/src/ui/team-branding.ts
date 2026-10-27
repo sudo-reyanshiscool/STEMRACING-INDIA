@@ -1,5 +1,5 @@
 import type {Ctx} from './ctx';
-import {buildBrandingArchive,brandingArchiveName,brandingMissingLabels,type TeamBrandingProfile} from '../api';
+import {buildBrandingArchive,buildTeamBrandingPdf,brandingArchiveName,brandingMissingLabels,type TeamBrandingProfile} from '../api';
 import {h} from './dom';
 import {errorText,notFound} from './common';
 import {routeHref} from './router';
@@ -27,10 +27,12 @@ export async function teamBrandingScreen(ctx:Ctx,eventId:string):Promise<HTMLEle
     void ctx.api.downloadTeamBrandAsset(eventId,p.team.id,logo.key,p.version).then(f=>{if(alive&&current===request)img.src=`data:image/png;base64,${f.base64}`;}).catch(()=>{img.remove();});
    }
    const download=h('button',{type:'button',class:'btn btn--primary'},'Download branding pack');
-   download.onclick=async()=>{download.disabled=true;select.disabled=true;try{const bytes=await buildBrandingArchive(ctx.api,p,message=>{if(alive)status.textContent=message;});if(alive){save(bytes,brandingArchiveName(p),'application/zip');status.textContent='Branding pack ready. Includes submitted source files, profile data and colour values.';}}catch(err){if(alive)status.textContent=errorText(err);}finally{if(alive){download.disabled=false;select.disabled=false;}}};
+   download.onclick=async()=>{download.disabled=pdf.disabled=refresh.disabled=select.disabled=true;try{const bytes=await buildBrandingArchive(ctx.api,p,message=>{if(alive)status.textContent=message;});if(alive){save(bytes,brandingArchiveName(p),'application/zip');status.textContent='Branding pack ready. Includes your PDF, original assets and colour values.';}}catch(err){if(alive)status.textContent=errorText(err);}finally{if(alive){download.disabled=pdf.disabled=refresh.disabled=select.disabled=false;}}};
+   const pdf=h('button',{type:'button',class:'btn btn--primary'},'Download PDF');
+   pdf.onclick=async()=>{pdf.disabled=download.disabled=refresh.disabled=select.disabled=true;try{const bytes=await buildTeamBrandingPdf(ctx.api,p,message=>{if(alive)status.textContent=message;});if(alive){save(bytes,brandingArchiveName(p).replace('.zip','.pdf'),'application/pdf');status.textContent='Your branding PDF is ready.';}}catch(err){if(alive)status.textContent=errorText(err);}finally{if(alive)pdf.disabled=download.disabled=refresh.disabled=select.disabled=false;}};
    const data=h('button',{type:'button',class:'btn btn--ghost'},'Download profile data');data.onclick=()=>save(JSON.stringify(p,null,2),brandingArchiveName(p).replace('.zip','.json'),'application/json');
    const refresh=h('button',{type:'button',class:'btn btn--ghost'},'Refresh profile');refresh.onclick=render;
-   body.append(identity,h('div',{class:'actions'},download,data,refresh),h('p',{class:'muted'},'Includes a printable profile, original assets and colour values. Extract the ZIP and open profile.html. Incomplete profiles can still be downloaded.'));
+   body.append(identity,h('div',{class:'actions'},pdf,download,data,refresh),h('p',{class:'muted'},'Download your profile as a PDF, or get the PDF and original assets together in the branding pack. Incomplete profiles can still be downloaded.'));
    if(p.missing.length)body.append(h('aside',{class:'notice stack'},h('strong',null,'Build out your team identity'),h('p',null,`Still to submit: ${brandingMissingLabels(p).join(', ')}.`),roles.some(r=>r.role!=='spectator')?h('a',{href:routeHref({name:'submissions',eventId})},'Go to submissions →'):null));
    body.append(palette(p),h('section',{class:'stack'},h('h2',null,'The people behind the car'),p.members.length?h('div',{class:'branding-members'},p.members.map(m=>h('article',{class:'row stack'},h('h3',null,m.name),h('p',{class:'muted'},m.role),h('span',null,m.assetKey?'Portrait included in pack':'Portrait not submitted')))):h('p',{class:'muted'},'Member names, roles and portraits will appear here once submitted.')),
     h('section',{class:'stack'},h('h2',null,'Your asset library'),p.assets.length?h('div',{class:'branding-assets'},p.assets.map(a=>{const card=h('article',{class:'row stack'},h('h3',null,a.label),h('p',null,a.name),h('p',{class:'muted'},`${(a.size/1048576).toFixed(2)} MB${a.width&&a.height?` · ${a.width} × ${a.height}`:''} · revision ${a.revision}`));

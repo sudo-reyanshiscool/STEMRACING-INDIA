@@ -5,7 +5,7 @@ import {brandingProfileHtml} from '../../src/api/team-branding';
 import {world,makeCtx,EMAILS} from './helpers';
 it('shows only managed profiles with missing assets, downloads and a submissions link',async()=>{
  const {api,ev,t1}=await world();const root=await teamBrandingScreen(makeCtx(api).ctx,ev.id);
- expect(root.querySelectorAll('option')).toHaveLength(1);expect(root.querySelector('option')!.value).toBe(t1.id);expect(root.textContent).toContain('0 of 8');expect(root.textContent).toContain('Download branding pack');expect(root.querySelector('a[href$="/submissions"]')).not.toBeNull();
+ expect(root.querySelectorAll('option')).toHaveLength(1);expect(root.querySelector('option')!.value).toBe(t1.id);expect(root.textContent).toContain('0 of 8');expect(root.textContent).toContain('Download branding pack');expect(root.textContent).toContain('Download PDF');expect(root.querySelector('a[href$="/submissions"]')).not.toBeNull();
  expect(root.textContent).not.toContain('Two');
 });
 it('lets organisers choose all teams and refuses judges',async()=>{
