@@ -1,3 +1,4 @@
+import {authSessionFingerprint} from './auth-events';
 import {validateEventLogos} from './event-branding';
 import type { RaceHeat, RaceLane, TimingPair, TimingState } from '../racing';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
@@ -180,13 +181,18 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
       if (error) throw mapAuthError(error);
     },
     onAuthChange(cb) {
+      let previous:string|undefined,active=true;
       const { data } = sb.auth.onAuthStateChange((_event, s) => {
-        // supabase-js holds an internal lock while this callback runs; a listener that calls back into the client
-        // synchronously can deadlock. Hand over on the next tick.
+        const fingerprint=authSessionFingerprint(s);
+        if(fingerprint===previous)return;
+        previous=fingerprint;
+        // Only identity, email or MFA assurance changes replace the current screen. Supabase also
+        // emits SIGNED_IN on window focus; resetting then destroys Safari's selected file handles.
         const next = toSession(s?.user);
-        setTimeout(() => cb(next), 0);
+        // Auth callbacks run under the SDK's internal lock. Notify consumers on the next tick.
+        setTimeout(() => {if(active)cb(next);}, 0);
       });
-      return () => data.subscription.unsubscribe();
+      return () => {active=false;data.subscription.unsubscribe();};
     },
     async getMfaStatus(): Promise<MfaStatus> {
       const sess = await session();
