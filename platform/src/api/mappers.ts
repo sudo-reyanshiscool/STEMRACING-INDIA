@@ -37,10 +37,10 @@ const NETWORK = /failed to fetch|networkerror|network request failed|load failed
 export function mapPgError(e: { message: string; code?: string }): ApiError {
   if (e.code === '55000' && e.message === 'watch the full submission guide before uploading') return new ApiError('guide-required', e.message);
   const known = e.code && Object.prototype.hasOwnProperty.call(PG_ERROR_CODES, e.code) ? PG_ERROR_CODES[e.code] : undefined;
-  if (known) return new ApiError(known, e.message);
+  if (known) return new ApiError(known, e.message, e.code);
   if (EXPIRED.test(e.message)) return new ApiError('unauthenticated', e.message);
   if (NETWORK.test(e.message)) return new ApiError('network', 'No connection to the server');
-  return new ApiError('unknown', e.message);
+  return new ApiError('unknown', e.message, e.code);
 }
 
 /** supabase-js auth errors: status 0 is a failed fetch; a malformed address is the caller's mistake. */

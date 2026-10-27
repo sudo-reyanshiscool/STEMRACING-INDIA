@@ -236,7 +236,11 @@ export function validateCompulsoryFile(key:CompulsoryAssetKey,file:{name:string;
  let dims:{width:number;height:number}|null=null;
  if(key.startsWith('car_render_')){
   dims=extractDimensions(bytes);
-  if(file.mime!=='image/png'||!/^.+\.png$/i.test(file.name)||!dims||dims.width!==3840||dims.height!==2160||!bytes.slice(-12).includes('IEND')||![4,6].includes(bytes.charCodeAt(25)))throw new ApiError('invalid','Car renders require a 3840 × 2160 PNG with an alpha channel.');
+  if(file.mime!=='image/png'||!/^.+\.png$/i.test(file.name)||!dims||!bytes.slice(-12).includes('IEND'))throw new ApiError('invalid','Use a complete PNG for the car render.');
+  const issues:string[]=[];
+  if(dims.width!==3840||dims.height!==2160)issues.push(`This render is ${dims.width} × ${dims.height} px. Export it at 3840 × 2160 px.`);
+  if(![4,6].includes(bytes.charCodeAt(25)))issues.push('This PNG has no alpha channel. Export it with a transparent background.');
+  if(issues.length)throw new ApiError('invalid',issues.join(' '));
  }else if(key==='car_model_3d'){
   if(file.mime!=='model/obj'||!/\.obj$/i.test(file.name)||!/(^|\n)v[ \t]+[-+0-9.]/.test(bytes)||!/(^|\n)f[ \t]+[0-9]/.test(bytes))throw new ApiError('invalid','Use an OBJ model containing vertices and faces.');
  }else if(file.mime!=='application/zip'||!/\.zip$/i.test(file.name)||!bytes.startsWith('PK\x03\x04')||!bytes.slice(-65557).includes('PK\x05\x06'))throw new ApiError('invalid','Use a complete ZIP of materials and textures.');

@@ -169,7 +169,7 @@ export interface MfaStatus {
 export type ApiErrorCode = 'guide-required' | 'unauthenticated' | 'forbidden' | 'locked' | 'invalid' | 'duplicate' | 'conflict' | 'email-delivery' | 'rate-limited' | 'invalid-auth' | 'not-found' | 'network' | 'unknown';
 
 export class ApiError extends Error {
-  constructor(public code: ApiErrorCode, message: string) {
+  constructor(public code: ApiErrorCode, message: string, public detailCode?: string) {
     super(message);
     this.name = 'ApiError';
   }

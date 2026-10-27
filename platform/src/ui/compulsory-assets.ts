@@ -2,9 +2,10 @@ import type {Ctx} from './ctx';
 import type {TeamRow} from '../api';
 import {COMPULSORY_ASSET_SPECS,validateCompulsoryFile,validateMemberPortraits,validateTeamColours,type CompulsoryAssetKey,type StoredCompulsoryFile,type TeamCompulsoryAssets,type TeamMemberPortrait} from '../api/compulsory-assets';
 import {h} from './dom';
-import {errorText} from './common';
+import {readSubmissionFile} from './submission-file';
+import {submissionErrorText as errorText,validateSubmission,SubmissionValidationError} from './submission-errors';
 const fields={team_logo:'teamLogo',car_render_fl:'carRenderFL',car_render_fr:'carRenderFR',car_model_3d:'carModel3D',model_materials:'modelMaterials'} as const;
-const toBase64=async(file:File)=>{const bytes=new Uint8Array(await file.arrayBuffer());let bin='';for(let i=0;i<bytes.length;i+=8192)bin+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(bin);};
+
 export async function compulsoryAssetsSection(ctx:Ctx,eventId:string,teams:TeamRow[],managedTeamIds:string[],isStaff:boolean):Promise<HTMLElement>{
  const [event,roles]=await Promise.all([ctx.api.getEvent(eventId),ctx.api.myRoles(eventId)]);
  const readOnly=!!event?.resultsReleased||roles.some(r=>r.role==='spectator');
@@ -24,7 +25,7 @@ export async function compulsoryAssetsSection(ctx:Ctx,eventId:string,teams:TeamR
   try{const state=await ctx.api.getCompulsoryAssets(eventId,target);if(alive&&current===request)render(state,target);}
   catch(err){if(alive&&current===request)body.replaceChildren(h('p',{class:'alert',role:'alert'},errorText(err)),h('button',{class:'btn btn--ghost',onclick:()=>void refresh()},'Retry media status'));}
  }
- const run=async(button:HTMLButtonElement,action:()=>Promise<void>)=>{if(button.disabled)return;button.disabled=true;try{await action();notify('Saved to the event.');await refresh();}catch(err){notify(errorText(err),true);}finally{if(alive)button.disabled=false;}};
+ const run=async(button:HTMLButtonElement,action:()=>Promise<void>)=>{if(button.disabled)return;button.disabled=true;chooser.disabled=true;notify('Validating and uploading…');try{await action();notify('Saved to the event.');await refresh();}catch(err){notify(errorText(err),true);}finally{if(alive){button.disabled=false;chooser.disabled=false;}}};
  const download=async(target:string,key:CompulsoryAssetKey)=>{
   const f=await ctx.api.downloadCompulsoryAsset(eventId,target,key);if(!f.base64)throw new Error('File unavailable');
   const url=URL.createObjectURL(new Blob([Uint8Array.from(atob(f.base64),c=>c.charCodeAt(0))],{type:'application/octet-stream'}));h('a',{href:url,download:f.name}).click();setTimeout(()=>URL.revokeObjectURL(url),1000);
@@ -52,16 +53,16 @@ export async function compulsoryAssetsSection(ctx:Ctx,eventId:string,teams:TeamR
    const limit=spec.key==='team_logo'?2:spec.key.startsWith('car_render_')?25:50;
    const save=h('button',{class:'btn btn--primary',type:'submit'},`Upload ${spec.name}`);
    const form=h('form',{class:'stack','data-asset':spec.key,onsubmit:(e:Event)=>{e.preventDefault();void run(save,async()=>{
-    const file=input.files?.[0];if(!file)throw new Error('Choose a file.');if(file.size>limit*1024*1024)throw new Error(`File must be ${limit} MB or smaller.`);
-    const payload={name:file.name,mime:spec.key==='team_logo'?file.name.toLowerCase().endsWith('.svg')?'image/svg+xml':'image/png':spec.key.startsWith('car_render_')?'image/png':spec.key==='car_model_3d'?'model/obj':'application/zip',base64:await toBase64(file)};
-    validateCompulsoryFile(spec.key,payload);await ctx.api.uploadCompulsoryAsset(eventId,target,spec.key,payload,existing?.revision??0);
+    const file=input.files?.[0];if(!file)throw new SubmissionValidationError('Choose a file.');if(file.size>limit*1024*1024)throw new SubmissionValidationError(`File must be ${limit} MB or smaller.`);
+    const payload={name:file.name,mime:spec.key==='team_logo'?file.name.toLowerCase().endsWith('.svg')?'image/svg+xml':'image/png':spec.key.startsWith('car_render_')?'image/png':spec.key==='car_model_3d'?'model/obj':'application/zip',base64:await readSubmissionFile(file,limit*1024*1024,(loaded,total)=>notify(`Reading ${file.name}… ${Math.round(loaded/total*100)}%`))};
+    validateSubmission(()=>validateCompulsoryFile(spec.key,payload));notify(`Saving ${spec.name.toLowerCase()}…`);await ctx.api.uploadCompulsoryAsset(eventId,target,spec.key,payload,existing?.revision??0);
    });}},h('h3',null,spec.name),h('p',{class:'muted'},`${spec.specifications}. Maximum ${limit} MB. Replaces this category’s current file.`),h('label',{class:'field'},spec.format,input),save);
    body.append(h('details',{class:'card'},h('summary',null,`${existing?'Replace':'Submit'} ${spec.name}`),form));
   }
   const colours=state.teamColours??{primary:'#E6007E',secondary:'#312783',accent:'#FCBC00'};
   const colorInputs=(['primary','secondary','accent'] as const).map(k=>({key:k,input:h('input',{value:colours[k],required:true,maxlength:7,'aria-label':`${k} HEX colour`,disabled:readOnly})}));
   const colorSave=h('button',{class:'btn btn--primary',type:'submit',disabled:readOnly},'Save Team Colours');
-  body.append(h('form',{class:'card stack','data-asset':'team_colours',onsubmit:(e:Event)=>{e.preventDefault();void run(colorSave,async()=>{const values={primary:colorInputs[0].input.value,secondary:colorInputs[1].input.value,accent:colorInputs[2].input.value};await ctx.api.saveTeamColours(eventId,target,validateTeamColours(values),state.revision);});}},h('h3',null,'Team Colours (HEX)'),colorInputs.map(f=>h('label',{class:'field'},f.key,f.input)),colorSave));
+  body.append(h('form',{class:'card stack','data-asset':'team_colours',onsubmit:(e:Event)=>{e.preventDefault();void run(colorSave,async()=>{const values={primary:colorInputs[0].input.value,secondary:colorInputs[1].input.value,accent:colorInputs[2].input.value};await ctx.api.saveTeamColours(eventId,target,validateSubmission(()=>validateTeamColours(values)),state.revision);});}},h('h3',null,'Team Colours (HEX)'),colorInputs.map(f=>h('label',{class:'field'},f.key,f.input)),colorSave));
   const members=state.memberPortraits??[];
   const portraitCard=h('article',{class:'card stack','data-asset':'member_portraits'},h('h3',null,'Individual Team Member Portraits'),h('p',{class:'muted'},'Add a JPG or PNG portrait (up to 2 MB), name and role for every registered member. The platform has no separate member roster to check this automatically.'));
   for(const m of members){const remove=h('button',{class:'btn btn--ghost btn--small',disabled:readOnly,onclick:()=>void run(remove,async()=>{await ctx.api.saveTeamMemberPortraits(eventId,target,members.filter(x=>x.id!==m.id),state.revision);})},'Remove');portraitCard.append(h('div',{class:'row'},m.photoBase64?h('img',{src:`data:${m.photoMime};base64,${m.photoBase64}`,alt:m.name,width:64,height:64}):null,h('strong',null,m.name),h('p',null,m.role),remove));}
@@ -69,9 +70,9 @@ export async function compulsoryAssetsSection(ctx:Ctx,eventId:string,teams:TeamR
    const name=h('input',{required:true,maxlength:100,'aria-label':'Member name'}),role=h('input',{required:true,maxlength:100,'aria-label':'Member role'}),photo=h('input',{type:'file',accept:'.jpg,.jpeg,.png',required:true,'aria-label':'Member portrait'});
    const add=h('button',{class:'btn btn--primary',type:'submit'},'Add Member Portrait');
    portraitCard.append(h('form',{class:'stack',onsubmit:(e:Event)=>{e.preventDefault();void run(add,async()=>{
-    const file=photo.files?.[0];if(!file)throw new Error('Choose a portrait.');if(file.size>2*1024*1024)throw new Error('Portrait must be 2 MB or smaller.');
-    const next:TeamMemberPortrait={id:crypto.randomUUID(),name:name.value,role:role.value,fileName:file.name,photoMime:file.name.toLowerCase().endsWith('.png')?'image/png':'image/jpeg',photoBase64:await toBase64(file)};
-    await ctx.api.saveTeamMemberPortraits(eventId,target,validateMemberPortraits([...members,next]),state.revision);
+    const file=photo.files?.[0];if(!file)throw new SubmissionValidationError('Choose a portrait.');if(file.size>2*1024*1024)throw new SubmissionValidationError('Portrait must be 2 MB or smaller.');
+    const next:TeamMemberPortrait={id:crypto.randomUUID(),name:name.value,role:role.value,fileName:file.name,photoMime:file.name.toLowerCase().endsWith('.png')?'image/png':'image/jpeg',photoBase64:await readSubmissionFile(file,2*1024*1024,(loaded,total)=>notify(`Reading portrait… ${Math.round(loaded/total*100)}%`))};
+    await ctx.api.saveTeamMemberPortraits(eventId,target,validateSubmission(()=>validateMemberPortraits([...members,next])),state.revision);
    });}},h('label',{class:'field'},'Full name',name),h('label',{class:'field'},'Role',role),h('label',{class:'field'},'Portrait',photo),add));
   }body.append(portraitCard);
   // Old releases kept unconfirmed media only in localStorage. Preserve it, identify it as local,

@@ -2,7 +2,9 @@ import type { Ctx } from './ctx';
 import type { TeamRow, TeamPhoto } from '../api';
 import { checkResolution, PHOTO_MAX_BYTES, RECOMMENDED_WIDTH, RECOMMENDED_HEIGHT } from '../api';
 import { h } from './dom';
-import { errorText } from './common';
+import {submissionErrorText as errorText,validateSubmission,SubmissionValidationError} from './submission-errors';
+import {readSubmissionFile} from './submission-file';
+import {validatePhotoUpload,extractDimensions} from '../api/team-photos';
 
 export async function teamPhotoUploadSection(
   ctx: Ctx,
@@ -15,12 +17,12 @@ export async function teamPhotoUploadSection(
   const uploadTeams = teams.filter((t) => isStaff || managedTeamIds.includes(t.id));
   const container = h('section', { class: 'stack stack--md team-photo-section' });
 
+  let alive=true,previewUrl:string|undefined;ctx.onLeave(()=>{alive=false;if(previewUrl)URL.revokeObjectURL(previewUrl);});
+  let loadError:unknown;
   let photos: TeamPhoto[] = [];
   try {
     photos = await ctx.api.listTeamPhotos(eventId);
-  } catch {
-    // If not accessible or fails, ignore
-  }
+  } catch(err) {loadError=err;}
 
   const head = h(
     'div',
@@ -38,10 +40,13 @@ export async function teamPhotoUploadSection(
   container.append(statusMsg);
 
   function notify(msg: string, isError = false) {
+    if(!alive)return;
     statusMsg.textContent = msg;
     statusMsg.hidden = false;
     statusMsg.className = isError ? 'alert' : 'notice';
   }
+
+  if(loadError){notify('Saved photograph status could not be loaded. Retry before uploading a replacement.',true);container.append(h('button',{type:'button',class:'btn btn--ghost',onclick:()=>ctx.rerender()},'Retry photograph status'));return container;}
 
   if (uploadTeams.length === 0) {
     container.append(h('p', { class: 'muted' }, 'No teams available for photograph submission.'));
@@ -178,27 +183,18 @@ export async function teamPhotoUploadSection(
         return;
       }
 
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const dataUrl = e.target?.result as string;
-        previewImg.src = dataUrl;
-        previewArea.hidden = false;
-
-        const img = new Image();
-        img.onload = () => {
-          selectedDimensions = { width: img.naturalWidth, height: img.naturalHeight };
-          const check = checkResolution(img.naturalWidth, img.naturalHeight);
-          if (!check.isRecommended) {
-            resWarning.textContent = check.warning!;
-            resWarning.className = 'alert small';
-          } else {
-            resWarning.textContent = `✓ Recommended 4K quality confirmed (${img.naturalWidth} × ${img.naturalHeight} px).`;
-            resWarning.className = 'notice small';
-          }
-        };
-        img.src = dataUrl;
+      selectedDimensions=null;
+      if(previewUrl)URL.revokeObjectURL(previewUrl);
+      previewImg.onload=()=>{
+        selectedDimensions={width:previewImg.naturalWidth,height:previewImg.naturalHeight};
+        const check=checkResolution(previewImg.naturalWidth,previewImg.naturalHeight);
+        resWarning.textContent=check.warning??`Recommended 4K quality confirmed (${previewImg.naturalWidth} × ${previewImg.naturalHeight} px).`;
+        resWarning.className=check.isRecommended?'notice small':'alert small';
       };
-      reader.readAsDataURL(file);
+      previewImg.onerror=()=>{selectedDimensions=null;notify('This photograph could not be previewed. Choose a complete JPG or PNG saved on this device.',true);};
+      try{previewUrl=URL.createObjectURL(file);previewImg.src=previewUrl;previewArea.hidden=false;}
+      catch{notify('This photograph could not be opened. Save a local copy and choose it again.',true);}
+
     };
 
     const uploadBtn = h(
@@ -228,41 +224,36 @@ export async function teamPhotoUploadSection(
 
           const targetTeamId=currentTeamId;
           if(file.size>PHOTO_MAX_BYTES){notify('Photograph must be 25 MB or smaller.',true);return;}
-          uploadBtn.disabled = true;
+          uploadBtn.disabled = true;teamSelect.disabled=true;fileInput.disabled=true;consentCheckbox.disabled=true;
           progressBar.hidden = false;
           progressBar.value = 25;
           notify('Uploading official photograph…');
 
           try {
-            const buffer = await file.arrayBuffer();
-            const bytes = new Uint8Array(buffer);
-            let binary = '';
-            for (let i = 0; i < bytes.length; i += 8192) {
-              binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
-            }
-
-            progressBar.value = 60;
-            notify('Saving photograph to secure storage…');
-
-            await ctx.api.uploadTeamPhoto(eventId, targetTeamId, photo?.revision ?? 0, {
-              name: file.name,
-              mime: file.type || (file.name.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg'),
-              base64: btoa(binary),
-              mediaConsent: true,
-              width: selectedDimensions?.width,
-              height: selectedDimensions?.height,
+            const base64=await readSubmissionFile(file,PHOTO_MAX_BYTES,(loaded,total)=>{
+              progressBar.value=Math.round(loaded/total*50);notify(`Reading photograph… ${Math.round(loaded/total*100)}%`);
             });
+            // Some file providers report an empty or generic MIME type. Identify supported image bytes.
+            const header=atob(base64.slice(0,Math.min(base64.length,48)));
+            const mime=header.startsWith('\x89PNG\r\n\x1a\n')?'image/png':header.startsWith('\xff\xd8\xff')?'image/jpeg':'';
+            if(!mime)throw new SubmissionValidationError('Only JPG and PNG photographs are supported. Export a JPG or PNG and choose it again.');
+            const input={name:file.name,mime,base64,mediaConsent:true};
+            validateSubmission(()=>validatePhotoUpload(input));
+            const dimensions=extractDimensions(atob(base64));
+            if(!dimensions)throw new SubmissionValidationError('The photograph header could not be read. Export a fresh JPG or PNG.');
+            progressBar.value=60;notify('Saving photograph to the event…');
+            await ctx.api.uploadTeamPhoto(eventId,targetTeamId,photo?.revision??0,{...input,...dimensions});
 
             progressBar.value = 100;
             notify('Photograph saved and queued for organiser processing and review.');
 
             photos = await ctx.api.listTeamPhotos(eventId);
             renderCurrentState();
-            ctx.rerender();
+            if(alive)ctx.rerender();
           } catch (err) {
             notify(errorText(err), true);
           } finally {
-            uploadBtn.disabled = false;
+            uploadBtn.disabled = false;teamSelect.disabled=false;fileInput.disabled=false;consentCheckbox.disabled=false;
             progressBar.hidden = true;
           }
         },

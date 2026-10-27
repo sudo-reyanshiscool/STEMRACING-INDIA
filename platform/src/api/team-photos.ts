@@ -69,37 +69,25 @@ export function validatePhotoUpload(input: {
 
 /** Reads dimensions from PNG or JPEG binary string or Uint8Array. */
 export function extractDimensions(binary: string | Uint8Array): { width: number; height: number } | null {
-  try {
-    const bytes = typeof binary === 'string'
-      ? new Uint8Array([...binary].map(c => c.charCodeAt(0)))
-      : binary;
-
-    if (bytes.length >= 24 &&
-        bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47 &&
-        bytes[4] === 0x0d && bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a) {
-      const width = ((bytes[16] << 24) | (bytes[17] << 16) | (bytes[18] << 8) | bytes[19]) >>> 0;
-      const height = ((bytes[20] << 24) | (bytes[21] << 16) | (bytes[22] << 8) | bytes[23]) >>> 0;
-      return { width, height };
-    }
-    if (bytes.length >= 8 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
-      let offset = 2;
-      while (offset < bytes.length - 8) {
-        if (bytes[offset] !== 0xff) break;
-        const marker = bytes[offset + 1];
-        const len = (bytes[offset + 2] << 8) | bytes[offset + 3];
-        // SOF0 (0xC0), SOF1 (0xC1), SOF2 (0xC2) markers
-        if (marker === 0xc0 || marker === 0xc1 || marker === 0xc2) {
-          const height = (bytes[offset + 5] << 8) | bytes[offset + 6];
-          const width = (bytes[offset + 7] << 8) | bytes[offset + 8];
-          return { width, height };
-        }
-        offset += 2 + len;
-      }
-    }
-  } catch {
-    // Fall back to null if header cannot be parsed
+ const length=binary.length,byte=(i:number)=>typeof binary==='string'?binary.charCodeAt(i):binary[i];
+ if(length>=24&&[137,80,78,71,13,10,26,10].every((n,i)=>byte(i)===n)){
+  const word=(i:number)=>(byte(i)*16777216+byte(i+1)*65536+byte(i+2)*256+byte(i+3));
+  const width=word(16),height=word(20);return width>0&&height>0?{width,height}:null;
+ }
+ if(length<12||byte(0)!==255||byte(1)!==216)return null;
+ let offset=2;
+ while(offset+8<length){
+  if(byte(offset)!==255)return null;
+  while(offset+1<length&&byte(offset+1)===255)offset++;
+  const marker=byte(offset+1);if(marker===217||marker===218)return null;
+  if(marker===1||(marker>=208&&marker<=215)){offset+=2;continue;}
+  const size=byte(offset+2)*256+byte(offset+3);if(size<2||offset+2+size>length)return null;
+  if([192,193,194].includes(marker)){
+   if(size<7)return null;const height=byte(offset+5)*256+byte(offset+6),width=byte(offset+7)*256+byte(offset+8);return width>0&&height>0?{width,height}:null;
   }
-  return null;
+  offset+=2+size;
+ }
+ return null;
 }
 
 export const DEFAULT_WORKER_URL = 'http://127.0.0.1:5195';

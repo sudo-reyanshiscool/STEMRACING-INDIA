@@ -82,6 +82,13 @@ export interface SupabaseApiOptions {
 
 /** The adapter over an existing client. Split from createSupabaseApi so tests can drive it with a scripted client. */
 export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: SupabaseApiOptions = {}): Api {
+  const uploadRpc=async(name:string,args:Record<string,unknown>)=>{
+    const controller=new AbortController();let timeout:ReturnType<typeof setTimeout>|undefined;
+    const query=sb.rpc(name,args);const request=typeof query.abortSignal==='function'?query.abortSignal(controller.signal):query;
+    try{return ok(await guard(()=>Promise.race([request,new Promise<never>((_resolve,reject)=>{timeout=setTimeout(()=>{controller.abort();reject(new ApiError('network','Upload confirmation timed out'));},60000);})])));}
+    finally{clearTimeout(timeout);}
+  };
+
   const pageSize = options.pageSize ?? PAGE_SIZE;
   const toSession = (u: { id: string; email?: string | null } | null | undefined): Session | null =>
     u ? { userId: u.id, email: (u.email ?? '').toLowerCase() } : null;
@@ -387,7 +394,7 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
     async submissionState(eventId) {return ok(await guard(()=>sb.rpc('submission_state',{p_event:eventId})));},
     async saveSubmissionRules(eventId,revision,rules) {ok(await guard(()=>sb.rpc('save_submission_rules',{p_event:eventId,p_revision:revision,p_rules:rules})));},
     async listTeamFiles(eventId) {return await pages<any>((a,b)=>sb.rpc('list_team_files',{p_event:eventId}).order('id').range(a,b));},
-    async uploadTeamFile(eventId,teamId,revision,input) {ok(await guard(()=>sb.rpc('upload_team_file',{p_event:eventId,p_team:teamId,p_revision:revision,p_input:input})));if(input.kind!=='logo'){try{await sb.functions.invoke('send-submission',{body:{eventId,teamId,kind:input.kind,revision:revision+1}});}catch{/* The portfolio is already saved; persistent delivery status allows retry. */}}},
+    async uploadTeamFile(eventId,teamId,revision,input) {await uploadRpc('upload_team_file',{p_event:eventId,p_team:teamId,p_revision:revision,p_input:input});if(input.kind!=='logo'){try{await sb.functions.invoke('send-submission',{body:{eventId,teamId,kind:input.kind,revision:revision+1}});}catch{/* The portfolio is already saved; persistent delivery status allows retry. */}}},
     async downloadTeamFile(eventId,id) {return ok(await guard(()=>sb.rpc('download_team_file',{p_event:eventId,p_id:id})));},
     async getInspectionScope(eventId) {return ok(await guard(()=>sb.rpc('inspection_scope',{p_event:eventId})));},
     async saveInspectionScope(eventId, revision, articles) {return ok(await guard(()=>sb.rpc('save_inspection_scope',{p_event:eventId,p_revision:revision,p_articles:articles})));},
@@ -661,7 +668,7 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
     async uploadTeamPhoto(eventId, teamId, revision, input) {
       const guide = ok(await guard(() => sb.rpc('submission_guide_state', {p_event:eventId})));
       if (guide.required && !guide.complete) throw new ApiError('guide-required','Watch the full submission guide before uploading.');
-      const res = ok(await guard(() => sb.rpc('upload_team_photo', { p_event: eventId, p_team: teamId, p_revision: revision, p_input: input }))) as any;
+      const res = await uploadRpc('upload_team_photo', { p_event: eventId, p_team: teamId, p_revision: revision, p_input: input }) as any;
       return res;
     },
     async queuePhotoProcessing(eventId, teamId) {
@@ -725,7 +732,7 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
     },
     async uploadCompulsoryAsset(eventId, teamId, assetKey, file, revision) {
       validateCompulsoryFile(assetKey,file);
-      ok(await guard(()=>sb.rpc('upload_compulsory_asset',{p_event:eventId,p_team:teamId,p_kind:assetKey,p_input:file,p_revision:revision??null})));
+      await uploadRpc('upload_compulsory_asset',{p_event:eventId,p_team:teamId,p_kind:assetKey,p_input:file,p_revision:revision??null});
       const state=ok(await guard(()=>sb.rpc('get_compulsory_assets',{p_event:eventId,p_team:teamId}))) as TeamCompulsoryAssets;
       const field=({team_logo:'teamLogo',car_render_fl:'carRenderFL',car_render_fr:'carRenderFR',car_model_3d:'carModel3D',model_materials:'modelMaterials'} as const)[assetKey as 'team_logo'];
       return state[field]!;
