@@ -21,7 +21,7 @@ it('creates empty profiles automatically and updates from canonical assets and i
  const p=await profile();expect(p).toMatchObject({colours,completedCount:3,members:[{name:'../Sample member',role:'Engineer',assetKey:'portrait:m1'}]});expect(p.version).not.toBe(first.version);expect(p.assets).toHaveLength(2);
  expect(JSON.stringify(p)).not.toContain('photoBase64');expect(JSON.stringify(p)).not.toContain(png);expect(JSON.stringify(p)).not.toContain('@');
  const pack=unzipSync(await buildBrandingArchive({teamBrandingProfile:()=>profile(),downloadTeamBrandAsset:(_e,_t,k,v)=>file(k,v)},p,undefined,resources,renderPdf));
- expect(Object.keys(pack)).toEqual([...BRANDING_RESOURCES.map(r=>r.path),'identity/team-logo.png','members/01-Sample-member.png','profile.pdf','profile.json','colours.css','README.txt']);expect(Buffer.from(pack['identity/team-logo.png']).toString('base64')).toBe(png);expect(pack['profile.pdf']).toEqual(pdfBytes);expect(pack).not.toHaveProperty('profile.html');expect(pack['brand/track-shape-pink.svg']).toEqual((await resources())[1].bytes);expect(strFromU8(pack['colours.css'])).toContain(colours.primary);expect(JSON.parse(strFromU8(pack['profile.json'])).assets[0].path).toBe('identity/team-logo.png');
+ expect(Object.keys(pack)).toEqual([...BRANDING_RESOURCES.map(r=>r.path),'identity/team-logo.png','members/01-Sample-member.png','profile.pdf','profile.json','colours.css','README.txt']);expect(Buffer.from(pack['identity/team-logo.png']).toString('base64')).toBe(png);expect(pack['profile.pdf']).toEqual(pdfBytes);expect(pack).not.toHaveProperty('profile.html');expect(pack['brand/track-shape-pink.svg']).toEqual((await resources()).find(r=>r.path==='brand/track-shape-pink.svg')!.bytes);expect(strFromU8(pack['colours.css'])).toContain(colours.primary);expect(JSON.parse(strFromU8(pack['profile.json'])).assets[0].path).toBe('identity/team-logo.png');
  await w.db.query('update teams set name=$1 where id=$2',['New identity',w.team1]);expect((await profile()).version).not.toBe(p.version);
  await expect(file('team_logo',p.version)).rejects.toMatchObject({code:'40001'});
 });
@@ -48,7 +48,7 @@ it('refuses an archive if sources change while it is being assembled',async()=>{
 
 it('offers a direct PDF from current images and preserves the same authorised source checks',async()=>{
  await upload();const p=await profile();let rendered=false;
- const pdf=await buildTeamBrandingPdf({teamBrandingProfile:()=>profile(),downloadTeamBrandAsset:(_e,_t,k,v)=>file(k,v)},p,undefined,resources,async(_p,source)=>{rendered=true;expect(source.files.map(f=>f.path)).toEqual(['identity/team-logo.png']);expect(source.resources).toHaveLength(5);return pdfBytes;});
+ const pdf=await buildTeamBrandingPdf({teamBrandingProfile:()=>profile(),downloadTeamBrandAsset:(_e,_t,k,v)=>file(k,v)},p,undefined,resources,async(_p,source)=>{rendered=true;expect(source.files.map(f=>f.path)).toEqual(['identity/team-logo.png']);expect(source.resources).toHaveLength(BRANDING_RESOURCES.length);return pdfBytes;});
  expect(rendered).toBe(true);expect(pdf).toEqual(pdfBytes);
 });
 it('refuses a PDF when team assets change during rendering',async()=>{

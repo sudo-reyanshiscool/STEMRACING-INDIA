@@ -1,6 +1,8 @@
 import {ApiError} from './types';
 /** Original supplied brand artwork; no generated logo, gradient or track geometry. */
 export const BRANDING_RESOURCES = [
+ {path:'brand/profile-letterhead.png',url:'/brand/profile-letterhead.png',mime:'image/png'},
+ {path:'brand/profile-footer-rule.png',url:'/brand/profile-footer-rule.png',mime:'image/png'},
  {path:'brand/stem-racing-india.png',url:'/brand/logo-india-colour-white.png',mime:'image/png'},
  {path:'brand/track-shape-pink.svg',url:'/brand/track-shape-pink.svg',mime:'image/svg+xml'},
  {path:'brand/Magistral-BoldItalic.woff2',url:'/fonts/Magistral-BoldItalic.woff2',mime:'font/woff2'},
