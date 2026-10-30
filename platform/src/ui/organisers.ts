@@ -4,6 +4,8 @@ import { h } from './dom';
 import { liveRefresh } from './live-refresh';
 import { reportActionError } from './actions';
 
+export const ownerRoleBadge = () => h('span', {class:'tag tag--owner'}, h('span', {class:'role-title--owner'}, 'God'));
+
 const label = (scope: string) => scope === 'admin' ? 'Platform Admin' : scope === 'platform' ? 'Platform Organiser' : scope==='spectator' ? 'Platform Spectator' : 'Competition Organiser';
 
 export function organiserControls(ctx: Ctx, access: PlatformAccess, viewerId?: string): HTMLElement {
@@ -46,7 +48,7 @@ export function organiserControls(ctx: Ctx, access: PlatformAccess, viewerId?: s
     const adminViewer=access.kind==='admin' && !!viewerId && viewerId===access.ownerId && access.viewerId===viewerId;
     const hidden=!!person.emailHidden || (!!person.contactRestricted && !adminViewer) || (access.viewerId!==undefined && access.viewerId!==viewerId);
     const address=hidden?null:person.email;
-    const row = h('li', null, h('strong',null,person.name || address || 'Organiser'), hidden ? h('span',{class:'muted small'},'Email hidden') : person.name && address ? h('span',{class:'muted small'},address) : null, h('span',{class:'muted small'},person.displayTitle || label(person.scope)),
+    const row = h('li', null, h('strong',null,person.name || address || 'Organiser'), hidden ? h('span',{class:'muted small'},'Email hidden') : person.name && address ? h('span',{class:'muted small'},address) : null, owner&&person.permanent&&person.userId===access.ownerId ? ownerRoleBadge() : h('span',{class:'muted small'},person.displayTitle || label(person.scope)),
       person.permanent ? h('span',{class:'tag tag--pass'},'Permanent administrator') : null);
     if(administrator&&!person.permanent) {
       const details=h('details',null,h('summary',null,'Account visibility'));

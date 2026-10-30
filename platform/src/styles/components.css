@@ -198,3 +198,13 @@
   text-decoration: none;
   font-weight: 600;
 }
+
+/* Permanent owner's private title, in the official STEM Racing colours. */
+.tag--owner { background: var(--carbon-shadow); border-color: var(--chicane-violet); }
+.role-title--owner { font-family: var(--font-display); font-style: italic; font-weight: 700; color: var(--pitlane-pink); }
+@supports (background-clip: text) or (-webkit-background-clip: text) {
+  .role-title--owner { background: linear-gradient(110deg, var(--burnout-orange), var(--pitlane-pink), var(--chicane-violet)); background-clip: text; -webkit-background-clip: text; color: transparent; -webkit-text-fill-color: transparent; }
+}
+@media (forced-colors: active) {
+  .role-title--owner { background: none; color: CanvasText; -webkit-text-fill-color: CanvasText; }
+}

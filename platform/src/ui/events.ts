@@ -2,7 +2,7 @@ import {ApiError,EVENT_LOGO_SLOTS,COMPETITION_LEVEL_LABEL,validateEventLogos,typ
 import {readEventLogo} from './event-branding';
 import {managerOnly} from './team-garage';
 import { buttonBusy } from './button-busy';
-import { organiserControls } from './organisers';
+import { organiserControls, ownerRoleBadge } from './organisers';
 import type { Ctx } from './ctx';
 import { reportActionError } from './actions';
 import { h } from './dom';
@@ -13,6 +13,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
   const [events, deleted, canCreate, access, viewer] = await Promise.all([ctx.api.listEvents(), ctx.api.listDeletedEvents(), ctx.api.canCreateEvent(), ctx.api.platformAccess(), ctx.api.getSession()]);
+  const owner=access.kind==='admin' && !!viewer && access.viewerId===viewer.userId && access.ownerId===viewer.userId;
   const showcaseEvent = !ctx.demo ? events.find(e => e.id === SHOWCASE_EVENT_ID) : undefined;
   const showcaseAvailable = showcaseEvent ? canShowcase(showcaseEvent, await ctx.api.myRoles(showcaseEvent.id)) : false;
   const teamView=!canCreate&&!access.kind&&events.length>0&&(await Promise.all(events.map(e=>ctx.api.myRoles(e.id)))).some(managerOnly);
@@ -74,7 +75,7 @@ export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
   return h('div', { class: teamView?'garage garage-calendar stack stack--lg':'stack stack--lg' },
     h('div', { class: 'stack' }, h('p', { class: 'eyebrow' }, 'STEM Racing India · Nationals & Regionals'), h('h1', null, 'Events'),
       h('p', { class: 'lead' }, teamView?'Your competition journey starts here. Open an event to enter your team garage.':'Judging, racing and results for each event, in one place.'),
-      access.kind ? h('p', {class:'tag tag--pass'},access.displayTitle ? `${access.displayTitle} · ${access.kind==='competition'?'assigned events':'all events'}` : access.kind==='admin'?(access.ownerId===viewer?.userId?'Platform Admin · permanent access to every event':'Platform Administrator · all events'):access.kind==='platform'?'Platform Organiser · all events':access.kind==='spectator'?'Platform Spectator · read-only':'Competition Organiser · assigned events') : null),
+      owner ? h('p',null,ownerRoleBadge()) : access.kind ? h('p', {class:'tag tag--pass'},access.displayTitle ? `${access.displayTitle} · ${access.kind==='competition'?'assigned events':'all events'}` : access.kind==='admin'?(access.ownerId===viewer?.userId?'Platform Admin · permanent access to every event':'Platform Administrator · all events'):access.kind==='platform'?'Platform Organiser · all events':access.kind==='spectator'?'Platform Spectator · read-only':'Competition Organiser · assigned events') : null),
     h('section', { class: 'section' },
       events.length === 0
         ? h('p', { class: 'muted' }, canCreate ? 'No events yet. Create one, or ask an organiser to invite you.' : 'No events yet. Ask an organiser to invite you to an event.')
