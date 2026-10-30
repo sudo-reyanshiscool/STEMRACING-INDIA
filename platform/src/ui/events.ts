@@ -74,7 +74,7 @@ export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
   return h('div', { class: teamView?'garage garage-calendar stack stack--lg':'stack stack--lg' },
     h('div', { class: 'stack' }, h('p', { class: 'eyebrow' }, 'STEM Racing India · Nationals & Regionals'), h('h1', null, 'Events'),
       h('p', { class: 'lead' }, teamView?'Your competition journey starts here. Open an event to enter your team garage.':'Judging, racing and results for each event, in one place.'),
-      access.kind ? h('p', {class:'tag tag--pass'},access.kind==='admin'?'Platform Admin · permanent access to every event':access.kind==='platform'?'Platform Organiser · all events':access.kind==='spectator'?'Platform Spectator · read-only':'Competition Organiser · assigned events') : null),
+      access.kind ? h('p', {class:'tag tag--pass'},access.displayTitle ? `${access.displayTitle} · ${access.kind==='competition'?'assigned events':'all events'}` : access.kind==='admin'?(access.ownerId===viewer?.userId?'Platform Admin · permanent access to every event':'Platform Administrator · all events'):access.kind==='platform'?'Platform Organiser · all events':access.kind==='spectator'?'Platform Spectator · read-only':'Competition Organiser · assigned events') : null),
     h('section', { class: 'section' },
       events.length === 0
         ? h('p', { class: 'muted' }, canCreate ? 'No events yet. Create one, or ask an organiser to invite you.' : 'No events yet. Ask an organiser to invite you to an event.')

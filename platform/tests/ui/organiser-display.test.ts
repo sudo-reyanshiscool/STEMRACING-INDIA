@@ -22,3 +22,9 @@ it('omits a private organiser entirely for a non-administrator, including from s
  expect(hidden.textContent).not.toContain('Nelson');expect(hidden.textContent).not.toContain('nelson-private@x.test');expect(hidden.textContent).not.toContain('Revoke organiser access');
  expect(organiserControls(makeCtx(new MemoryApi()).ctx,access,'admin').textContent).toContain('Nelson');
 });
+it('renders the display title without exposing owner controls',()=>{
+ const access={kind:'platform' as const,viewerId:'shubham',ownerEmail:'',canManage:true,invitations:[],organisers:[{userId:'shubham',email:'shubham@x.test',displayTitle:'Platform Administrator',scope:'platform' as const,permanent:false}]};
+ const el=organiserControls(makeCtx(new MemoryApi()).ctx,access,'shubham');
+ expect(el.textContent).toContain('Platform Administrator');expect(el.textContent).not.toContain('Account visibility');
+ expect(el.querySelector('[name="organiserScope"]')?.textContent).not.toContain('Platform Spectator');
+});
