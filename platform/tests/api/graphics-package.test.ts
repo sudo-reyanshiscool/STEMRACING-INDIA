@@ -6,6 +6,7 @@ import {buildGraphicsPackage,graphicsCsv,graphicsTeamFolder} from '../../src/api
 import {GRAPHICS_TEAM_HEADERS,GRAPHICS_MEMBER_HEADERS,graphicsWorkbook} from '../../src/api/graphics-workbook';
 import {world,EMAILS} from '../ui/helpers';
 import type {TeamBrandingProfile} from '../../src/api/team-branding';
+import {ApiError} from '../../src/api/types';
 const png=readFileSync(new URL('../fixtures/event-logo.png',import.meta.url));
 const cell=(xml:string,address:string)=>xml.match(new RegExp(`<c r="${address}"[^>]*>.*?<t[^>]*>(.*?)</t>.*?</c>`,'s'))?.[1]??'';
 async function fixture(){
@@ -53,6 +54,25 @@ it('refuses a package when an asset changes during export',async()=>{
  const {api,event,team}=await fixture();const original=api.downloadTeamBrandAsset.bind(api);
  vi.spyOn(api,'downloadTeamBrandAsset').mockImplementation(async(...args)=>{const data=await original(...args);await api.saveTeamColours(event.id,team.id,{primary:'#123456',secondary:'#654321',accent:'#ABCDEF'});return data;});
  await expect(buildGraphicsPackage(api,event.id)).rejects.toMatchObject({code:'conflict'});
+});
+it('retries transient read failures but never retries a permission denial',async()=>{
+ const {api,event}=await fixture();const original=api.downloadTeamBrandAsset.bind(api);
+ const read=vi.spyOn(api,'downloadTeamBrandAsset').mockRejectedValueOnce(new ApiError('network','Connection interrupted')).mockImplementation(original);
+ await expect(buildGraphicsPackage(api,event.id)).resolves.toBeInstanceOf(Uint8Array);
+ expect(read).toHaveBeenCalledTimes(3);
+ read.mockClear().mockRejectedValue(new ApiError('forbidden','Access removed'));
+ await expect(buildGraphicsPackage(api,event.id)).rejects.toMatchObject({code:'forbidden'});
+ expect(read).toHaveBeenCalledTimes(2);
+});
+it('downloads at most three assets concurrently while preserving every included file',async()=>{
+ const {api,event,team}=await fixture();
+ for(const key of ['car_render_fl','car_render_fr'] as const)await api.uploadCompulsoryAsset(event.id,team.id,key,{name:key+'.png',mime:'image/png',base64:readFileSync(new URL('../fixtures/car-render.png',import.meta.url)).toString('base64')});
+ const original=api.downloadTeamBrandAsset.bind(api);let active=0,maximum=0;
+ let release!:()=>void;const gate=new Promise<void>(resolve=>{release=resolve;});
+ vi.spyOn(api,'downloadTeamBrandAsset').mockImplementation(async(...args)=>{active++;maximum=Math.max(active,maximum);await gate;try{return await original(...args);}finally{active--;}});
+ const pending=buildGraphicsPackage(api,event.id);
+ await vi.waitFor(()=>expect(active).toBe(3));release();const files=unzipSync(await pending);
+ expect(maximum).toBe(3);expect(Object.keys(files).filter(p=>p.endsWith('.png'))).toHaveLength(4);
 });
 it('preserves formula-looking names as literal Excel text and keeps CSV reports safe',()=>{
  const row=['001','=1+1','A & B','',...Array(10).fill('')];const file=unzipSync(graphicsWorkbook([row],[['001','<Name>','Role','']]));

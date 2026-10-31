@@ -32,6 +32,16 @@ export async function buildGraphicsPackage(api:GraphicsApi,eventId:string,onProg
   signal?.addEventListener('abort',abort,{once:true});
   task.then(v=>{clearTimeout(timer);signal?.removeEventListener('abort',abort);if(signal?.aborted)abort();else resolve(v);},e=>{clearTimeout(timer);signal?.removeEventListener('abort',abort);reject(e);});
  });
+ const read=async<T>(task:()=>Promise<T>):Promise<T>=>{
+  for(let attempt=0;;attempt++){
+   stopped();
+   try{return await wait(task());}catch(error){
+    if(attempt>=2||!(error instanceof ApiError)||!(error.code==='network'||error.detailCode==='57014'))throw error;
+    stopped();onProgress?.('Connection interrupted — retrying the current read…');
+    await wait(new Promise<void>(resolve=>setTimeout(resolve,500*(attempt+1))));
+   }
+  }
+ };
  stopped();const viewer=await wait(api.getSession());if(!viewer)throw new ApiError('unauthenticated','Sign in to export graphics');
  const [event,teams,roles]=await wait(Promise.all([api.getEvent(eventId),api.listTeams(eventId),api.myRoles(eventId)]));
  if(!event||!roles.some(r=>['organiser','chair','spectator'].includes(r.role)))throw new ApiError('forbidden','Only event staff can export every team');
@@ -49,7 +59,7 @@ export async function buildGraphicsPackage(api:GraphicsApi,eventId:string,onProg
    stopped();if((await wait(api.getSession()))?.userId!==viewer.userId)throw new ApiError('unauthenticated','The account changed');
    const team=teams[i],prefix=`Team ${i+1} of ${teams.length} · ${team.name}`;
    onProgress?.(`${prefix} — Reading latest saved data…`);
-   const p=await wait(api.teamBrandingProfile(eventId,team.id));
+   const p=await read(()=>api.teamBrandingProfile(eventId,team.id));
    if(p.eventId!==eventId||p.team.id!==team.id)throw new ApiError('conflict','The team changed');
    const folder=graphicsTeamFolder(p);
    if(folders.has(folder.toLowerCase()))throw new GraphicsExportError('Two teams produce the same folder name. Correct their team IDs before exporting.');
@@ -70,17 +80,22 @@ export async function buildGraphicsPackage(api:GraphicsApi,eventId:string,onProg
     if(!m.assetKey||!paths.has(m.assetKey))missingAssets.push([id,name,'Member portrait',m.name??'','Not available']);
    }
    for(const [key,label] of [['team_logo','Logo'],['official_photo_original','Team photo'],['car_render_fl','Car render front-left'],['car_render_fr','Car render front-right'],['car_model_3d','3D model']])if(!p.assets.some(a=>a.key===key))missingAssets.push([id,name,label!,'','Not available']);
-   for(const asset of p.assets){
+   for(let start=0;start<p.assets.length;start+=3){
+    const files=await Promise.all(p.assets.slice(start,start+3).map(async asset=>{
     stopped();onProgress?.(`${prefix} — Preparing ${asset.label.toLowerCase()}…`);
-    const data=await wait(api.downloadTeamBrandAsset(eventId,team.id,asset.key,p.version));
+    const data=await read(()=>api.downloadTeamBrandAsset(eventId,team.id,asset.key,p.version));
     if(data.key!==asset.key||data.mime!==asset.mime||data.revision!==asset.revision)throw new ApiError('conflict','An asset changed');
     const bytes=Uint8Array.from(atob(data.base64),c=>c.charCodeAt(0));if(bytes.length!==asset.size)throw new ApiError('conflict','An asset changed size');
     const digest=await wait(crypto.subtle.digest('SHA-256',new Uint8Array(bytes)));
     const hash=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+    return {asset,bytes,hash};
+    }));
+    for(const {asset,bytes,hash} of files){
     const path=folder+'/'+graphicsAssetPath(p,asset.key,asset.name);add(path,bytes);
     manifest.push([id,name,asset.key,asset.name,path,bytes.length,hash]);
+    }
    }
-   if((await wait(api.teamBrandingProfile(eventId,team.id))).version!==p.version)throw new ApiError('conflict','Branding changed during export');
+   if((await read(()=>api.teamBrandingProfile(eventId,team.id))).version!==p.version)throw new ApiError('conflict','Branding changed during export');
    await wait(new Promise<void>(resolve=>setTimeout(resolve,0)));
   }
   if((await wait(api.getSession()))?.userId!==viewer.userId)throw new ApiError('unauthenticated','The account changed');
