@@ -8,7 +8,7 @@ describe('organiser access on Events',()=>{
  it('keeps the permanent owner visible without a revoke control and invites both organiser scopes',async()=>{
   const api=new MemoryApi();await api.signIn(OWNER);
   const {ctx}=makeCtx(api);const el=await eventsScreen(ctx);
-  expect(text(el)).toContain('Platform Admin · permanent access to every event');
+  expect(el.querySelector('.role-title--owner')?.textContent).toBe('God');
   expect(text(el)).toContain('Permanent administrator');
   expect(text(el)).not.toContain('Revoke organiser access');
   const email=el.querySelector<HTMLInputElement>('input[name=organiserEmail]')!;

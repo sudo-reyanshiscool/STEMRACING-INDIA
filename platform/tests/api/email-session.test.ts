@@ -15,7 +15,7 @@ const make = (storageKey:string, storage:Storage=localStorage) => {
   const requests:{path:string;body:Record<string,unknown>|null}[]=[];
   const fetcher:typeof fetch=async(input,init)=>{
     const url=new URL(String(input));const body=init?.body?JSON.parse(String(init.body)):null;requests.push({path:url.pathname,body});
-    if(url.pathname.endsWith('/verify'))return new Response(JSON.stringify({access_token:jwt(),refresh_token:'synthetic-refresh-token',expires_in:3600,token_type:'bearer',user}),{status:200,headers:{'Content-Type':'application/json'}});
+    if(url.pathname.endsWith('/verify')||(url.pathname.endsWith('/token')&&url.searchParams.get('grant_type')==='password'))return new Response(JSON.stringify({access_token:jwt(),refresh_token:'synthetic-refresh-token',expires_in:3600,token_type:'bearer',user}),{status:200,headers:{'Content-Type':'application/json'}});
     if(url.pathname.endsWith('/user'))return new Response(JSON.stringify(user),{status:200,headers:{'Content-Type':'application/json'}});
     throw new Error(`Unexpected fixture request: ${url.pathname}`);
   };
@@ -40,4 +40,18 @@ describe('email sign-in session lifecycle',()=>{
   history.replaceState(null,'','/#access_token='+jwt()+'&refresh_token=synthetic-refresh-token&expires_in=3600&token_type=bearer&type=magiclink');
   const {api}=make('legacy-session');expect(await api.getSession()).toEqual({userId:user.id,email:user.email});expect(location.hash).toBe('');
  });
+});
+
+it('uses password authentication and persists the session without requesting an email',async()=>{
+ const {api,requests}=make('password-session');
+ await api.signInWithPassword(' School@Example.test ','synthetic-only-password');
+ expect(await api.getSession()).toEqual({userId:user.id,email:user.email});
+ expect(requests).toHaveLength(1);
+ expect(requests[0]).toMatchObject({path:'/auth/v1/token',body:{email:'school@example.test',password:'synthetic-only-password'}});
+ expect(localStorage.getItem('password-session')).not.toBeNull();
+});
+it('refuses email delivery to reserved non-deliverable addresses without making any request',async()=>{
+ const {api,requests}=make('invalid-email-delivery');
+ await expect(api.signIn('private@accounts.invalid')).rejects.toThrow();
+ expect(requests).toHaveLength(0);
 });

@@ -203,6 +203,7 @@ export interface Api {
   resolveTeamConcern(eventId: string, id: string, response: string): Promise<void>;
   getSession(): Promise<Session | null>;
   signIn(email: string): Promise<void>;
+  signInWithPassword(email: string, password: string): Promise<void>;
   verifyEmailCode(email: string, code: string): Promise<void>;
   verifyEmailLink(tokenHash: string): Promise<void>;
   signOut(): Promise<void>;

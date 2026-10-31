@@ -158,9 +158,17 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
     async signIn(email) {
       const e = email.trim().toLowerCase();
       if (!EMAIL.test(e)) throw new ApiError('invalid', 'Enter a valid email address');
+      if (e.endsWith('.invalid')) throw new ApiError('invalid', 'This address uses password sign-in');
       const redirect = typeof window === 'undefined' ? undefined : window.location.origin + window.location.pathname;
       const { error } = await guard(() => sb.auth.signInWithOtp({ email: e, options: { emailRedirectTo: redirect } }));
       if (error) throw mapAuthError(error);
+    },
+    async signInWithPassword(email, password) {
+      const e=email.trim().toLowerCase();
+      if(!EMAIL.test(e)||!password)throw new ApiError('invalid-auth','Enter your sign-in email and password');
+      const {data,error}=await guard(()=>sb.auth.signInWithPassword({email:e,password}));
+      if(error)throw mapAuthError(error);
+      if(!data.session)throw new ApiError('invalid-auth','Sign-in did not establish a session');
     },
     async verifyEmailCode(email, code) {
       const e = email.trim().toLowerCase();

@@ -145,3 +145,33 @@ describe('email-code sign-in',()=>{
     expect(text(el.querySelector('[role=alert]')!)).toContain('expired or was already used');expect(text(el)).not.toContain('raw error');
   });
 });
+
+it('opens password sign-in for a non-deliverable address without sending email',async()=>{
+ const api=new MemoryApi();let emails=0;api.signIn=async()=>{emails++;};
+ const {ctx}=makeCtx(api);const el=loginScreen(ctx);
+ submit(el,'private@accounts.invalid');await new Promise(r=>setTimeout(r,0));
+ expect(emails).toBe(0);expect(el.querySelector('form[aria-label="Password sign-in"]')?.parentElement?.hasAttribute('open')).toBe(true);
+ expect(text(el.querySelector('[role=alert]')!)).toContain('Use password sign-in');
+ expect(text(el.querySelector('[role=status]')!)).not.toContain('sent');
+});
+it('submits the password separately, clears it and re-renders without email delivery',async()=>{
+ const api=new MemoryApi();const calls:Array<[string,string]>=[];
+ api.signInWithPassword=async(email,password)=>{calls.push([email,password]);};
+ let emails=0;api.signIn=async()=>{emails++;};
+ const {ctx}=makeCtx(api);const el=loginScreen(ctx);
+ (el.querySelector('[name=email]') as HTMLInputElement).value=' Private@Accounts.invalid ';
+ const input=el.querySelector('[name=password]') as HTMLInputElement;input.value='synthetic-only-password';
+ el.querySelector('form[aria-label="Password sign-in"]')!.dispatchEvent(new Event('submit',{cancelable:true}));
+ await new Promise(r=>setTimeout(r,0));
+ expect(calls).toEqual([['private@accounts.invalid','synthetic-only-password']]);expect(emails).toBe(0);expect(input.value).toBe('');expect(input.type).toBe('password');expect(ctx.rerender).toHaveBeenCalled();
+});
+it('keeps failed passwords private and offers a retry without asking for email',async()=>{
+ const api=new MemoryApi();api.signInWithPassword=async()=>{throw new ApiError('invalid-auth','raw credential failure');};
+ const {ctx}=makeCtx(api);const el=loginScreen(ctx);
+ (el.querySelector('[name=email]') as HTMLInputElement).value='private@accounts.invalid';
+ const input=el.querySelector('[name=password]') as HTMLInputElement;input.value='synthetic-only-password';
+ const form=el.querySelector('form[aria-label="Password sign-in"]')!;form.dispatchEvent(new Event('submit',{cancelable:true}));
+ await new Promise(r=>setTimeout(r,0));
+ expect(input.value).toBe('');expect(text(el)).not.toContain('raw credential failure');expect(text(el.querySelector('[role=alert]')!)).toContain('Check your private sign-in email and password');
+ expect((form.querySelector('button') as HTMLButtonElement).disabled).toBe(false);expect(ctx.rerender).not.toHaveBeenCalled();
+});

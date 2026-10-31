@@ -477,6 +477,7 @@ export class MemoryApi implements Api {
     const hasVerified = factors.some((f) => f.status === 'verified');
     this.mfaAssurance.set(userId, { current: 'aal1', next: hasVerified ? 'aal2' : 'aal1' });
   }
+  async signInWithPassword(_email:string,_password:string) { throw new ApiError('invalid-auth','Password sign-in requires the live platform'); }
   async verifyEmailCode(_email: string, _code: string) { throw new ApiError('invalid-auth', 'Demo mode does not issue email codes'); }
   async verifyEmailLink(_tokenHash: string) { throw new ApiError('invalid-auth', 'Demo mode does not issue email links'); }
   async signOut() {
