@@ -1,0 +1,32 @@
+import {zipSync,strToU8} from 'fflate';
+export const GRAPHICS_TEAM_HEADERS=['Team ID','Team name','School/institution','City','Primary colour HEX','Secondary colour HEX','Accent colour HEX','Logo file path','Team photo file path','Approved team photo file path','Car render front-left file path','Car render front-right file path','3D model file path','Materials file path'];
+export const GRAPHICS_MEMBER_HEADERS=['Team ID','Member name','Role','Portrait file path'];
+/** Literal inline strings preserve identifiers and names without evaluating formulas. */
+const xml=(value:string)=>value.replace(/_x([0-9a-f]{4})_/gi,'_x005F_x$1_').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\r]/g,c=>`_x${c.charCodeAt(0).toString(16).padStart(4,'0').toUpperCase()}_`).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]!));
+const NS='http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+export function graphicsWorkbook(teams:string[][],members:string[][]):Uint8Array<ArrayBuffer>{
+ if(teams.some(r=>r.length!==GRAPHICS_TEAM_HEADERS.length)||members.some(r=>r.length!==GRAPHICS_MEMBER_HEADERS.length))throw Error('Invalid graphics workbook columns');
+ const palette=[...new Set(teams.flatMap(r=>r.slice(4,7)).filter(v=>/^#[0-9a-f]{6}$/i.test(v)))];
+ const colourStyle=new Map(palette.map((v,i)=>[v,i+2]));
+ const sheet=(headers:string[],rows:string[][],widths:number[],colours=false)=>{
+  const count=rows.length+1,last=String.fromCharCode(64+headers.length);
+  const data=[headers,...rows].map((row,i)=>`<row r="${i+1}" ht="${i===0?36:Math.max(23,...row.map((v,j)=>Math.ceil(v.length/Math.max(1,widths[j]-3))*15+8))}" customHeight="1">${row.map((v,j)=>{
+   const style=i===0?1:colours&&j>=4&&j<=6?(colourStyle.get(v)??0):0;
+   return `<c r="${String.fromCharCode(65+j)}${i+1}" s="${style}" t="inlineStr"><is><t xml:space="preserve">${xml(v)}</t></is></c>`;
+  }).join('')}</row>`).join('');
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="${NS}"><dimension ref="A1:${last}${count}"/><sheetViews><sheetView workbookViewId="0" showGridLines="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="23"/><cols>${widths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join('')}</cols><sheetData>${data}</sheetData><autoFilter ref="A1:${last}${count}"/></worksheet>`;
+ };
+ const white=(hex:string)=>{const [r,g,b]=hex.slice(1).match(/../g)!.map(x=>parseInt(x,16));return r*.299+g*.587+b*.114<155;};
+ const body=(fill:number,font:number)=>`<xf numFmtId="49" fontId="${font}" fillId="${fill}" borderId="0" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="center" horizontal="left" wrapText="1"/></xf>`;
+ const styles=`<?xml version="1.0" encoding="UTF-8"?><styleSheet xmlns="${NS}"><fonts count="3"><font><sz val="11"/><color rgb="FF261A3D"/><name val="Arial"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Arial"/></font><font><sz val="11"/><color rgb="FFFFFFFF"/><name val="Arial"/></font></fonts><fills count="${palette.length+3}"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF312783"/><bgColor indexed="64"/></patternFill></fill>${palette.map(c=>`<fill><patternFill patternType="solid"><fgColor rgb="FF${c.slice(1).toUpperCase()}"/><bgColor indexed="64"/></patternFill></fill>`).join('')}</fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${palette.length+2}">${body(0,0)}<xf numFmtId="49" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1" applyAlignment="1"><alignment vertical="center" horizontal="center" wrapText="1"/></xf>${palette.map((c,i)=>body(i+3,white(c)?2:0)).join('')}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+ const parts:Record<string,string>={
+  '[Content_Types].xml':'<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>',
+  '_rels/.rels':'<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>',
+  'xl/workbook.xml':`<?xml version="1.0"?><workbook xmlns="${NS}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView/></bookViews><sheets><sheet name="Teams" sheetId="1" r:id="rId1"/><sheet name="Members" sheetId="2" r:id="rId2"/></sheets></workbook>`,
+  'xl/_rels/workbook.xml.rels':'<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>',
+  'xl/styles.xml':styles,
+  'xl/worksheets/sheet1.xml':sheet(GRAPHICS_TEAM_HEADERS,teams,[14,34,34,22,25,25,25,68,68,68,68,68,68,68],true),
+  'xl/worksheets/sheet2.xml':sheet(GRAPHICS_MEMBER_HEADERS,members,[14,32,44,80]),
+ };
+ return new Uint8Array(zipSync(Object.fromEntries(Object.entries(parts).map(([k,v])=>[k,strToU8(v)])),{level:6}));
+}

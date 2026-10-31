@@ -20,3 +20,5 @@ export * from './submissions';
 export * from './submission-guide';
 export * from './event-branding';
 export * from './team-branding';
+
+export * from "./graphics-package";

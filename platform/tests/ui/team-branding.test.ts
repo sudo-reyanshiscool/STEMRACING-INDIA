@@ -21,9 +21,9 @@ it('shows server errors without inventing an empty profile',async()=>{
 });
 it('offers the all-team pack to event staff only',async()=>{
  const {api,ev}=await world();
- expect((await teamBrandingScreen(makeCtx(api).ctx,ev.id)).textContent).not.toContain('Download all team branding');
+ const manager=await teamBrandingScreen(makeCtx(api).ctx,ev.id);expect(manager.textContent).not.toContain('Download all team branding');expect(manager.textContent).not.toContain('Export graphics package');
  await api.signIn(EMAILS.org);const root=await teamBrandingScreen(makeCtx(api).ctx,ev.id);
- expect(root.textContent).toContain('Download all team branding');expect([...root.querySelectorAll('button')].find(b=>b.textContent==='Cancel download')?.hidden).toBe(true);
+ expect(root.textContent).toContain('Download all team branding');expect(root.textContent).toContain('Export graphics package (Excel + assets)');expect([...root.querySelectorAll('button')].find(b=>b.textContent==='Cancel download')?.hidden).toBe(true);
 });
 
 it('shows export progress, cancels and restores the controls without downloading a partial pack',async()=>{
@@ -40,4 +40,19 @@ it('shows export progress, cancels and restores the controls without downloading
   cancel.click();await vi.waitFor(()=>expect(bulk.disabled).toBe(false));
   expect(root.querySelector('select')!.disabled).toBe(false);expect(cancel.hidden).toBe(true);expect(root.querySelector('[role=status]')!.textContent).toContain('No partial ZIP');
  }finally{build.mockRestore();}
+});
+
+it('runs the automatic graphics export separately from the PDF branding export',async()=>{
+ const build=vi.spyOn(apiExports,'buildGraphicsPackage').mockImplementation(async(_api,_event,progress,options)=>{
+  progress?.('Creating the Teams and Members workbook…');
+  return new Promise<Uint8Array<ArrayBuffer>>((_resolve,reject)=>options?.signal?.addEventListener('abort',()=>reject(new DOMException('Cancelled','AbortError')),{once:true}));
+ });
+ const pdf=vi.spyOn(apiExports,'buildEventBrandingArchive');
+ try{
+  const {api,ev}=await world();await api.signIn(EMAILS.org);const root=await teamBrandingScreen(makeCtx(api).ctx,ev.id);
+  const button=[...root.querySelectorAll('button')].find(b=>b.textContent==='Export graphics package (Excel + assets)')!;
+  button.click();expect(build).toHaveBeenCalledWith(api,ev.id,expect.any(Function),expect.objectContaining({signal:expect.any(AbortSignal)}));expect(pdf).not.toHaveBeenCalled();
+  expect(root.querySelector('[role=status]')!.textContent).toContain('Teams and Members');
+  [...root.querySelectorAll('button')].find(b=>b.textContent==='Cancel download')!.click();await vi.waitFor(()=>expect(button.disabled).toBe(false));
+ }finally{build.mockRestore();pdf.mockRestore();}
 });
