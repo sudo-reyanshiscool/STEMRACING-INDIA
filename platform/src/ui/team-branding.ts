@@ -1,5 +1,5 @@
 import type {Ctx} from './ctx';
-import {buildBrandingArchive,buildTeamBrandingPdf,brandingArchiveName,brandingMissingLabels,type TeamBrandingProfile} from '../api';
+import {buildBrandingArchive,buildTeamBrandingPdf,buildEventBrandingArchive,eventBrandingArchiveName,brandingArchiveName,brandingMissingLabels,type TeamBrandingProfile} from '../api';
 import {h} from './dom';
 import {errorText,notFound} from './common';
 import {routeHref} from './router';
@@ -9,12 +9,28 @@ export async function teamBrandingScreen(ctx:Ctx,eventId:string):Promise<HTMLEle
  const staff=roles.some(r=>['organiser','chair','spectator'].includes(r.role));
  const available=teams.filter(t=>staff||roles.some(r=>r.role==='team_manager'&&r.teamId===t.id));
  if(!event||!available.length)return notFound('Team branding is available to your team and event organisers.');
- let alive=true,request=0;ctx.onLeave(()=>{alive=false;request++;});
+ let alive=true,request=0;let bulkController:AbortController|null=null;ctx.onLeave(()=>{alive=false;request++;bulkController?.abort();});
  const root=h('div',{class:'stack stack--lg branding-page'},h('header',{class:'stack'},h('p',{class:'eyebrow'},'TEAM IDENTITY / BRANDING'),h('h1',null,'Your team. In full colour.'),h('p',{class:'lead'},'A living branding profile, automatically assembled from your latest submitted assets.')));
  const select=h('select',{'aria-label':'Branding team'},available.map(t=>h('option',{value:t.id},`${t.number} · ${t.name}`)));
  const body=h('div',{class:'stack stack--lg'}),status=h('p',{role:'status','aria-live':'polite'});
  root.append(h('label',{class:'field'},h('span',{class:'field__label'},'Team'),select),status,body);
  const save=(bytes:BlobPart,name:string,type:string)=>{const url=URL.createObjectURL(new Blob([bytes],{type}));h('a',{href:url,download:name}).click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+ const allDownload=h('button',{type:'button',class:'btn btn--primary'},'Download all team branding');
+ const cancelDownload=h('button',{type:'button',class:'btn btn--ghost',hidden:true},'Cancel download');
+ cancelDownload.onclick=()=>bulkController?.abort();
+ if(staff)root.insertBefore(h('div',{class:'actions'},allDownload,cancelDownload),root.children[1]);
+ allDownload.onclick=async()=>{
+  if(bulkController||allDownload.disabled)return;
+  const controller=new AbortController();bulkController=controller;
+  const buttons=new Map([...root.querySelectorAll<HTMLButtonElement>('button')].map(b=>[b,b.disabled]));
+  for(const b of buttons.keys())b.disabled=true;
+  select.disabled=true;cancelDownload.hidden=false;cancelDownload.disabled=false;
+  try{
+   const bytes=await buildEventBrandingArchive(ctx.api,eventId,message=>{if(alive)status.textContent=message;},{signal:controller.signal});
+   if(alive&&!controller.signal.aborted){save(bytes,eventBrandingArchiveName(event.name),'application/zip');status.textContent='All team branding is ready. Each team has its own folder with a PDF, available original assets, portraits and colour values.';}
+  }catch(error){if(alive)status.textContent=controller.signal.aborted?'Download cancelled. No partial ZIP was saved.':errorText(error);}
+  finally{bulkController=null;if(alive){for(const [b,disabled] of buttons)b.disabled=disabled;select.disabled=false;cancelDownload.hidden=true;}}
+ };
  const render=async()=>{
   const current=++request;body.replaceChildren();status.textContent='Assembling your branding profile…';
   try{
@@ -27,9 +43,9 @@ export async function teamBrandingScreen(ctx:Ctx,eventId:string):Promise<HTMLEle
     void ctx.api.downloadTeamBrandAsset(eventId,p.team.id,logo.key,p.version).then(f=>{if(alive&&current===request)img.src=`data:image/png;base64,${f.base64}`;}).catch(()=>{img.remove();});
    }
    const download=h('button',{type:'button',class:'btn btn--primary'},'Download branding pack');
-   download.onclick=async()=>{download.disabled=pdf.disabled=refresh.disabled=select.disabled=true;try{const bytes=await buildBrandingArchive(ctx.api,p,message=>{if(alive)status.textContent=message;});if(alive){save(bytes,brandingArchiveName(p),'application/zip');status.textContent='Branding pack ready. Includes your PDF, original assets and colour values.';}}catch(err){if(alive)status.textContent=errorText(err);}finally{if(alive){download.disabled=pdf.disabled=refresh.disabled=select.disabled=false;}}};
+   download.onclick=async()=>{allDownload.disabled=download.disabled=pdf.disabled=refresh.disabled=select.disabled=true;try{const bytes=await buildBrandingArchive(ctx.api,p,message=>{if(alive)status.textContent=message;});if(alive){save(bytes,brandingArchiveName(p),'application/zip');status.textContent='Branding pack ready. Includes your PDF, original assets and colour values.';}}catch(err){if(alive)status.textContent=errorText(err);}finally{if(alive){allDownload.disabled=download.disabled=pdf.disabled=refresh.disabled=select.disabled=false;}}};
    const pdf=h('button',{type:'button',class:'btn btn--primary'},'Download PDF');
-   pdf.onclick=async()=>{pdf.disabled=download.disabled=refresh.disabled=select.disabled=true;try{const bytes=await buildTeamBrandingPdf(ctx.api,p,message=>{if(alive)status.textContent=message;});if(alive){save(bytes,brandingArchiveName(p).replace('.zip','.pdf'),'application/pdf');status.textContent='Your branding PDF is ready.';}}catch(err){if(alive)status.textContent=errorText(err);}finally{if(alive)pdf.disabled=download.disabled=refresh.disabled=select.disabled=false;}};
+   pdf.onclick=async()=>{allDownload.disabled=pdf.disabled=download.disabled=refresh.disabled=select.disabled=true;try{const bytes=await buildTeamBrandingPdf(ctx.api,p,message=>{if(alive)status.textContent=message;});if(alive){save(bytes,brandingArchiveName(p).replace('.zip','.pdf'),'application/pdf');status.textContent='Your branding PDF is ready.';}}catch(err){if(alive)status.textContent=errorText(err);}finally{if(alive)allDownload.disabled=pdf.disabled=download.disabled=refresh.disabled=select.disabled=false;}};
    const data=h('button',{type:'button',class:'btn btn--ghost'},'Download profile data');data.onclick=()=>save(JSON.stringify(p,null,2),brandingArchiveName(p).replace('.zip','.json'),'application/json');
    const refresh=h('button',{type:'button',class:'btn btn--ghost'},'Refresh profile');refresh.onclick=render;
    body.append(identity,h('div',{class:'actions'},pdf,download,data,refresh),h('p',{class:'muted'},'Download your profile as a PDF, or get the PDF and original assets together in the branding pack. Incomplete profiles can still be downloaded.'));

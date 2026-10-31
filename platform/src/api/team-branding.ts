@@ -74,6 +74,69 @@ export async function buildBrandingArchive(api:BrandingApi,profile:TeamBrandingP
  }catch(err){zip.terminate();throw err;}
 }
 
+/** One authorised event export, with a complete branding pack per team. */
+export async function buildEventBrandingArchive(
+ api:BrandingApi&Pick<Api,'getEvent'|'listTeams'|'myRoles'|'getSession'>,
+ eventId:string,onProgress?:(message:string)=>void,
+ options:{signal?:AbortSignal;loadResources?:typeof loadBrandingResources;renderPdf?:BrandingPdfRenderer}={},
+):Promise<Uint8Array<ArrayBuffer>> {
+ const signal=options.signal;
+ const stopped=()=>{if(signal?.aborted)throw new DOMException('Download cancelled','AbortError');};
+ const wait=<T>(task:Promise<T>):Promise<T>=>new Promise((resolve,reject)=>{
+  if(signal?.aborted){void task.catch(()=>{});reject(new DOMException('Download cancelled','AbortError'));return;}
+  const abort=()=>{clearTimeout(timer);reject(new DOMException('Download cancelled','AbortError'));};
+  const timer=setTimeout(()=>{signal?.removeEventListener('abort',abort);reject(new ApiError('network','Branding download timed out'));},60000);
+  signal?.addEventListener('abort',abort,{once:true});
+  task.then(value=>{clearTimeout(timer);signal?.removeEventListener('abort',abort);if(signal?.aborted)abort();else resolve(value);},error=>{clearTimeout(timer);signal?.removeEventListener('abort',abort);reject(error);});
+ });
+ stopped();
+ const viewer=await wait(api.getSession());if(!viewer)throw new ApiError('unauthenticated','Sign in to download team branding');
+ const [event,teams,roles]=await wait(Promise.all([api.getEvent(eventId),api.listTeams(eventId),api.myRoles(eventId)]));
+ if(!event||!roles.some(r=>['organiser','chair','spectator'].includes(r.role)))throw new ApiError('forbidden','Only event staff can download every team');
+ if(!teams.length)throw new ApiError('not-found','No teams to download');
+ const {Zip,ZipPassThrough,strToU8}=await import('fflate');
+ const chunks:Uint8Array<ArrayBuffer>[]=[];let failure:Error|null=null;
+ const zip=new Zip((err,bytes)=>{if(err)failure=err;else chunks.push(new Uint8Array(bytes));});
+ const add=(name:string,bytes:Uint8Array)=>{stopped();if(failure)throw failure;const entry=new ZipPassThrough(name);zip.add(entry);entry.push(bytes,true);if(failure)throw failure;};
+ try{
+  onProgress?.('Preparing official STEM Racing branding…');
+  const resources=await wait((options.loadResources??loadBrandingResources)());
+  for(const resource of resources)add(resource.path,resource.bytes);
+  const index:Array<{number:string;name:string;school:string;folder:string;completedCount:number;missing:string[];version:string}>=[];
+  for(let i=0;i<teams.length;i++){
+   stopped();
+   if((await wait(api.getSession()))?.userId!==viewer.userId)throw new ApiError('unauthenticated','The signed-in account changed');
+   const team=teams[i],prefix=`Team ${i+1} of ${teams.length} · ${team.name}`;
+   const profile=await wait(api.teamBrandingProfile(eventId,team.id));
+   if(profile.eventId!==eventId||profile.team.id!==team.id)throw new ApiError('conflict','Team changed while preparing download');
+   const scoped:BrandingApi={
+    teamBrandingProfile:(e,t)=>wait(api.teamBrandingProfile(e,t)),
+    downloadTeamBrandAsset:(e,t,k,v)=>{stopped();return wait(api.downloadTeamBrandAsset(e,t,k,v));},
+   };
+   const source=await prepareBranding(scoped,profile,message=>onProgress?.(`${prefix} — ${message}`),async()=>resources);
+   onProgress?.(`${prefix} — Creating PDF…`);
+   const pdf=await wait((options.renderPdf??defaultPdfRenderer)(profile,source));
+   await wait(confirmBrandingVersion(scoped,profile));stopped();
+   const folder=`teams/${String(i+1).padStart(3,'0')}-${slug(team.number)}-${slug(team.name)}`;
+   for(const f of source.files)add(`${folder}/${f.path}`,f.bytes);
+   add(`${folder}/profile.pdf`,pdf);
+   add(`${folder}/profile.json`,strToU8(JSON.stringify({...profile,assets:profile.assets.map(a=>({...a,path:brandingAssetPath(a,profile)}))},null,2)));
+   const c=profile.colours;
+   add(`${folder}/colours.css`,strToU8(c?`:root {\n  --team-primary: ${c.primary};\n  --team-secondary: ${c.secondary};\n  --team-accent: ${c.accent};\n}\n`:'/* Team colours have not been submitted. */\n'));
+   add(`${folder}/README.txt`,strToU8(`${team.number} · ${team.name}\n${team.school}\n${profile.completedCount}/8 media categories submitted.\nMissing: ${brandingMissingLabels(profile).join(', ')||'None'}\nOpen profile.pdf for the branding profile. Original files are included in their category folders.\n`));
+   index.push({number:team.number,name:team.name,school:team.school,folder,completedCount:profile.completedCount,missing:brandingMissingLabels(profile),version:profile.version});
+   // Let the browser paint progress and accept Cancel between teams.
+   await wait(new Promise<void>(resolve=>setTimeout(resolve,0)));
+  }
+  if((await wait(api.getSession()))?.userId!==viewer.userId)throw new ApiError('unauthenticated','The signed-in account changed');
+  add('index.json',strToU8(JSON.stringify({eventId,eventName:event.name,teams:index},null,2)));
+  add('README.txt',strToU8(`${event.name} · All team branding\n${teams.length} teams. Each team folder includes its PDF, available original assets, member portraits, colour values and profile data.\nIncomplete submissions are included and missing categories are listed per team. Each profile reflects its recorded version when exported.\nTeam photographs and portraits are private: share only with authorised event staff and the respective teams.\n`));
+  zip.end();if(failure)throw failure;stopped();
+  const result=new Uint8Array(chunks.reduce((n,c)=>n+c.length,0));let at=0;for(const chunk of chunks){result.set(chunk,at);at+=chunk.length;}return result;
+ }catch(error){zip.terminate();throw error;}
+}
+export const eventBrandingArchiveName=(eventName:string)=>`STEM-Racing_${slug(eventName)}_All-Team-Branding.zip`;
+
 /** Offline, printable profile. Brand fonts are embedded so they also work from a local file. */
 export function brandingProfileHtml(p:TeamBrandingProfile,resources:BrandingResource[]=[]):string {
  const escape=(s:string)=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
