@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SRi Team Introduction · Control</title>
+<style>
+@font-face{font-family:"Magistral";src:url("assets/fonts/Magistral-BoldItalic.woff2") format("woff2");font-weight:700;font-style:italic}
+@font-face{font-family:"Magistral";src:url("assets/fonts/Magistral-MediumItalic.woff2") format("woff2");font-weight:500;font-style:italic}
+@font-face{font-family:"MachoModular";src:url("assets/fonts/MachoModular-Medium.otf") format("opentype");font-weight:500}
+@font-face{font-family:"MachoModular";src:url("assets/fonts/MachoModular-Bold.otf") format("opentype");font-weight:700}
+:root{color-scheme:dark;--bg:#05000B;--raised:#261A3D;--rule:#2E2347;--muted:#A39FB8;--fg:#D7D6E3;--strong:#fff;--indigo:#312783;--violet:#961B81;--pink:#E6007E;--orange:#ED6D05;--gold:#FCBC00}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:500 16px/1.5 "MachoModular",Arial,system-ui,sans-serif}
+button,select,input{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.wrap{max-width:1280px;margin:0 auto;padding:20px clamp(16px,3vw,32px) 40px}
+header{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding-bottom:16px;border-bottom:1px solid var(--rule)}
+header img{height:56px;width:auto;display:block}
+header h1{font:italic 700 26px/1.05 "Magistral",Arial,sans-serif;color:var(--strong);margin:0;letter-spacing:-.01em}
+header .eyebrow{margin:0 0 2px}
+.eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.spacer{flex:1}
+.status{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;border:1px solid var(--rule);font-size:13px;white-space:nowrap}
+.status i{width:9px;height:9px;border-radius:50%;background:var(--muted)}
+.status.ok i{background:var(--gold)}
+.btn{font:italic 500 15px/1.1 "Magistral",Arial,sans-serif;letter-spacing:.06em;text-transform:uppercase;padding:12px 18px;border-radius:4px;border:1px solid var(--violet);background:var(--violet);color:#fff;cursor:pointer}
+.btn:hover{background:var(--indigo);border-color:var(--indigo)}
+.btn.ghost{background:transparent;border-color:var(--muted)}
+.btn.ghost:hover{background:var(--raised)}
+.grid{display:grid;grid-template-columns:minmax(260px,340px) 1fr;gap:20px;margin-top:20px;align-items:start}
+.card{background:var(--raised);border-radius:8px;padding:20px}
+.card h2{font:700 18px/1.25 "MachoModular",Arial,sans-serif;color:var(--strong);margin:0 0 14px}
+label{display:block;font-size:13px;color:var(--muted);margin:14px 0 6px}
+label:first-of-type{margin-top:0}
+select,input[type=text]{width:100%;padding:11px 12px;border-radius:4px;border:1px solid var(--muted);background:var(--bg);color:var(--strong)}
+.swap{margin-top:14px;width:100%}
+.help{font-size:13px;color:var(--muted);margin:14px 0 0}
+.preview-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.preview-head h2{margin:0}
+.live{font-size:14px;color:var(--strong)}
+.live b{color:var(--gold);font-weight:700;letter-spacing:.1em;margin-right:8px}
+.preview{aspect-ratio:16/9;width:100%;border:1px solid var(--rule);border-radius:4px;overflow:hidden;background:#000}
+.preview iframe{width:100%;height:100%;border:0;display:block;pointer-events:none}
+.run{margin-top:20px}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.steps+h3{font:700 15px/1.25 "MachoModular",Arial,sans-serif;color:var(--strong);margin:20px 0 12px}
+.steps.two{grid-template-columns:repeat(2,1fr)}
+.step{display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;text-align:left;padding:16px;border-radius:8px;border:2px solid var(--rule);background:var(--bg);cursor:pointer;min-width:0}
+.step:hover{border-color:var(--muted)}
+.step[aria-pressed=true]{border-color:var(--gold);background:#3a2a12}
+.step .key{display:inline-block;min-width:28px;text-align:center;padding:2px 8px;border-radius:4px;background:var(--rule);color:var(--strong);font-size:13px;font-weight:700}
+.step[aria-pressed=true] .key{background:var(--gold);color:var(--bg)}
+.step .what{display:block;margin-top:10px;font-size:13px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
+.step .who{display:block;margin-top:4px;font:italic 700 22px/1.1 "Magistral",Arial,sans-serif;color:var(--strong);overflow-wrap:anywhere}
+.actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-top:16px}
+.actions .help{margin:0}
+kbd{font:700 12px/1 ui-monospace,Menlo,monospace;padding:3px 6px;border-radius:4px;background:var(--rule);color:var(--strong)}
+.error{margin-top:20px;padding:20px;border-radius:8px;background:var(--raised);color:var(--strong)}
+.error[hidden]{display:none}
+@media(max-width:860px){.grid{grid-template-columns:1fr}.steps{grid-template-columns:1fr 1fr}}
+@media(max-width:480px){.steps{grid-template-columns:1fr}header img{height:44px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="assets/brand/sr-india-colour-white.png" alt="STEM Racing India">
+    <div><p class="eyebrow">Control window</p><h1>Team introduction</h1></div>
+    <div class="spacer"></div>
+    <span class="status" id="status" role="status"><i></i><span id="status-text">Output window not open</span></span>
+    <button class="btn" id="open">Open output window</button>
+  </header>
+
+  <div class="error" id="error" hidden role="alert">Team data could not be loaded. Keep control.html, output.html, teams.js and the assets folder together, then reopen this file.</div>
+
+  <main id="main">
+    <div class="grid">
+      <section class="card" aria-labelledby="setup-h">
+        <h2 id="setup-h">Next introduction</h2>
+        <label for="t1">Team 1 (left side of stage)</label>
+        <select id="t1"></select>
+        <label for="t2">Team 2 (right side of stage)</label>
+        <select id="t2"></select>
+        <button class="btn ghost swap" id="swap" type="button">Swap sides</button>
+        <label for="slogan">Slogan on the walk-on card</label>
+        <input type="text" id="slogan" list="slogans" autocomplete="off">
+        <datalist id="slogans"></datalist>
+        <label for="round">Qualified for…</label>
+        <input type="text" id="round" list="rounds" autocomplete="off">
+        <datalist id="rounds"></datalist>
+        <p class="help">Changes here do not touch the big screen until you press one of the buttons below.</p>
+      </section>
+
+      <section class="card" aria-labelledby="preview-h">
+        <div class="preview-head">
+          <h2 id="preview-h">Preview</h2>
+          <span class="live"><b>ON SCREEN</b><span id="live-text">Holding screen</span></span>
+        </div>
+        <div class="preview"><iframe id="preview" src="output.html?preview=1" title="Preview of the big screen" tabindex="-1"></iframe></div>
+      </section>
+    </div>
+
+    <section class="card run" aria-labelledby="run-h">
+      <h2 id="run-h">Run of show</h2>
+      <div class="steps">
+        <button class="step" data-step="intro1" aria-pressed="false"><span class="key">1</span><span class="what">Team 1 walks on</span><span class="who" id="who-1"></span></button>
+        <button class="step" data-step="intro2" aria-pressed="false"><span class="key">2</span><span class="what">Team 2 walks on</span><span class="who" id="who-2"></span></button>
+        <button class="step" data-step="both" aria-pressed="false"><span class="key">3</span><span class="what">Both teams on stage</span><span class="who" id="who-3"></span></button>
+        <button class="step" data-step="hold" aria-pressed="true"><span class="key">0</span><span class="what">Between introductions</span><span class="who">Holding screen</span></button>
+      </div>
+      <h3>After the race</h3>
+      <div class="steps two">
+        <button class="step" data-step="qual1" aria-pressed="false"><span class="key">4</span><span class="what">Team 1 qualifies for <span class="round-label"></span></span><span class="who" id="who-4"></span></button>
+        <button class="step" data-step="qual2" aria-pressed="false"><span class="key">5</span><span class="what">Team 2 qualifies for <span class="round-label"></span></span><span class="who" id="who-5"></span></button>
+      </div>
+      <div class="actions">
+        <button class="btn" id="next" type="button">Next step</button>
+        <button class="btn ghost" id="replay" type="button">Replay entrance</button>
+        <p class="help"><kbd>Space</kbd> next step · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> <kbd>5</kbd> <kbd>0</kbd> jump to a step · <kbd>R</kbd> replay · on the big screen, <kbd>F</kbd> for fullscreen</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="teams.js"></script>
+<script>
+(function(){
+  const APP='sri-intro',STORE='sri-intro-setup';
+  const teams=window.TEAMS||[],slogans=window.SLOGANS||[];
+  if(!teams.length){document.getElementById('error').hidden=false;document.getElementById('main').hidden=true;return}
+  const $=id=>document.getElementById(id);
+  const t1=$('t1'),t2=$('t2'),slogan=$('slogan'),round=$('round'),frame=$('preview');
+  // Rounds offered for the qualification screen. Any other text can be typed in.
+  const rounds=window.ROUNDS||['the next round','the Round of 16','the Quarter Finals','the Semi Finals','the Final','the Knockout Finals'];
+  for(const r of rounds){const o=document.createElement('option');o.value=r;$('rounds').append(o)}
+  const name=id=>(teams.find(t=>t.id===id)||teams[0]).name;
+
+  for(const sel of [t1,t2])for(const t of teams){const o=document.createElement('option');o.value=t.id;o.textContent=t.name+' · '+t.school;sel.append(o)}
+  for(const s of slogans){const o=document.createElement('option');o.value=s;$('slogans').append(o)}
+
+  // Remember the setup between reloads. The page works without it.
+  let saved={};try{saved=JSON.parse(localStorage.getItem(STORE))||{}}catch(e){}
+  const has=id=>teams.some(t=>t.id===id);
+  t1.value=has(saved.t1)?saved.t1:teams[0].id;
+  t2.value=has(saved.t2)&&saved.t2!==t1.value?saved.t2:(teams.find(t=>t.id!==t1.value)||teams[0]).id;
+  slogan.value=typeof saved.slogan==='string'&&saved.slogan?saved.slogan:(slogans[0]||'');
+  round.value=typeof saved.round==='string'&&saved.round?saved.round:rounds[0];
+  function save(){try{localStorage.setItem(STORE,JSON.stringify({t1:t1.value,t2:t2.value,slogan:slogan.value,round:round.value}))}catch(e){}}
+
+  let prev={t1:t1.value,t2:t2.value};
+  function labels(){
+    $('who-1').textContent=name(t1.value);$('who-2').textContent=name(t2.value);
+    $('who-3').textContent=name(t1.value)+' and '+name(t2.value);
+    $('who-4').textContent=name(t1.value);$('who-5').textContent=name(t2.value);
+    document.querySelectorAll('.round-label').forEach(n=>n.textContent=round.value.trim()||rounds[0]);
+  }
+  // Picking the team already on the other side swaps the two.
+  t1.onchange=()=>{if(t1.value===t2.value)t2.value=prev.t1;prev={t1:t1.value,t2:t2.value};labels();save()};
+  t2.onchange=()=>{if(t2.value===t1.value)t1.value=prev.t2;prev={t1:t1.value,t2:t2.value};labels();save()};
+  $('swap').onclick=()=>{const a=t1.value;t1.value=t2.value;t2.value=a;prev={t1:t1.value,t2:t2.value};labels();save()};
+  slogan.oninput=save;
+  round.oninput=()=>{labels();save()};
+  labels();
+
+  // Output window and preview both receive the same state.
+  let out=null,state={n:Date.now(),scene:'hold',side:1,t1:t1.value,t2:t2.value,slogan:slogan.value},step='hold';
+  function send(target){if(target)try{target.postMessage({app:APP,type:'state',state},'*')}catch(e){}}
+  function broadcast(){send(frame.contentWindow);if(out&&!out.closed)send(out)}
+  window.addEventListener('message',e=>{
+    const d=e.data;if(!d||d.app!==APP||d.type!=='hello')return;
+    if(e.source===frame.contentWindow||(out&&e.source===out))send(e.source);
+  });
+  $('open').onclick=()=>{
+    out=window.open('output.html','sri-intro-output','popup,width=1280,height=720');
+    if(!out)alert('The browser blocked the output window. Allow pop-ups for this page and press the button again.');
+    refreshStatus();
+  };
+  function refreshStatus(){
+    const ok=!!out&&!out.closed;
+    $('status').classList.toggle('ok',ok);
+    $('status-text').textContent=ok?'Output window open':'Output window not open';
+    $('open').textContent=ok?'Reopen output window':'Open output window';
+  }
+  setInterval(refreshStatus,1000);
+
+  const order=['hold','intro1','intro2','both'];
+  function go(to){
+    step=to;
+    const qual=to==='qual1'||to==='qual2';
+    state={n:Math.max(Date.now(),state.n+1),scene:qual?'qualified':to==='both'?'both':to==='hold'?'hold':'intro',side:to==='intro2'||to==='qual2'?2:1,t1:t1.value,t2:t2.value,slogan:slogan.value.trim()||slogans[0]||'',round:round.value.trim()||rounds[0]};
+    document.querySelectorAll('.step').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.step===to)));
+    $('live-text').textContent=qual?name(to==='qual2'?state.t2:state.t1)+' qualified for '+state.round:to==='hold'?'Holding screen':to==='both'?name(state.t1)+' and '+name(state.t2):name(to==='intro2'?state.t2:state.t1)+' walk-on';
+    broadcast();
+  }
+  document.querySelectorAll('.step').forEach(b=>b.onclick=()=>go(b.dataset.step));
+  $('next').onclick=()=>go(order[(Math.max(order.indexOf(step),-1)+1)%order.length]);
+  $('replay').onclick=()=>go(step);
+  document.addEventListener('keydown',e=>{
+    if(e.target.matches('input,select,textarea')||e.metaKey||e.ctrlKey||e.altKey)return;
+    const map={'1':'intro1','2':'intro2','3':'both','4':'qual1','5':'qual2','0':'hold'};
+    if(map[e.key]){e.preventDefault();go(map[e.key])}
+    else if(e.key===' '){e.preventDefault();$('next').click()}
+    else if(e.key.toLowerCase()==='r'){e.preventDefault();go(step)}
+  });
+  // Space always means "next step", even when a button has focus.
+  document.addEventListener('keyup',e=>{if(e.key===' '&&!e.target.matches('input,select,textarea'))e.preventDefault()});
+})();
+</script>
+</body>
+</html>

@@ -24,6 +24,7 @@ export async function eventHomeScreen(ctx: Ctx, eventId: string): Promise<HTMLEl
   const tiles: HTMLElement[] = [];
   if(has('organiser','chair'))tiles.push(tile('Scheduling & Streams','Allocate streams, build the master timeline and publish team schedules.',{name:'schedule',eventId}));
   if (has('organiser', 'chair')) tiles.push(tile('Teams', 'Add and review the teams entered.', { name: 'teams', eventId }));
+  if (has('organiser', 'chair')) tiles.push(tile('Graphics', 'Drive the big screen: opening, race walk-ons and results, car analysis, awards and the pit build timer.', { name: 'graphics', eventId }));
   if (has('organiser', 'chair')) tiles.push(tile('Media Assets', 'Manage team photographs, run bulk AI cutouts and approve broadcast graphics.', { name: 'media', eventId }));
   if(has('organiser','chair'))tiles.push(tile('Team branding','Automatic team profiles and downloadable branding packs.',{name:'branding',eventId}));
   if (has('organiser', 'chair')) tiles.push(tile('People', 'Invite judges, officials and team managers.', { name: 'people', eventId }));

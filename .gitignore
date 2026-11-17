@@ -9,3 +9,9 @@ tmp/
 platform/.*-preview.html
 .showcase-preview.html
 .*-preview.html
+
+# Event graphics: real team pictures and old concept renders stay on this machine and are never deployed.
+# On the platform, team pictures come from the event's own media, behind the login.
+platform/public/graphics/team-intro/assets/teams/*
+!platform/public/graphics/team-intro/assets/teams/fake/
+platform/public/graphics/concept-01/

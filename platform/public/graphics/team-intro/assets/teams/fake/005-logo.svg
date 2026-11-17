@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Zenith logo (fake)">
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#D11ABA"/><stop offset="1" stop-color="#4A1268"/></linearGradient>
+<clipPath id="c"><polygon points="120,56 482,56 392,456 30,456"/></clipPath></defs>
+<g fill="url(#g)" stroke="#FFFFFF" stroke-width="14" stroke-linejoin="round"><polygon points="120,56 482,56 392,456 30,456"/></g>
+<g clip-path="url(#c)"><polygon points="256,330 330,440 182,440" fill="#F54762" opacity=".9"/></g>
+<text x="256" y="304" text-anchor="middle" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-style="italic" font-size="230" fill="#FFFFFF" stroke="#4A1268" stroke-width="6" paint-order="stroke">Z</text>
+</svg>

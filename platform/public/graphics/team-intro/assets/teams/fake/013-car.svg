@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 300" role="img" aria-label="Throttle Theory car (fake)">
+<defs><linearGradient id="b" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#246812"/><stop offset=".55" stop-color="#AA1AD1"/><stop offset="1" stop-color="#AA1AD1"/></linearGradient></defs>
+<ellipse cx="450" cy="262" rx="400" ry="14" fill="#000000" opacity=".35"/>
+<polygon points="60,70 150,70 150,96 132,96 132,196 104,196 104,96 60,96" fill="#F5CD47"/>
+<rect x="52" y="58" width="110" height="18" rx="6" fill="#246812"/>
+<path d="M118 206 C150 150 250 120 380 120 L470 96 C520 84 560 96 590 124 L810 196 C836 204 848 216 850 232 L118 232 Z" fill="url(#b)" stroke="#FFFFFF" stroke-width="5" stroke-linejoin="round"/>
+<path d="M420 122 L470 98 C512 88 546 98 570 120 L548 150 L420 150 Z" fill="#0B0B14" opacity=".8"/>
+<polygon points="250,186 620,186 660,206 220,206" fill="#F5CD47" opacity=".9"/>
+<polygon points="770,214 880,226 880,244 760,244" fill="#F5CD47"/>
+<rect x="852" y="200" width="16" height="50" rx="4" fill="#246812"/>
+<g fill="#111118" stroke="#FFFFFF" stroke-width="5"><circle cx="230" cy="216" r="46"/><circle cx="700" cy="220" r="42"/></g>
+<g fill="#F5CD47"><circle cx="230" cy="216" r="16"/><circle cx="700" cy="220" r="15"/></g>
+<text x="350" y="178" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-style="italic" font-size="44" fill="#FFFFFF">13</text>
+</svg>

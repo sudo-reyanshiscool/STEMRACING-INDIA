@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>SRi Awards Control</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+@font-face{font-family:"Magistral";font-weight:700;font-style:italic;src:url(../team-intro/assets/fonts/Magistral-BoldItalic.woff2) format("woff2")}
+:root{color-scheme:dark;--carbon:#05000B;--c800:#261A3D;--c700:#2E2347;--c300:#A39FB8;--c100:#D7D6E3;--pink:#E6007E;--gold:#FCBC00;--orange:#ED6D05;--white:#fff;--display:"Magistral","Arial Narrow",sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--carbon);color:var(--c100);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+header{position:sticky;top:0;z-index:5;background:var(--carbon);border-bottom:1px solid var(--c700);padding:12px 20px;display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center}
+h1{font:italic 700 20px var(--display);text-transform:uppercase;color:var(--white);margin:0}
+button{font:italic 700 13px var(--display);text-transform:uppercase;letter-spacing:.04em;color:var(--white);background:var(--c800);border:1px solid var(--c700);border-radius:999px;padding:9px 16px;cursor:pointer}
+button.main{background:var(--pink);border-color:var(--pink);font-size:15px;padding:11px 26px}
+button:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.status{flex:1 1 280px;min-width:0;display:flex;flex-direction:column;gap:2px}
+.status b{color:var(--white)}
+#warn{font-weight:700}
+#warn:empty{display:none}
+#warn:not(:empty){align-self:flex-start;margin-top:4px;background:var(--gold);color:var(--carbon);border-radius:4px;padding:4px 10px}
+main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:24px;padding:20px;align-items:start}
+@media (max-width:900px){main{grid-template-columns:minmax(0,1fr)}}
+.side{position:sticky;top:96px;display:flex;flex-direction:column;gap:12px}
+@media (max-width:900px){.side{position:static}}
+iframe{width:100%;aspect-ratio:16/9;border:1px solid var(--c700);border-radius:8px;background:#000}
+.keys{color:var(--c300);font-size:13px;margin:0}
+kbd{font:600 12px ui-monospace,monospace;background:var(--c800);border:1px solid var(--c700);border-radius:4px;padding:1px 6px;color:var(--white)}
+ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+li{display:grid;grid-template-columns:2.2em minmax(0,1fr) minmax(0,15em);gap:10px;align-items:center;padding:7px 10px;border:1px solid transparent;border-radius:8px;cursor:pointer}
+li:hover{background:var(--c800)}
+li.now{background:var(--c800);border-color:var(--pink)}
+li.next{border-color:var(--c700)}
+li.need{border-color:var(--gold)}
+li .num{color:var(--c300);font-variant-numeric:tabular-nums;text-align:right}
+li .lab{min-width:0;color:var(--white)}
+li.k-photo .lab{color:var(--c100);padding-left:14px}
+li.k-winner .lab{color:var(--c100);padding-left:14px}
+select{width:100%;min-width:0;font:inherit;font-size:13px;color:var(--white);background:var(--carbon);border:1px solid var(--c700);border-radius:4px;padding:5px 6px}
+select.empty{color:var(--gold);border-color:var(--gold)}
+li.k-nominees .lab{color:var(--c100);padding-left:14px}
+li .picks{grid-column:2 / -1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding-left:14px}
+li .picks select.empty{color:var(--c300);border-color:var(--c700)}
+.st{display:none;margin-left:.8em;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--c700);border-radius:999px;padding:1px 9px;color:var(--c300);white-space:nowrap}
+.st.in{color:var(--carbon);background:var(--c100);border-color:var(--c100)}
+body.hr .st{display:inline-block} body.hr li select,body.hr li .picks{display:none}
+button[aria-pressed="true"]{background:var(--c100);border-color:var(--c100);color:var(--carbon)}
+#sync{color:var(--c300);font-size:13px}
+@media (max-width:900px){header{padding:8px 16px;gap:6px 8px} h1{display:none} button{padding:7px 12px} button.main{padding:9px 22px}
+  .status{flex-basis:100%;order:5} main{padding:16px}
+  li{grid-template-columns:2.2em minmax(0,1fr)} li>select{grid-column:2;margin-left:14px;width:auto}}
+</style>
+</head><body>
+<header>
+  <h1>Awards control</h1>
+  <button id="open" type="button">Open big screen</button>
+  <button id="back" type="button">Back</button>
+  <button id="next" type="button" class="main">Next</button>
+  <div class="status"><span>Now: <b id="now"></b></span><span>Next: <b id="nxt"></b></span><span id="sync"></span><span id="warn" role="status"></span></div>
+  <button id="hide" type="button" aria-pressed="false" title="Hides which teams have been picked, so the person running the show does not see results early">Hide results</button>
+  <button id="fill" type="button" title="Fills every empty award with test nominees and a winner so you can click through the show">Fill test picks</button>
+  <button id="clear" type="button">Clear all picks</button>
+</header>
+<main>
+  <div class="side">
+    <iframe id="preview" src="output.html" title="Preview of the big screen"></iframe>
+    <p class="keys"><kbd>Space</kbd> or <kbd>→</kbd> next · <kbd>←</kbd> back · a clicker's page keys work too · on the big screen press <kbd>F</kbd> for fullscreen. Click any line to jump to it.</p>
+    <p class="keys">Pick the nominees (two or three) and the winner for each award before the show. The winner list only offers that award's nominees. The screen will not move on to nominees or a winner that have not been picked. Picks are saved on this computer. <b>Hide results</b> swaps the team lists for “in” or “not in yet”, so you can run the show without seeing who won; each result still appears on the screen when you reach it.</p>
+  </div>
+  <ol id="steps"></ol>
+</main>
+<script src="../team-intro/teams.js"></script>
+<script src="awards.js"></script>
+<script src="show.js"></script>
+<script>
+(function(){
+const KEY='sri-awards-setup', STEPS=buildSteps(), TEAMS=(window.TEAMS||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
+const $=id=>document.getElementById(id), frame=$('preview'), list=$('steps');
+let setup={i:0,r:1,winners:{},nominees:{}}, out=null;
+try{const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s&&s.winners){setup.winners=s.winners; setup.nominees=s.nominees||{}; setup.i=Math.max(0,Math.min(STEPS.length-1,s.i|0)); setup.r=Math.max(1,s.r|0);}}catch(e){}
+const known=new Set(TEAMS.map(t=>t.id)); Object.keys(setup.winners).forEach(k=>{if(!known.has(setup.winners[k]))delete setup.winners[k];});
+Object.keys(setup.nominees).forEach(k=>{setup.nominees[k]=(setup.nominees[k]||[]).map(id=>known.has(id)?id:'');});
+const noms=a=>(setup.nominees[a.id]||[]).filter(Boolean);
+const ready=s=>s.kind==='winner'?!!setup.winners[s.award.id]:s.kind==='nominees'?noms(s.award).length>=2:true;
+while(setup.i>0&&!ready(STEPS[setup.i])) setup.i--;
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(setup));}catch(e){}};
+function send(){const msg={app:'sri-awards',type:'state',state:{n:Date.now(),i:setup.i,r:setup.r,winners:setup.winners,nominees:setup.nominees}};
+  [out,frame.contentWindow].forEach(w=>{try{if(w&&!w.closed)w.postMessage(msg,'*');}catch(e){}});}
+const label=t=>t.name+' · '+t.school+(t.fake?' (sample)':'');
+const winSel={};
+function fillWinner(a){const sel=winSel[a.id]; if(!sel)return; const pool=a.nominees===false?TEAMS:TEAMS.filter(t=>noms(a).includes(t.id));
+  if(setup.winners[a.id]&&!pool.some(t=>t.id===setup.winners[a.id])) delete setup.winners[a.id];
+  sel.replaceChildren(new Option(a.nominees===false||pool.length?'Choose winner…':'Pick the nominees first',''));
+  pool.forEach(t=>sel.append(new Option(label(t),t.id))); sel.value=setup.winners[a.id]||''; sel.classList.toggle('empty',!sel.value);}
+const rows=STEPS.map((s,i)=>{
+  const li=document.createElement('li'); li.className='k-'+s.kind;
+  const num=document.createElement('span'); num.className='num'; num.textContent=i+1;
+  const lab=document.createElement('span'); lab.className='lab'; lab.textContent=s.label; li.append(num,lab);
+  const done=()=>{li.classList.remove('need'); $('warn').textContent=''; save(); if(s.award)push(s.award.id); chips(); paint(); send();};
+  if(s.kind==='nominees'||s.kind==='winner'){const c=document.createElement('span'); c.className='st'; lab.append(c); li.chip=c;}
+  if(s.kind==='nominees'){
+    lab.style.gridColumn='2 / -1'; const picks=document.createElement('div'); picks.className='picks';
+    const cur=setup.nominees[s.award.id]||[];
+    [0,1,2].forEach(k=>{const sel=document.createElement('select'); sel.id='nom-'+s.award.id+'-'+k; sel.setAttribute('aria-label','Nominee '+(k+1)+' for '+s.award.name);
+      sel.append(new Option('Nominee '+(k+1)+'…','')); TEAMS.forEach(t=>sel.append(new Option(label(t),t.id)));
+      sel.value=cur[k]||''; sel.classList.toggle('empty',!sel.value);
+      sel.addEventListener('click',e=>e.stopPropagation());
+      sel.addEventListener('change',()=>{const arr=(setup.nominees[s.award.id]||['','','']).slice(); while(arr.length<3)arr.push('');
+        if(sel.value&&arr.includes(sel.value)){sel.value=arr[k]||''; $('warn').textContent='That team is already a nominee for this award.'; return;}
+        arr[k]=sel.value; setup.nominees[s.award.id]=arr; sel.classList.toggle('empty',!sel.value); fillWinner(s.award); done();});
+      picks.append(sel);});
+    li.append(picks);
+  }
+  if(s.kind==='winner'){
+    const sel=document.createElement('select'); sel.id='win-'+s.award.id; sel.setAttribute('aria-label','Winner of '+s.award.name);
+    winSel[s.award.id]=sel; fillWinner(s.award);
+    sel.addEventListener('click',e=>e.stopPropagation());
+    sel.addEventListener('change',()=>{if(sel.value)setup.winners[s.award.id]=sel.value; else delete setup.winners[s.award.id];
+      sel.classList.toggle('empty',!sel.value); done();});
+    li.append(sel); li.sel=sel;
+  }
+  li.addEventListener('click',()=>go(i)); list.append(li); return li;
+});
+function chips(){rows.forEach((li,i)=>{if(!li.chip)return; const s=STEPS[i], n=noms(s.award).length, ok=s.kind==='winner'?!!setup.winners[s.award.id]:n>=2;
+  li.chip.textContent=s.kind==='winner'?(ok?'Winner in':'Not in yet'):(ok?n+' nominees in':'Not in yet'); li.chip.classList.toggle('in',ok);});}
+// puts the picks in `setup` back onto the lists (after a fill, a clear, or a change made by someone else)
+function refresh(){STEPS.forEach(s=>{if(s.kind!=='nominees')return; const cur=setup.nominees[s.award.id]||[];
+    [0,1,2].forEach(k=>{const sel=$('nom-'+s.award.id+'-'+k); sel.value=cur[k]||''; sel.classList.toggle('empty',!sel.value);});});
+  window.AWARDS.forEach(fillWinner); while(setup.i>0&&!ready(STEPS[setup.i])){setup.i--; setup.r=1;}
+  rows.forEach(li=>li.classList.remove('need')); chips(); save(); paint(); send();}
+// shared results: on the published page every award is one shared record, so organisers can put results in from their own devices
+let db=null; const pend={}, busy={};
+function push(aid){if(!db)return; pend[aid]=true; if(busy[aid])return; busy[aid]=true;
+  (async()=>{while(pend[aid]){pend[aid]=false;
+      try{await db.collection('results').doc(aid).set({winner:setup.winners[aid]||'',nominees:(setup.nominees[aid]||[]).slice(0,3).map(x=>x||'')});}
+      catch(e){$('sync').textContent=e&&e.code==='invalid_argument'?'You can see the shared results but not change them.':'A change could not be saved to the shared results.';}}
+    busy[aid]=false;})();}
+function pushAll(){window.AWARDS.forEach(a=>push(a.id));}
+if(window.claude&&window.claude.use){$('sync').textContent='Connecting to shared results…';
+  window.claude.use('db').then(d=>{if(!d){$('sync').textContent='Results are saved in this browser only.'; return;}
+    db=d; const slow=setTimeout(()=>{$('sync').textContent='Shared results cannot be reached yet.';},10000);
+    db.collection('results').onSnapshot(snap=>{const seen={};
+      snap.docs.forEach(doc=>{const aid=doc.id, v=doc.data()||{}; seen[aid]=1; if(pend[aid]||busy[aid])return;
+        setup.nominees[aid]=(Array.isArray(v.nominees)?v.nominees:[]).slice(0,3).map(id=>known.has(id)?id:'');
+        if(known.has(v.winner))setup.winners[aid]=v.winner; else delete setup.winners[aid];});
+      if(!snap.metadata.fromCache){window.AWARDS.forEach(a=>{if(!seen[a.id]&&!pend[a.id]&&!busy[a.id]){delete setup.winners[a.id]; delete setup.nominees[a.id];}});
+        clearTimeout(slow); $('sync').textContent='Results are shared live with everyone who has this page.';}
+      refresh();},()=>{clearTimeout(slow); $('sync').textContent='Shared results stopped updating. Reload the page.';});});}
+// hide results from the person running the show
+let hidden=false; try{hidden=localStorage.getItem('sri-awards-hide')==='1';}catch(e){}
+function setHidden(v){hidden=v; document.body.classList.toggle('hr',v); $('hide').setAttribute('aria-pressed',v); $('hide').textContent=v?'Results hidden':'Hide results'; try{localStorage.setItem('sri-awards-hide',v?'1':'0');}catch(e){}}
+$('hide').addEventListener('click',()=>setHidden(!hidden));
+function paint(){rows.forEach((li,i)=>{li.classList.toggle('now',i===setup.i); li.classList.toggle('next',i===setup.i+1);});
+  const s=STEPS[setup.i], c=count(s), r=Math.min(setup.r,c);
+  $('now').textContent=s.label+(s.kind==='nominees'?' ('+r+' of '+c+' showing)':''); $('nxt').textContent=r<c?'Next nominee':STEPS[setup.i+1]?STEPS[setup.i+1].label:'End of show';
+  rows[setup.i].scrollIntoView({block:'nearest'});}
+const count=s=>s.kind==='nominees'?Math.max(1,noms(s.award).length):1;
+function move(by){const c=count(STEPS[setup.i]), r=Math.min(setup.r,c);
+  if(by>0&&r<c){setup.r=r+1; save(); paint(); return send();} if(by<0&&r>1){setup.r=r-1; save(); paint(); return send();}
+  const i=setup.i+by; go(i,by<0&&STEPS[i]?count(STEPS[i]):1);}
+function go(i,r){if(i<0||i>=STEPS.length)return; const s=STEPS[i];
+  if(!ready(s)){rows[i].classList.add('need'); rows[i].scrollIntoView({block:'center'});
+    $('warn').textContent=s.kind==='winner'?'Choose the winner of '+s.award.name+' first.':'Choose at least two nominees for '+s.award.name+' first.'; return;}
+  $('warn').textContent=''; setup.i=i; setup.r=r||1; save(); paint(); send();}
+$('next').addEventListener('click',()=>move(1));
+$('back').addEventListener('click',()=>move(-1));
+$('open').addEventListener('click',()=>{out=window.open('output.html','sri-awards-output','width=1280,height=720'); setTimeout(send,600);});
+// rehearsal helper: gives every award that has nothing picked three nominees and a winner.
+// Same picks as the preview: sample teams, with Supercharged (001) winning R&D and Regional Champions.
+function fill(){const f=TEAMS.filter(t=>t.fake), pool=f.length>=3?f:TEAMS, n=pool.length, star=known.has('001')?'001':'';
+  window.AWARDS.forEach((a,k)=>{const top=star&&(a.id==='research'||a.id==='champions');
+    if(a.nominees!==false&&noms(a).length<2){const ids=[pool[k%n].id,pool[(k+6)%n].id,pool[(k+12)%n].id]; if(top)ids[1]=star; setup.nominees[a.id]=ids;}
+    if(!setup.winners[a.id]) setup.winners[a.id]=a.nominees===false?(top?star:pool[k%n].id):(top&&noms(a).includes(star)?star:noms(a)[0]);});
+  save();}
+$('fill').addEventListener('click',()=>{fill(); pushAll(); refresh();});
+const autofill=/[?&]fill\b/.test(location.search); if(autofill){fill(); try{history.replaceState(null,'',location.pathname);}catch(e){}}
+let armed=0;
+$('clear').addEventListener('click',()=>{const b=$('clear');
+  if(Date.now()-armed>4000){armed=Date.now(); b.textContent='Click again to clear'; setTimeout(()=>{b.textContent='Clear all picks';},4000); return;}
+  armed=0; b.textContent='Clear all picks'; setup.winners={}; setup.nominees={}; pushAll(); refresh();});
+window.addEventListener('message',e=>{if(!e.data||e.data.app!=='sri-awards')return; if(e.data.type==='hello')send();
+  // the heartbeat sound plays here, because this is the window the operator is pressing keys in
+  if(e.data.type==='heart'&&window.SRHeart){const main=out&&!out.closed?out:frame.contentWindow; if(e.source!==main)return; e.data.on?SRHeart.start(2):SRHeart.stop();}});
+document.addEventListener('keydown',e=>{if(/^(SELECT|INPUT|TEXTAREA|BUTTON)$/.test(e.target.tagName)&&e.key===' ')return; if(e.target.tagName==='SELECT')return;
+  if(e.key===' '||e.key==='ArrowRight'||e.key==='PageDown'){e.preventDefault();move(1);}
+  if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();move(-1);}});
+setHidden(hidden); if(autofill)refresh(); chips(); paint(); frame.addEventListener('load',send);
+})();
+</script>
+</body></html>

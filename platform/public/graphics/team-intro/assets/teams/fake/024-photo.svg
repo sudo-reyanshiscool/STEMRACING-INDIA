@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 630 700" role="img" aria-label="Chicane Chasers team picture (drawn stand-in, not real people)">
+<g>
+<rect x="79" y="514" width="40" height="186" rx="14" fill="#8D5524"/><rect x="131" y="514" width="40" height="186" rx="14" fill="#8D5524"/>
+<rect x="63" y="454" width="124" height="120" rx="20" fill="#15151C"/>
+<rect x="29" y="296" width="40" height="150" rx="20" fill="#8D5524"/><rect x="181" y="296" width="40" height="150" rx="20" fill="#8D5524"/>
+<path d="M25 314 Q25 280 65 276 L185 276 Q225 280 225 314 L225 364 L195 364 L195 484 L55 484 L55 364 L25 364 Z" fill="#1A67D1"/>
+<path d="M55 424 L195 384 L195 484 L55 484 Z" fill="#125F68" opacity=".55"/>
+<rect x="99" y="334" width="52" height="12" rx="6" fill="#F54794"/>
+<rect x="109" y="246" width="32" height="40" fill="#8D5524"/>
+<circle cx="125" cy="214" r="52" fill="#8D5524"/>
+<path d="M71 210 A54 54 0 0 1 179 210 L179 192 A54 58 0 0 0 71 192 Z" fill="#1B1B1F"/>
+</g><g>
+<rect x="269" y="480" width="40" height="220" rx="14" fill="#8D5524"/><rect x="321" y="480" width="40" height="220" rx="14" fill="#8D5524"/>
+<rect x="253" y="420" width="124" height="120" rx="20" fill="#15151C"/>
+<rect x="219" y="262" width="40" height="150" rx="20" fill="#8D5524"/><rect x="371" y="262" width="40" height="150" rx="20" fill="#8D5524"/>
+<path d="M215 280 Q215 246 255 242 L375 242 Q415 246 415 280 L415 330 L385 330 L385 450 L245 450 L245 330 L215 330 Z" fill="#1A67D1"/>
+<path d="M245 390 L385 350 L385 450 L245 450 Z" fill="#125F68" opacity=".55"/>
+<rect x="289" y="300" width="52" height="12" rx="6" fill="#F54794"/>
+<rect x="299" y="212" width="32" height="40" fill="#8D5524"/>
+<circle cx="315" cy="180" r="52" fill="#8D5524"/>
+<path d="M261 176 A54 54 0 0 1 369 176 L369 158 A54 58 0 0 0 261 158 Z" fill="#3B2414"/>
+</g><g>
+<rect x="459" y="480" width="40" height="220" rx="14" fill="#8D5524"/><rect x="511" y="480" width="40" height="220" rx="14" fill="#8D5524"/>
+<rect x="443" y="420" width="124" height="120" rx="20" fill="#15151C"/>
+<rect x="409" y="262" width="40" height="150" rx="20" fill="#8D5524"/><rect x="561" y="262" width="40" height="150" rx="20" fill="#8D5524"/>
+<path d="M405 280 Q405 246 445 242 L565 242 Q605 246 605 280 L605 330 L575 330 L575 450 L435 450 L435 330 L405 330 Z" fill="#1A67D1"/>
+<path d="M435 390 L575 350 L575 450 L435 450 Z" fill="#125F68" opacity=".55"/>
+<rect x="479" y="300" width="52" height="12" rx="6" fill="#F54794"/>
+<rect x="489" y="212" width="32" height="40" fill="#8D5524"/>
+<circle cx="505" cy="180" r="52" fill="#8D5524"/>
+<path d="M451 176 A54 54 0 0 1 559 176 L559 158 A54 58 0 0 0 451 158 Z" fill="#101014"/>
+</g>
+</svg>

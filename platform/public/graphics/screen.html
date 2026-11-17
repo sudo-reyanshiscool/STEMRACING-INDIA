@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>SRi Big Screen</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+/* One window for every graphic. The awards show (which also draws the holding screen) is always running underneath;
+   the race graphics fade in over it and fade back out, so the screen never goes blank between the two. */
+html,body{margin:0;height:100%;background:#05000B;overflow:hidden}
+body.fs{cursor:none}
+iframe{position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none}
+.race{opacity:0;transition:opacity .5s ease}
+.race.on{opacity:1}
+.race.top{z-index:2}
+#ana{z-index:3}
+#pit{z-index:4}
+#hint{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:5;background:#05000Bd9;border:1px solid #2E2347;border-radius:999px;padding:8px 16px;font:14px system-ui,sans-serif;color:#D7D6E3;transition:opacity .6s}
+#hint.gone{opacity:0;pointer-events:none}
+@media (prefers-reduced-motion:reduce){.race{transition:none}}
+</style>
+</head><body>
+<iframe id="awards" title="Awards and holding screen" tabindex="-1"></iframe>
+<iframe id="race" class="race" title="Race graphics" tabindex="-1"></iframe>
+<iframe id="race2" class="race" title="Race graphics" tabindex="-1"></iframe>
+<iframe id="ana" class="race" title="Car analysis" tabindex="-1"></iframe>
+<iframe id="pit" class="race" title="Pit build timer" tabindex="-1"></iframe>
+<div id="hint" class="gone">Press F or double-click for fullscreen</div>
+<script>
+(function(){
+const APP='sri-show', A=document.getElementById('awards'), RS=[document.getElementById('race'),document.getElementById('race2')], AN=document.getElementById('ana');
+const boss=window.opener||(window.parent!==window?window.parent:null);
+const q=new URLSearchParams(location.search);
+// what is on screen. Until a control window says otherwise: the holding screen.
+let state={n:0,src:'hold',awards:{i:0,r:1,winners:{},nominees:{}},race:null};
+let sentA='', sentK=null, lastN=0, timer=0, timer2=0, cur=0, raceReady=0, awardsReady=false;
+const nextN=()=>(lastN=Math.max(Date.now(),lastN+1));
+function toAwards(force){if(!awardsReady)return; const p=state.awards||{}, key=JSON.stringify([p.i,p.r,p.winners,p.nominees,p.custom||null,state.tv||0]);
+  if(!force&&key===sentA)return; sentA=key;
+  A.contentWindow.postMessage({app:'sri-awards',type:'state',state:Object.assign({n:nextN(),i:p.i|0,r:p.r||1,winners:p.winners||{},nominees:p.nominees||{},custom:p.custom||null},'teams' in state?{teams:state.teams}:{})},'*');}
+// two copies of the race page: a new race graphic is drawn on the hidden one and cross-faded over the one showing
+function toRace(force){const p=state.race;
+  if(state.src!=='race'||!p){clearTimeout(timer); clearTimeout(timer2); RS.forEach(f=>f.classList.remove('on','top')); sentK=null; return;}
+  if(raceReady<2||(!force&&p.k===sentK))return; sentK=p.k;
+  const old=RS[cur], showing=old.classList.contains('on'); if(showing)cur=1-cur; const R=RS[cur];
+  R.contentWindow.postMessage({app:'sri-intro',type:'state',state:Object.assign({},p,{n:nextN()},'teams' in state?{teams:state.teams}:{})},'*');
+  // the race page takes a moment to swap its own content; bring it up once it has
+  clearTimeout(timer); clearTimeout(timer2);
+  timer=setTimeout(()=>{RS.forEach(f=>f.classList.toggle('top',f===R)); R.classList.add('on'); if(showing&&old!==R)timer2=setTimeout(()=>old.classList.remove('on'),550);},300);}
+// the car analysis page draws its own cross-fades; this layer only comes up over everything else and goes away again
+let anaReady=false, sentAK=null, timer3=0;
+function toAna(force){const p=state.ana;
+  if(state.src!=='ana'||!p){clearTimeout(timer3); AN.classList.remove('on'); sentAK=null; return;}
+  if(!anaReady||(!force&&p.k===sentAK))return; sentAK=p.k;
+  AN.contentWindow.postMessage({app:'sri-ana',type:'state',state:{n:nextN(),scene:p.scene,teams:p.teams||{}}},'*');
+  clearTimeout(timer3); timer3=setTimeout(()=>AN.classList.add('on'),150);}
+// the pit build timer is a page of its own, over everything else; it is told when the clock runs out and does the counting itself
+const P=document.getElementById('pit'); let pitReady=false, sentP='';
+function toPit(force){const p=state.pit, on=!!(p&&p.show); P.classList.toggle('on',on&&pitReady); if(!pitReady)return;
+  const key=JSON.stringify(p||null); if(!force&&key===sentP)return; sentP=key;
+  P.contentWindow.postMessage({app:'sri-pit',type:'state',state:p||{show:false}},'*');}
+window.addEventListener('message',e=>{const d=e.data; if(!d)return;
+  if(d.app===APP&&d.type==='state'){if(boss&&e.source!==boss)return; if(!d.state||d.state.n<=state.n)return; state=d.state; toAwards(); toRace(); toAna(); toPit(); return;}
+  if(d.app==='sri-pit'&&d.type==='hello'&&e.source===P.contentWindow){pitReady=true; toPit(true);}
+  if(d.app==='sri-ana'&&d.type==='hello'&&e.source===AN.contentWindow){anaReady=true; toAna(true);}
+  if(d.app==='sri-awards'&&e.source===A.contentWindow){
+    if(d.type==='hello'){awardsReady=true; toAwards(true);}
+    if(d.type==='heart'){try{boss&&boss.postMessage({app:APP,type:'heart',on:!!d.on},'*');}catch(x){}}}
+  if(d.app==='sri-intro'&&d.type==='hello'&&RS.some(f=>e.source===f.contentWindow)){raceReady++; if(raceReady===2)toRace(true);}});
+// the two pages: side by side as files, or handed in as text when everything is packed into one file
+const wrap=h=>'<!doctype html><html lang="en"><head><meta charset="utf-8"><style>html,body{margin:0;height:100%;background:#05000B}</style></head><body>'+h+'</body></html>';
+if(window.SRI_PARTS){A.srcdoc=wrap(window.SRI_PARTS.awards); RS.forEach(f=>f.srcdoc=window.SRI_PARTS.race); AN.srcdoc=window.SRI_PARTS.analysis;}
+else{A.src='awards/output.html'; RS.forEach(f=>f.src='team-intro/output.html'); AN.src='analysis/output.html';}
+if(window.SRI_PARTS)P.srcdoc=window.SRI_PARTS.pit; else P.src='pit/output.html';
+// tell the control window we are here, and keep saying so: if the control page is reloaded it finds this window again by itself
+const hello=()=>{try{boss&&boss.postMessage({app:APP,type:'hello',n:state.n},'*');}catch(x){}};
+hello(); setInterval(hello,2000);
+// for checking a screen without the control window: screen.html?i=12  or  screen.html?scene=both&t1=001&t2=002
+if(q.get('i')) state.awards.i=+q.get('i'), state.src='awards';
+if(q.get('seats')) state.pit={show:true,mode:'seats',end:0,left:3600000};   // screen.html?seats=1
+if(q.get('pit')) state.pit={show:true,end:Date.now()+q.get('pit')*1000,left:0};   // screen.html?pit=3600 (seconds left)
+if(q.get('scene')){state.src='race'; state.race={k:1,scene:q.get('scene'),side:+q.get('side')||1,t1:q.get('t1')||'001',t2:q.get('t2')||'002',slogan:q.get('slogan')||'',round:q.get('round')||''};}
+// fullscreen, and keys pressed while this window is in front still reach the control window
+const hint=document.getElementById('hint'), framed=window.parent!==window;
+const full=()=>{try{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen().catch(()=>{});}catch(x){}};
+if(!framed){hint.classList.remove('gone'); setTimeout(()=>hint.classList.add('gone'),8000); document.addEventListener('dblclick',full);}
+document.addEventListener('fullscreenchange',()=>{document.body.classList.toggle('fs',!!document.fullscreenElement); if(document.fullscreenElement)hint.classList.add('gone');});
+document.addEventListener('keydown',e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;
+  if(!framed&&(e.key==='f'||e.key==='F'))return full();
+  if(boss&&/^( |ArrowRight|ArrowLeft|PageDown|PageUp|[0-9]|h|H|r|R)$/.test(e.key)){e.preventDefault(); try{boss.postMessage({app:APP,type:'key',key:e.key},'*');}catch(x){}}});
+})();
+</script>
+</body></html>

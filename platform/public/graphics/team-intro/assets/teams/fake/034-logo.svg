@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Momentum logo (fake)">
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#931AD1"/><stop offset="1" stop-color="#221268"/></linearGradient>
+<clipPath id="c"><circle cx="256" cy="256" r="222"/></clipPath></defs>
+<g fill="url(#g)" stroke="#FFFFFF" stroke-width="14" stroke-linejoin="round"><circle cx="256" cy="256" r="222"/></g>
+<g clip-path="url(#c)"><circle cx="256" cy="256" r="176" fill="none" stroke="#82F547" stroke-width="16" stroke-dasharray="60 22" opacity=".9"/></g>
+<text x="256" y="334" text-anchor="middle" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-style="italic" font-size="230" fill="#FFFFFF" stroke="#221268" stroke-width="6" paint-order="stroke">M</text>
+</svg>

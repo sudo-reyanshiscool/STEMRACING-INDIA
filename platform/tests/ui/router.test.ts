@@ -14,6 +14,7 @@ describe('router', () => {
     expect(parseHash('#/event/e1/moderate')).toEqual({ name: 'moderate', eventId: 'e1' });
     expect(parseHash('#/event/e1/rankings')).toEqual({ name: 'rankings', eventId: 'e1' });
     expect(parseHash('#/event/e1/results')).toEqual({ name: 'results', eventId: 'e1' });
+    expect(parseHash('#/event/e1/graphics')).toEqual({ name: 'graphics', eventId: 'e1' });
   });
 
   it('falls back to home for anything unknown or malformed', () => {

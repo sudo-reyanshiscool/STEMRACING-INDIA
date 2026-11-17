@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1010 700" role="img" aria-label="Supersonic Sharks team picture (drawn stand-in, not real people)">
+<g>
+<rect x="79" y="514" width="40" height="186" rx="14" fill="#B9783F"/><rect x="131" y="514" width="40" height="186" rx="14" fill="#B9783F"/>
+<rect x="63" y="454" width="124" height="120" rx="20" fill="#15151C"/>
+<rect x="29" y="296" width="40" height="150" rx="20" fill="#B9783F"/><rect x="181" y="296" width="40" height="150" rx="20" fill="#B9783F"/>
+<path d="M25 314 Q25 280 65 276 L185 276 Q225 280 225 314 L225 364 L195 364 L195 484 L55 484 L55 364 L25 364 Z" fill="#76D11A"/>
+<path d="M55 424 L195 384 L195 484 L55 484 Z" fill="#146812" opacity=".55"/>
+<rect x="99" y="334" width="52" height="12" rx="6" fill="#9D47F5"/>
+<rect x="109" y="246" width="32" height="40" fill="#B9783F"/>
+<circle cx="125" cy="214" r="52" fill="#B9783F"/>
+<path d="M71 210 A54 54 0 0 1 179 210 L179 192 A54 58 0 0 0 71 192 Z" fill="#101014"/>
+</g><g>
+<rect x="269" y="530" width="40" height="170" rx="14" fill="#F1C7A1"/><rect x="321" y="530" width="40" height="170" rx="14" fill="#F1C7A1"/>
+<rect x="253" y="470" width="124" height="120" rx="20" fill="#15151C"/>
+<rect x="219" y="312" width="40" height="150" rx="20" fill="#F1C7A1"/><rect x="371" y="312" width="40" height="150" rx="20" fill="#F1C7A1"/>
+<path d="M215 330 Q215 296 255 292 L375 292 Q415 296 415 330 L415 380 L385 380 L385 500 L245 500 L245 380 L215 380 Z" fill="#76D11A"/>
+<path d="M245 440 L385 400 L385 500 L245 500 Z" fill="#146812" opacity=".55"/>
+<rect x="289" y="350" width="52" height="12" rx="6" fill="#9D47F5"/>
+<rect x="299" y="262" width="32" height="40" fill="#F1C7A1"/>
+<circle cx="315" cy="230" r="52" fill="#F1C7A1"/>
+<path d="M261 226 A54 54 0 0 1 369 226 L369 208 A54 58 0 0 0 261 208 Z" fill="#1B1B1F"/>
+</g><g>
+<rect x="459" y="514" width="40" height="186" rx="14" fill="#B9783F"/><rect x="511" y="514" width="40" height="186" rx="14" fill="#B9783F"/>
+<rect x="443" y="454" width="124" height="120" rx="20" fill="#15151C"/>
+<rect x="409" y="296" width="40" height="150" rx="20" fill="#B9783F"/><rect x="561" y="296" width="40" height="150" rx="20" fill="#B9783F"/>
+<path d="M405 314 Q405 280 445 276 L565 276 Q605 280 605 314 L605 364 L575 364 L575 484 L435 484 L435 364 L405 364 Z" fill="#76D11A"/>
+<path d="M435 424 L575 384 L575 484 L435 484 Z" fill="#146812" opacity=".55"/>
+<rect x="479" y="334" width="52" height="12" rx="6" fill="#9D47F5"/>
+<rect x="489" y="246" width="32" height="40" fill="#B9783F"/>
+<circle cx="505" cy="214" r="52" fill="#B9783F"/>
+<path d="M451 210 A54 54 0 0 1 559 210 L559 192 A54 58 0 0 0 451 192 Z" fill="#1B1B1F"/>
+</g><g>
+<rect x="649" y="498" width="40" height="202" rx="14" fill="#F1C7A1"/><rect x="701" y="498" width="40" height="202" rx="14" fill="#F1C7A1"/>
+<rect x="633" y="438" width="124" height="120" rx="20" fill="#15151C"/>
+<rect x="599" y="280" width="40" height="150" rx="20" fill="#F1C7A1"/><rect x="751" y="280" width="40" height="150" rx="20" fill="#F1C7A1"/>
+<path d="M595 298 Q595 264 635 260 L755 260 Q795 264 795 298 L795 348 L765 348 L765 468 L625 468 L625 348 L595 348 Z" fill="#76D11A"/>
+<path d="M625 408 L765 368 L765 468 L625 468 Z" fill="#146812" opacity=".55"/>
+<rect x="669" y="318" width="52" height="12" rx="6" fill="#9D47F5"/>
+<rect x="679" y="230" width="32" height="40" fill="#F1C7A1"/>
+<circle cx="695" cy="198" r="52" fill="#F1C7A1"/>
+<path d="M641 194 A54 54 0 0 1 749 194 L749 176 A54 58 0 0 0 641 176 Z" fill="#5A3A1C"/>
+</g><g>
+<rect x="839" y="498" width="40" height="202" rx="14" fill="#B9783F"/><rect x="891" y="498" width="40" height="202" rx="14" fill="#B9783F"/>
+<rect x="823" y="438" width="124" height="120" rx="20" fill="#15151C"/>
+<rect x="789" y="280" width="40" height="150" rx="20" fill="#B9783F"/><rect x="941" y="280" width="40" height="150" rx="20" fill="#B9783F"/>
+<path d="M785 298 Q785 264 825 260 L945 260 Q985 264 985 298 L985 348 L955 348 L955 468 L815 468 L815 348 L785 348 Z" fill="#76D11A"/>
+<path d="M815 408 L955 368 L955 468 L815 468 Z" fill="#146812" opacity=".55"/>
+<rect x="859" y="318" width="52" height="12" rx="6" fill="#9D47F5"/>
+<rect x="869" y="230" width="32" height="40" fill="#B9783F"/>
+<circle cx="885" cy="198" r="52" fill="#B9783F"/>
+<path d="M831 194 A54 54 0 0 1 939 194 L939 176 A54 58 0 0 0 831 176 Z" fill="#1B1B1F"/>
+</g>
+</svg>

@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1010 700" role="img" aria-label="Carbon Comets team picture (drawn stand-in, not real people)">
+<g>
+<rect x="79" y="514" width="40" height="186" rx="14" fill="#B9783F"/><rect x="131" y="514" width="40" height="186" rx="14" fill="#B9783F"/>
+<rect x="63" y="454" width="124" height="120" rx="20" fill="#15151C"/>
+<rect x="29" y="296" width="40" height="150" rx="20" fill="#B9783F"/><rect x="181" y="296" width="40" height="150" rx="20" fill="#B9783F"/>
+<path d="M25 314 Q25 280 65 276 L185 276 Q225 280 225 314 L225 364 L195 364 L195 484 L55 484 L55 364 L25 364 Z" fill="#471AD1"/>
+<path d="M55 424 L195 384 L195 484 L55 484 Z" fill="#122668" opacity=".55"/>
+<rect x="99" y="334" width="52" height="12" rx="6" fill="#CAF547"/>
+<rect x="109" y="246" width="32" height="40" fill="#B9783F"/>
+<circle cx="125" cy="214" r="52" fill="#B9783F"/>
+<path d="M71 210 A54 54 0 0 1 179 210 L179 192 A54 58 0 0 0 71 192 Z" fill="#3B2414"/>
+</g><g>
+<rect x="269" y="530" width="40" height="170" rx="14" fill="#D9A066"/><rect x="321" y="530" width="40" height="170" rx="14" fill="#D9A066"/>
+<rect x="253" y="470" width="124" height="120" rx="20" fill="#15151C"/>
+<rect x="219" y="312" width="40" height="150" rx="20" fill="#D9A066"/><rect x="371" y="312" width="40" height="150" rx="20" fill="#D9A066"/>
+<path d="M215 330 Q215 296 255 292 L375 292 Q415 296 415 330 L415 380 L385 380 L385 500 L245 500 L245 380 L215 380 Z" fill="#471AD1"/>
+<path d="M245 440 L385 400 L385 500 L245 500 Z" fill="#122668" opacity=".55"/>
+<rect x="289" y="350" width="52" height="12" rx="6" fill="#CAF547"/>
+<rect x="299" y="262" width="32" height="40" fill="#D9A066"/>
+<circle cx="315" cy="230" r="52" fill="#D9A066"/>
+<path d="M261 226 A54 54 0 0 1 369 226 L369 208 A54 58 0 0 0 261 208 Z" fill="#3B2414"/>
+</g><g>
+<rect x="459" y="480" width="40" height="220" rx="14" fill="#B9783F"/><rect x="511" y="480" width="40" height="220" rx="14" fill="#B9783F"/>
+<rect x="443" y="420" width="124" height="120" rx="20" fill="#15151C"/>
+<rect x="409" y="262" width="40" height="150" rx="20" fill="#B9783F"/><rect x="561" y="262" width="40" height="150" rx="20" fill="#B9783F"/>
+<path d="M405 280 Q405 246 445 242 L565 242 Q605 246 605 280 L605 330 L575 330 L575 450 L435 450 L435 330 L405 330 Z" fill="#471AD1"/>
+<path d="M435 390 L575 350 L575 450 L435 450 Z" fill="#122668" opacity=".55"/>
+<rect x="479" y="300" width="52" height="12" rx="6" fill="#CAF547"/>
+<rect x="489" y="212" width="32" height="40" fill="#B9783F"/>
+<circle cx="505" cy="180" r="52" fill="#B9783F"/>
+<path d="M451 176 A54 54 0 0 1 559 176 L559 158 A54 58 0 0 0 451 158 Z" fill="#3B2414"/>
+</g><g>
+<rect x="649" y="498" width="40" height="202" rx="14" fill="#B9783F"/><rect x="701" y="498" width="40" height="202" rx="14" fill="#B9783F"/>
+<rect x="633" y="438" width="124" height="120" rx="20" fill="#15151C"/>
+<rect x="599" y="280" width="40" height="150" rx="20" fill="#B9783F"/><rect x="751" y="280" width="40" height="150" rx="20" fill="#B9783F"/>
+<path d="M595 298 Q595 264 635 260 L755 260 Q795 264 795 298 L795 348 L765 348 L765 468 L625 468 L625 348 L595 348 Z" fill="#471AD1"/>
+<path d="M625 408 L765 368 L765 468 L625 468 Z" fill="#122668" opacity=".55"/>
+<rect x="669" y="318" width="52" height="12" rx="6" fill="#CAF547"/>
+<rect x="679" y="230" width="32" height="40" fill="#B9783F"/>
+<circle cx="695" cy="198" r="52" fill="#B9783F"/>
+<path d="M641 194 A54 54 0 0 1 749 194 L749 176 A54 58 0 0 0 641 176 Z" fill="#101014"/>
+</g><g>
+<rect x="839" y="530" width="40" height="170" rx="14" fill="#B9783F"/><rect x="891" y="530" width="40" height="170" rx="14" fill="#B9783F"/>
+<rect x="823" y="470" width="124" height="120" rx="20" fill="#15151C"/>
+<rect x="789" y="312" width="40" height="150" rx="20" fill="#B9783F"/><rect x="941" y="312" width="40" height="150" rx="20" fill="#B9783F"/>
+<path d="M785 330 Q785 296 825 292 L945 292 Q985 296 985 330 L985 380 L955 380 L955 500 L815 500 L815 380 L785 380 Z" fill="#471AD1"/>
+<path d="M815 440 L955 400 L955 500 L815 500 Z" fill="#122668" opacity=".55"/>
+<rect x="859" y="350" width="52" height="12" rx="6" fill="#CAF547"/>
+<rect x="869" y="262" width="32" height="40" fill="#B9783F"/>
+<circle cx="885" cy="230" r="52" fill="#B9783F"/>
+<path d="M831 226 A54 54 0 0 1 939 226 L939 208 A54 58 0 0 0 831 208 Z" fill="#1B1B1F"/>
+</g>
+</svg>

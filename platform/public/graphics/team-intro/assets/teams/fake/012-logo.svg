@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Aero Aces logo (fake)">
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#C2D11A"/><stop offset="1" stop-color="#684612"/></linearGradient>
+<clipPath id="c"><path d="M256 34 L448 96 V262 C448 372 366 446 256 482 C146 446 64 372 64 262 V96 Z"/></clipPath></defs>
+<g fill="url(#g)" stroke="#FFFFFF" stroke-width="14" stroke-linejoin="round"><path d="M256 34 L448 96 V262 C448 372 366 446 256 482 C146 446 64 372 64 262 V96 Z"/></g>
+<g clip-path="url(#c)"><circle cx="256" cy="256" r="176" fill="none" stroke="#69F547" stroke-width="16" stroke-dasharray="60 22" opacity=".9"/></g>
+<text x="256" y="321" text-anchor="middle" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-style="italic" font-size="190" fill="#FFFFFF" stroke="#684612" stroke-width="6" paint-order="stroke">AA</text>
+</svg>

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Monsoon Motorsport logo (fake)">
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#D1651A"/><stop offset="1" stop-color="#685F12"/></linearGradient>
+<clipPath id="c"><polygon points="256.0,30.0 451.7,143.0 451.7,369.0 256.0,482.0 60.3,369.0 60.3,143.0"/></clipPath></defs>
+<g fill="url(#g)" stroke="#FFFFFF" stroke-width="14" stroke-linejoin="round"><polygon points="256.0,30.0 451.7,143.0 451.7,369.0 256.0,482.0 60.3,369.0 60.3,143.0"/></g>
+<g clip-path="url(#c)"><polygon points="300,60 150,290 240,290 200,452 372,208 276,208" fill="#47ADF5" opacity=".55"/></g>
+<text x="256" y="321" text-anchor="middle" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-style="italic" font-size="190" fill="#FFFFFF" stroke="#685F12" stroke-width="6" paint-order="stroke">MM</text>
+</svg>

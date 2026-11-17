@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>SRi Pit Build Timer</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+/* The pit build clock on the STEM Racing graphic suite, on carbon: one or two large brand shapes at a time, half off the edge
+   of the screen; the three patterns at the sides, drawn in the supplied gradients; and the idle logo above the clock.
+   screen.html tells this page when the clock runs out (or how much is left while it is stopped); the counting is done here.
+   To look at it by itself: output.html?pit=3541 (seconds left), add &paused=1 for a stopped clock. */
+@font-face{font-family:"Magistral";font-weight:700;font-style:italic;src:url("../team-intro/assets/fonts/Magistral-BoldItalic.woff2") format("woff2")}
+html,body{margin:0;height:100%;background:#05000B;overflow:hidden}
+.scene{--u:min(1vw,1.7778vh);position:absolute;inset:0;overflow:hidden;font:italic 700 var(--u) "Magistral","Arial Narrow",sans-serif;text-transform:uppercase;color:#fff}
+.layer{position:absolute;inset:0;pointer-events:none}
+/* patterns: the supplied artwork as a window on to a supplied gradient, fading away towards the middle */
+.pat{position:absolute;top:-12%;height:124%;width:calc(var(--u)*40);opacity:0}
+.pat.l{left:0;-webkit-mask-image:linear-gradient(to right,#000 10%,transparent 78%);mask-image:linear-gradient(to right,#000 10%,transparent 78%)}
+.pat.r{right:0;-webkit-mask-image:linear-gradient(to left,#000 10%,transparent 78%);mask-image:linear-gradient(to left,#000 10%,transparent 78%)}
+.pat i{position:absolute;inset:0;-webkit-mask:center/cover no-repeat;mask:center/cover no-repeat}
+/* shapes */
+.shape{position:absolute}
+.shape svg{display:block;width:100%;height:100%;overflow:visible}
+.mid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:calc(var(--u)*1.2)}
+.pl{font-size:calc(var(--u)*3.2);letter-spacing:.14em;color:#D7D6E3}
+.pt{font-size:calc(var(--u)*18);line-height:.86;display:flex;transition:color .4s}
+.pt span{display:inline-block;width:.7em;text-align:center} .pt span.c{width:.36em}
+/* "please take your seats": the same scene with the clock taken out and the line set large */
+.seats .pt{display:none} .seats .pl{font-size:calc(var(--u)*5.6);line-height:1;white-space:nowrap;letter-spacing:.02em;color:#fff;margin-top:calc(var(--u)*2.4);text-align:center}
+.low .pt{color:#FCBC00} .out .pt{color:#E6007E}
+.logo{width:calc(var(--u)*48);margin:calc(var(--u)*-3.5) 0 calc(var(--u)*-4.6)}
+.logo svg{display:block;width:100%;height:auto;overflow:visible}
+</style>
+</head><body>
+<div class="scene" id="scene">
+  <div class="layer" id="pats"></div>
+  <div class="layer" id="shapes"></div>
+  <div class="mid">
+    <div class="logo" id="logo" role="img" aria-label="STEM Racing Regional Finals India"></div>
+    <div class="pl" id="pl">Pit build</div>
+    <div class="pt" id="pt" role="timer" aria-label="Pit build time remaining"></div>
+  </div>
+</div>
+<!--PATTERNS-->
+<script src="../shared/sr-background.js"></script>
+<script src="../team-intro/brand-shape.js"></script>
+<script src="../team-intro/assets/brand/rf-idle-logo.js"></script>
+<script>
+(function(){
+const APP='sri-pit', $=id=>document.getElementById(id), scene=$('scene'), q=new URLSearchParams(location.search);
+const still=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+const rnd=(a,b)=>a+Math.random()*(b-a), pick=a=>a[Math.floor(Math.random()*a.length)];
+let state={show:false,end:0,left:3600000,full:3600000};
+
+/* ---- the clock ---- */
+let shown='';
+function clock(){const s=Math.ceil((state.end?Math.max(0,state.end-Date.now()):state.left)/1000), t=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+  if(t!==shown){shown=t; $('pt').replaceChildren(...[...t].map(ch=>{const e=document.createElement('span'); e.textContent=ch; if(ch===':')e.className='c'; return e;}));}
+  const seats=state.mode==='seats'; scene.classList.toggle('seats',seats);
+  scene.classList.toggle('low',!seats&&s>0&&s<=300); scene.classList.toggle('out',!seats&&s===0);
+  const started=state.end||state.left<(state.full||3600000);
+  $('pl').textContent=seats?'Please take your seats':s===0?'Time’s up':!state.end&&started?'Pit build · paused':'Pit build';}
+setInterval(clock,200);
+
+/* ---- the idle logo (it only animates inside a .scene.on) ---- */
+try{window.SRIdleLogo&&SRIdleLogo.mount($('logo'));}catch(e){console.error(e);}
+
+/* ---- the colours of the five shapes, exactly as in the supplied artwork ---- */
+const STOPS={pink:[[0,'#961b81'],[.52,'#e6007e'],[1,'#ed6d05']],yellow:[[0,'#e84610'],[.25,'#ed630c'],[.79,'#f9ad03'],[1,'#ffcc00']],
+  blue:[[0,'#009ee2'],[.48,'#0080c8'],[1,'#005ca8']],green:[[0,'#00873e'],[.32,'#2c9834'],[1,'#93c01f']],'blue-green':[[0,'#009fe3'],[.18,'#16a4c5'],[.57,'#4fb17a'],[1,'#95c11f']]};
+const KEYS=Object.keys(STOPS).filter(k=>(window.BRAND_SHAPES||{})[k]);
+
+/* ---- shapes: one or two at a time, large, each about half off the edge of the screen, drawn on by the sweeping mask,
+   drifting a little, then wiped away again. They never touch each other, the logo, the label or the clock: every
+   placement is tested against the true outline of the supplied shape. Colours are the supplied gradients, shown solid. ---- */
+const DRIFT=1.2, GAP=2.5, PAD=2, MAXSHAPES=2, RAD=Math.PI/180;
+const live=[]; let uid=0, lastKey='', running=false; const timers=new Set();
+const later=(f,ms)=>{const t=setTimeout(()=>{timers.delete(t); if(running)f();},ms); timers.add(t); return t;};
+const ns='http://www.w3.org/2000/svg', mk=(tag,attrs)=>{const n=document.createElementNS(ns,tag); for(const k in attrs)n.setAttribute(k,attrs[k]); return n;};
+// the outline of each supplied shape as points round the middle of its box, in shares of the box, already turned the way the artwork sits
+const OUTLINE={};
+(function(){const svg=mk('svg',{width:0,height:0}); svg.style.cssText='position:absolute;visibility:hidden'; document.body.append(svg);
+  KEYS.forEach(k=>{const S=window.BRAND_SHAPES[k], [x,y,w,h]=S.viewBox.split(' ').map(Number), path=mk('path',{d:S.path}); svg.append(path);
+    const len=path.getTotalLength(), m=Math.max(w,h), c=Math.cos(S.rotation*RAD), s=Math.sin(S.rotation*RAD), pts=[];
+    for(let i=0;i<260;i++){const pt=path.getPointAtLength(len*i/260), px=(pt.x-(x+w/2))/m, py=(pt.y-(y+h/2))/m; pts.push([px*c-py*s,px*s+py*c]);}
+    OUTLINE[k]=pts;}); svg.remove();})();
+const place=(key,size,cx,cy,deg)=>{const c=Math.cos(deg*RAD), s=Math.sin(deg*RAD); return OUTLINE[key].map(([x,y])=>[cx+(x*c-y*s)*size,cy+(x*s+y*c)*size]);};
+// the logo, the label and the clock, in screen units (the screen is 100 wide)
+function keepClear(){const u=scene.clientWidth/100||1, r=id=>$(id).getBoundingClientRect(), L=r('logo');
+  return [{left:L.left+L.width*.12,right:L.right-L.width*.1,top:L.top+L.height*.17,bottom:L.bottom-L.height*.2},r('pl'),r('pt')].filter(b=>b.right>b.left&&b.bottom>b.top).map(b=>({x0:b.left/u-PAD,x1:b.right/u+PAD,y0:b.top/u-PAD,y1:b.bottom/u+PAD}));}
+function spawnShape(){
+  if(live.length>=MAXSHAPES||!KEYS.length)return;
+  const H=100*scene.clientHeight/scene.clientWidth, boxes=keepClear(), key=pick(KEYS.filter(k=>k!==lastKey&&!live.some(o=>o.key===k)));
+  // try places round the edge of the screen, biggest first, until one is clear of everything
+  let spot=null;
+  for(let n=0;n<120&&!spot;n++){const size=rnd(44,66)*(1-n/260), t=rnd(0,2*(100+H)), deg=pick([0,90,180,270])+rnd(-14,14), deg1=deg+rnd(-5,5), ang=rnd(0,Math.PI*2), dx=Math.cos(ang)*DRIFT, dy=Math.sin(ang)*DRIFT;
+    // a point on the edge of the screen, nudged a little in or out
+    let cx,cy; if(t<100){cx=t; cy=0;} else if(t<100+H){cx=100; cy=t-100;} else if(t<200+H){cx=t-100-H; cy=H;} else {cx=0; cy=t-200-H;}
+    cx+=rnd(-3,3); cy+=rnd(-3,3);
+    const pts=place(key,size,cx,cy,deg).concat(place(key,size,cx+dx,cy+dy,deg1));   // where it starts and where it will have drifted to
+    const out=pts.filter(([x,y])=>x<0||x>100||y<0||y>H).length/pts.length; if(out<.34||out>.62)continue;   // about half of it is off the screen
+    if(pts.some(([x,y])=>boxes.some(B=>x>B.x0&&x<B.x1&&y>B.y0&&y<B.y1)))continue;
+    if(live.some(o=>Math.hypot(o.cx-cx,o.cy-cy)<(o.size+size)*.72&&o.pts.some(([x,y])=>pts.some(([a,b])=>Math.hypot(x-a,y-b)<GAP))))continue;
+    spot={key,size,cx,cy,deg,deg1,dx,dy,pts};}
+  if(!spot)return; lastKey=key; live.push(spot);
+  const S=window.BRAND_SHAPES[key], [x,y,w,h]=S.viewBox.split(' ').map(Number), gid='pg'+(++uid), mid='pm'+uid, size=spot.size;
+  const host=document.createElement('div'); host.className='shape';
+  host.style.cssText='left:calc(var(--u)*'+spot.cx+');top:calc(var(--u)*'+spot.cy+');width:calc(var(--u)*'+size+');height:calc(var(--u)*'+size+');margin:calc(var(--u)*'+(-size/2)+') 0 0 calc(var(--u)*'+(-size/2)+')';
+  const svg=mk('svg',{viewBox:S.viewBox,'aria-hidden':'true'}), defs=mk('defs',{}), grad=mk('linearGradient',Object.assign({id:gid},S.gradient));
+  STOPS[key].forEach(([o,c])=>grad.append(mk('stop',{offset:o,'stop-color':c})));
+  const mask=mk('mask',{id:mid,maskUnits:'userSpaceOnUse',maskContentUnits:'userSpaceOnUse',x:-1200,y:-1200,width:3500,height:3500}); mask.style.maskType='luminance';
+  const sweep=mk('path',{d:window.BRAND_SWEEP,transform:'matrix('+S.sweepTransform.join(' ')+')',fill:'none',stroke:'#fff','stroke-linecap':'round','stroke-linejoin':'round','stroke-width':900});
+  mask.append(sweep); const g=mk('g',{transform:'rotate('+S.rotation+' '+(x+w/2)+' '+(y+h/2)+')'});
+  g.append(mk('path',{d:S.path,fill:'url(#'+gid+')',mask:'url(#'+mid+')'})); defs.append(grad,mask); svg.append(defs,g); host.append(svg); $('shapes').append(host);
+  const lifeMs=rnd(11000,17000), tf=(r,k)=>'translate(calc(var(--u)*'+spot.dx*k+'),calc(var(--u)*'+spot.dy*k+')) rotate('+r+'deg)';
+  const gone=()=>{host.remove(); const i=live.indexOf(spot); if(i>=0)live.splice(i,1);};
+  if(still){host.style.transform=tf(spot.deg,0); later(gone,lifeMs); return;}
+  const len=sweep.getTotalLength(), draw=[{strokeDashoffset:len,strokeWidth:'230px'},{strokeWidth:'330px',offset:.4},{strokeWidth:'600px',offset:.75},{strokeDashoffset:0,strokeWidth:'900px'}];
+  sweep.style.strokeDasharray=len;
+  sweep.animate(draw,{duration:rnd(2400,3200),easing:'cubic-bezier(.34,.62,.36,1)',fill:'both'});
+  host.animate([{transform:tf(spot.deg,0)},{transform:tf(spot.deg1,1)}],{duration:lifeMs,easing:'linear',fill:'both'});
+  // it leaves the way it came: the sweep runs backwards and wipes it off
+  later(()=>{const a=sweep.animate(draw.slice().reverse().map(f=>Object.assign({},f,f.offset!=null?{offset:1-f.offset}:{})),{duration:1700,easing:'cubic-bezier(.6,.1,.7,.4)',fill:'forwards'}); a.onfinish=gone;},lifeMs-1700);
+}
+function shapeLoop(){spawnShape(); later(shapeLoop,rnd(3500,6500));}
+
+/* ---- patterns: curve, jagged or wave, as lines of one of the nine supplied gradients on the carbon background,
+   sliding in from one side and fading away towards the middle. One window on the gradient per side, kept for the whole run. ---- */
+const PATS=window.PIT_PATTERNS||{curve:'patterns/curve.png',jagged:'patterns/jagged.png',wave:'patterns/wave.png'}, PNAMES=Object.keys(PATS);
+const sides={}; let lastPat='', lastGrad='';
+function buildSides(){['l','r'].forEach(s=>{const d=document.createElement('div'), art=document.createElement('i'); d.className='pat '+s; d.append(art); $('pats').append(d);
+  sides[s]={d,art,busy:false,bg:window.SRBackground?SRBackground.mount(art,'sr',{darken:0,loop:90,width:480,height:640}):null};});}
+function dropSides(){Object.keys(sides).forEach(s=>{const o=sides[s]; try{const cv=o.art.querySelector('canvas'), gl=cv&&cv.getContext('webgl'), ext=gl&&gl.getExtension('WEBGL_lose_context'); o.bg&&o.bg.destroy(); ext&&ext.loseContext();}catch(e){} delete sides[s];}); $('pats').replaceChildren();}
+function spawnPattern(){
+  const free=Object.keys(sides).filter(s=>!sides[s].busy); if(!free.length)return; const s=pick(free), o=sides[s]; o.busy=true;
+  const name=pick(PNAMES.filter(n=>n!==lastPat)); lastPat=name; const m='url("'+PATS[name]+'")'; o.art.style.webkitMaskImage=m; o.art.style.maskImage=m;
+  o.art.style.transform='scale('+pick([1,-1])+','+pick([1,-1])+')';
+  if(o.bg){const g=pick((SRBackground.names||['sr']).filter(n=>n!==lastGrad)); lastGrad=g; o.bg.set(g);} else o.art.style.background='#D7D6E3';
+  const from=s==='l'?-7:7, lifeMs=rnd(14000,21000), dy=rnd(-3,3), tf=(xu,yu)=>'translate(calc(var(--u)*'+xu+'),calc(var(--u)*'+yu+'))';
+  if(still){o.d.style.transform=tf(0,0); o.d.style.opacity=1;}
+  else o.d.animate([{opacity:0,transform:tf(from,0)},{opacity:1,transform:tf(0,dy*.15),offset:.14},{opacity:1,transform:tf(0,dy*.85),offset:.88},{opacity:0,transform:tf(from*.4,dy)}],{duration:lifeMs,easing:'ease-in-out',fill:'both'});
+  later(()=>{o.busy=false;},lifeMs+400);
+}
+function patLoop(){spawnPattern(); later(patLoop,rnd(6000,10000));}
+
+function start(){if(running)return; running=true; scene.classList.add('on'); buildSides();
+  if(!still){later(spawnShape,300); later(shapeLoop,3200); later(patLoop,600);}
+  else{spawnShape(); spawnShape(); spawnPattern(); spawnPattern();}}
+function stop(){if(!running)return; running=false; timers.forEach(clearTimeout); timers.clear(); scene.classList.remove('on');
+  $('shapes').replaceChildren(); live.length=0; dropSides();}
+window.__pitShapes=()=>live.map(o=>({key:o.key,size:o.size,cx:o.cx,cy:o.cy}));   // for checks
+
+/* ---- told what to do by the big screen ---- */
+let offTimer=0;
+function apply(){clock(); clearTimeout(offTimer); if(state.show)start(); else offTimer=setTimeout(stop,900);}   // keeps moving while the big screen fades it out
+window.addEventListener('message',e=>{const d=e.data; if(!d||d.app!==APP||d.type!=='state'||!d.state)return; state=Object.assign({show:false,end:0,left:3600000,full:3600000},d.state); apply();});
+if(q.get('seats'))state={show:true,mode:'seats',end:0,left:3600000,full:3600000};   // pit/output.html?seats=1
+if(q.get('pit')){const ms=q.get('pit')*1000; state=q.get('paused')?{show:true,end:0,left:ms,full:3600000}:{show:true,end:Date.now()+ms,left:0,full:3600000};}
+apply();
+try{(window.parent!==window?window.parent:window.opener||window).postMessage({app:APP,type:'hello'},'*');}catch(e){}
+})();
+</script>
+</body></html>

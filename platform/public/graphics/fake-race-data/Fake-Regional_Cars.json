@@ -1,0 +1,1440 @@
+{
+ "schemaVersion": 1,
+ "kind": "cars",
+ "generatedAt": "2026-11-17T06:00:00.000Z",
+ "event": {
+  "id": "fake-regional",
+  "name": "Fake Regional Final (test data)",
+  "startsOn": "2027-01-16"
+ },
+ "cars": [
+  {
+   "team": {
+    "id": "team-001",
+    "number": "001",
+    "name": "Supercharged",
+    "school": "The British School"
+   },
+   "car": "A",
+   "widthMm": 75.8,
+   "heightMm": 56.8,
+   "weightG": 51.5,
+   "wheelbaseMm": 138.2,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-001",
+    "number": "001",
+    "name": "Supercharged",
+    "school": "The British School"
+   },
+   "car": "B",
+   "widthMm": 69.4,
+   "heightMm": 55.9,
+   "weightG": 52.6,
+   "wheelbaseMm": 125.4,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-002",
+    "number": "002",
+    "name": "Apex",
+    "school": "Monsoon Bay International School"
+   },
+   "car": "A",
+   "widthMm": 74.8,
+   "heightMm": 64.4,
+   "weightG": 50.0,
+   "wheelbaseMm": 124.1,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-002",
+    "number": "002",
+    "name": "Apex",
+    "school": "Monsoon Bay International School"
+   },
+   "car": "B",
+   "widthMm": 80.4,
+   "heightMm": 59.3,
+   "weightG": 51.8,
+   "wheelbaseMm": 137.2,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-003",
+    "number": "003",
+    "name": "Vortex Racing",
+    "school": "Skyline International School"
+   },
+   "car": "A",
+   "widthMm": 73.2,
+   "heightMm": 57.5,
+   "weightG": 52.5,
+   "wheelbaseMm": 122.0,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-003",
+    "number": "003",
+    "name": "Vortex Racing",
+    "school": "Skyline International School"
+   },
+   "car": "B",
+   "widthMm": 74.1,
+   "heightMm": 55.8,
+   "weightG": 52.1,
+   "wheelbaseMm": 128.6,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-004",
+    "number": "004",
+    "name": "Turbo Titans",
+    "school": "Golden Mile Academy"
+   },
+   "car": "A",
+   "widthMm": 66.9,
+   "heightMm": 58.8,
+   "weightG": 53.4,
+   "wheelbaseMm": 123.2,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-004",
+    "number": "004",
+    "name": "Turbo Titans",
+    "school": "Golden Mile Academy"
+   },
+   "car": "B",
+   "widthMm": 66.4,
+   "heightMm": 53.7,
+   "weightG": 52.5,
+   "wheelbaseMm": 121.1,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-005",
+    "number": "005",
+    "name": "Zenith",
+    "school": "Cedar Park Academy"
+   },
+   "car": "A",
+   "widthMm": 74.1,
+   "heightMm": 61.5,
+   "weightG": 50.6,
+   "wheelbaseMm": 121.6,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-005",
+    "number": "005",
+    "name": "Zenith",
+    "school": "Cedar Park Academy"
+   },
+   "car": "B",
+   "widthMm": 81.3,
+   "heightMm": 53.6,
+   "weightG": 51.1,
+   "wheelbaseMm": 129.2,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-006",
+    "number": "006",
+    "name": "Ignition Racing",
+    "school": "Silverline Academy"
+   },
+   "car": "A",
+   "widthMm": 77.4,
+   "heightMm": 58.8,
+   "weightG": 53.1,
+   "wheelbaseMm": 135.7,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-006",
+    "number": "006",
+    "name": "Ignition Racing",
+    "school": "Silverline Academy"
+   },
+   "car": "B",
+   "widthMm": 84.0,
+   "heightMm": 52.3,
+   "weightG": 53.3,
+   "wheelbaseMm": 125.5,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-007",
+    "number": "007",
+    "name": "Velocity Vipers",
+    "school": "Banyan Grove High School"
+   },
+   "car": "A",
+   "widthMm": 79.6,
+   "heightMm": 52.2,
+   "weightG": 52.3,
+   "wheelbaseMm": 136.5,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-007",
+    "number": "007",
+    "name": "Velocity Vipers",
+    "school": "Banyan Grove High School"
+   },
+   "car": "B",
+   "widthMm": 82.2,
+   "heightMm": 63.1,
+   "weightG": 48.7,
+   "wheelbaseMm": 135.0,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-008",
+    "number": "008",
+    "name": "Carbon Comets",
+    "school": "Harbour View International School"
+   },
+   "car": "A",
+   "widthMm": 78.8,
+   "heightMm": 59.2,
+   "weightG": 49.3,
+   "wheelbaseMm": 134.7,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-008",
+    "number": "008",
+    "name": "Carbon Comets",
+    "school": "Harbour View International School"
+   },
+   "car": "B",
+   "widthMm": 75.2,
+   "heightMm": 58.2,
+   "weightG": 49.4,
+   "wheelbaseMm": 129.6,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-009",
+    "number": "009",
+    "name": "Slipstream",
+    "school": "Lakeshore Public School"
+   },
+   "car": "A",
+   "widthMm": 66.8,
+   "heightMm": 62.8,
+   "weightG": 50.8,
+   "wheelbaseMm": 130.6,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-009",
+    "number": "009",
+    "name": "Slipstream",
+    "school": "Lakeshore Public School"
+   },
+   "car": "B",
+   "widthMm": 79.1,
+   "heightMm": 52.1,
+   "weightG": 53.2,
+   "wheelbaseMm": 121.0,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-010",
+    "number": "010",
+    "name": "Redline Rockets",
+    "school": "Indus Heights Academy"
+   },
+   "car": "A",
+   "widthMm": 69.8,
+   "heightMm": 61.5,
+   "weightG": 50.0,
+   "wheelbaseMm": 134.4,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-010",
+    "number": "010",
+    "name": "Redline Rockets",
+    "school": "Indus Heights Academy"
+   },
+   "car": "B",
+   "widthMm": 77.1,
+   "heightMm": 64.1,
+   "weightG": 48.4,
+   "wheelbaseMm": 124.0,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-011",
+    "number": "011",
+    "name": "Quantum Velocity Racing",
+    "school": "Stonebridge Public School"
+   },
+   "car": "A",
+   "widthMm": 81.7,
+   "heightMm": 53.6,
+   "weightG": 52.4,
+   "wheelbaseMm": 126.5,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-011",
+    "number": "011",
+    "name": "Quantum Velocity Racing",
+    "school": "Stonebridge Public School"
+   },
+   "car": "B",
+   "widthMm": 82.4,
+   "heightMm": 60.4,
+   "weightG": 48.7,
+   "wheelbaseMm": 122.2,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-012",
+    "number": "012",
+    "name": "Aero Aces",
+    "school": "Silverline Public School"
+   },
+   "car": "A",
+   "widthMm": 67.3,
+   "heightMm": 64.5,
+   "weightG": 49.9,
+   "wheelbaseMm": 124.3,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-012",
+    "number": "012",
+    "name": "Aero Aces",
+    "school": "Silverline Public School"
+   },
+   "car": "B",
+   "widthMm": 69.5,
+   "heightMm": 55.8,
+   "weightG": 52.4,
+   "wheelbaseMm": 137.4,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-013",
+    "number": "013",
+    "name": "Throttle Theory",
+    "school": "Indus Heights High School"
+   },
+   "car": "A",
+   "widthMm": 77.7,
+   "heightMm": 61.6,
+   "weightG": 52.5,
+   "wheelbaseMm": 122.8,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-013",
+    "number": "013",
+    "name": "Throttle Theory",
+    "school": "Indus Heights High School"
+   },
+   "car": "B",
+   "widthMm": 72.9,
+   "heightMm": 64.0,
+   "weightG": 51.8,
+   "wheelbaseMm": 131.1,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-014",
+    "number": "014",
+    "name": "Pit Lane Panthers",
+    "school": "Monsoon Bay Senior School"
+   },
+   "car": "A",
+   "widthMm": 80.9,
+   "heightMm": 60.5,
+   "weightG": 53.0,
+   "wheelbaseMm": 122.4,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-014",
+    "number": "014",
+    "name": "Pit Lane Panthers",
+    "school": "Monsoon Bay Senior School"
+   },
+   "car": "B",
+   "widthMm": 81.8,
+   "heightMm": 58.4,
+   "weightG": 51.4,
+   "wheelbaseMm": 123.6,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-015",
+    "number": "015",
+    "name": "Mach One",
+    "school": "Saffron Fields Senior School"
+   },
+   "car": "A",
+   "widthMm": 78.7,
+   "heightMm": 62.2,
+   "weightG": 52.1,
+   "wheelbaseMm": 129.9,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-015",
+    "number": "015",
+    "name": "Mach One",
+    "school": "Saffron Fields Senior School"
+   },
+   "car": "B",
+   "widthMm": 69.8,
+   "heightMm": 61.4,
+   "weightG": 53.5,
+   "wheelbaseMm": 122.2,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-016",
+    "number": "016",
+    "name": "Downforce Dynamics",
+    "school": "Banyan Grove Public School"
+   },
+   "car": "A",
+   "widthMm": 80.7,
+   "heightMm": 61.8,
+   "weightG": 48.3,
+   "wheelbaseMm": 122.5,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-016",
+    "number": "016",
+    "name": "Downforce Dynamics",
+    "school": "Banyan Grove Public School"
+   },
+   "car": "B",
+   "widthMm": 75.6,
+   "heightMm": 60.5,
+   "weightG": 49.6,
+   "wheelbaseMm": 126.6,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-017",
+    "number": "017",
+    "name": "Nitro Knights",
+    "school": "Skyline Senior School"
+   },
+   "car": "A",
+   "widthMm": 83.2,
+   "heightMm": 60.1,
+   "weightG": 52.6,
+   "wheelbaseMm": 127.9,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-017",
+    "number": "017",
+    "name": "Nitro Knights",
+    "school": "Skyline Senior School"
+   },
+   "car": "B",
+   "widthMm": 82.2,
+   "heightMm": 59.5,
+   "weightG": 52.4,
+   "wheelbaseMm": 134.3,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-018",
+    "number": "018",
+    "name": "Kinetic",
+    "school": "Stonebridge International School"
+   },
+   "car": "A",
+   "widthMm": 83.9,
+   "heightMm": 56.6,
+   "weightG": 52.6,
+   "wheelbaseMm": 130.9,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-018",
+    "number": "018",
+    "name": "Kinetic",
+    "school": "Stonebridge International School"
+   },
+   "car": "B",
+   "widthMm": 74.7,
+   "heightMm": 57.4,
+   "weightG": 51.2,
+   "wheelbaseMm": 127.5,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-019",
+    "number": "019",
+    "name": "Gridline",
+    "school": "Monsoon Bay World School"
+   },
+   "car": "A",
+   "widthMm": 67.8,
+   "heightMm": 57.8,
+   "weightG": 50.5,
+   "wheelbaseMm": 125.4,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-019",
+    "number": "019",
+    "name": "Gridline",
+    "school": "Monsoon Bay World School"
+   },
+   "car": "B",
+   "widthMm": 84.1,
+   "heightMm": 63.4,
+   "weightG": 50.3,
+   "wheelbaseMm": 132.4,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-020",
+    "number": "020",
+    "name": "Phoenix Propulsion",
+    "school": "Saffron Fields High School"
+   },
+   "car": "A",
+   "widthMm": 83.7,
+   "heightMm": 56.0,
+   "weightG": 50.0,
+   "wheelbaseMm": 138.1,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-020",
+    "number": "020",
+    "name": "Phoenix Propulsion",
+    "school": "Saffron Fields High School"
+   },
+   "car": "B",
+   "widthMm": 73.0,
+   "heightMm": 61.5,
+   "weightG": 50.8,
+   "wheelbaseMm": 129.4,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-021",
+    "number": "021",
+    "name": "Torque Titans",
+    "school": "Skyline World School"
+   },
+   "car": "A",
+   "widthMm": 80.0,
+   "heightMm": 53.1,
+   "weightG": 50.7,
+   "wheelbaseMm": 121.4,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-021",
+    "number": "021",
+    "name": "Torque Titans",
+    "school": "Skyline World School"
+   },
+   "car": "B",
+   "widthMm": 71.9,
+   "heightMm": 56.3,
+   "weightG": 51.4,
+   "wheelbaseMm": 125.1,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-022",
+    "number": "022",
+    "name": "Blaze Motorsport",
+    "school": "Lotus Valley High School"
+   },
+   "car": "A",
+   "widthMm": 79.2,
+   "heightMm": 60.8,
+   "weightG": 50.0,
+   "wheelbaseMm": 122.2,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-022",
+    "number": "022",
+    "name": "Blaze Motorsport",
+    "school": "Lotus Valley High School"
+   },
+   "car": "B",
+   "widthMm": 76.1,
+   "heightMm": 52.5,
+   "weightG": 52.4,
+   "wheelbaseMm": 132.6,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-023",
+    "number": "023",
+    "name": "Stratos",
+    "school": "Maple Crest Academy"
+   },
+   "car": "A",
+   "widthMm": 66.6,
+   "heightMm": 58.7,
+   "weightG": 52.4,
+   "wheelbaseMm": 123.4,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-023",
+    "number": "023",
+    "name": "Stratos",
+    "school": "Maple Crest Academy"
+   },
+   "car": "B",
+   "widthMm": 70.1,
+   "heightMm": 59.8,
+   "weightG": 51.7,
+   "wheelbaseMm": 128.5,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-024",
+    "number": "024",
+    "name": "Chicane Chasers",
+    "school": "Lotus Valley International School"
+   },
+   "car": "A",
+   "widthMm": 82.3,
+   "heightMm": 56.6,
+   "weightG": 49.1,
+   "wheelbaseMm": 123.4,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-024",
+    "number": "024",
+    "name": "Chicane Chasers",
+    "school": "Lotus Valley International School"
+   },
+   "car": "B",
+   "widthMm": 72.1,
+   "heightMm": 62.6,
+   "weightG": 49.9,
+   "wheelbaseMm": 137.7,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-025",
+    "number": "025",
+    "name": "Photon Racing",
+    "school": "Greenleaf World School"
+   },
+   "car": "A",
+   "widthMm": 77.0,
+   "heightMm": 64.3,
+   "weightG": 51.6,
+   "wheelbaseMm": 128.6,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-025",
+    "number": "025",
+    "name": "Photon Racing",
+    "school": "Greenleaf World School"
+   },
+   "car": "B",
+   "widthMm": 73.0,
+   "heightMm": 64.1,
+   "weightG": 52.1,
+   "wheelbaseMm": 136.2,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-026",
+    "number": "026",
+    "name": "Drift Dynasty",
+    "school": "Cedar Park High School"
+   },
+   "car": "A",
+   "widthMm": 74.2,
+   "heightMm": 61.2,
+   "weightG": 53.4,
+   "wheelbaseMm": 133.4,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-026",
+    "number": "026",
+    "name": "Drift Dynasty",
+    "school": "Cedar Park High School"
+   },
+   "car": "B",
+   "widthMm": 68.4,
+   "heightMm": 53.9,
+   "weightG": 50.5,
+   "wheelbaseMm": 137.7,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-027",
+    "number": "027",
+    "name": "Hyperion",
+    "school": "Sunridge World School"
+   },
+   "car": "A",
+   "widthMm": 66.5,
+   "heightMm": 54.2,
+   "weightG": 50.8,
+   "wheelbaseMm": 123.4,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-027",
+    "number": "027",
+    "name": "Hyperion",
+    "school": "Sunridge World School"
+   },
+   "car": "B",
+   "widthMm": 77.2,
+   "heightMm": 63.3,
+   "weightG": 52.1,
+   "wheelbaseMm": 122.6,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-028",
+    "number": "028",
+    "name": "Monsoon Motorsport",
+    "school": "Silverline High School"
+   },
+   "car": "A",
+   "widthMm": 74.2,
+   "heightMm": 62.1,
+   "weightG": 50.6,
+   "wheelbaseMm": 126.3,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-028",
+    "number": "028",
+    "name": "Monsoon Motorsport",
+    "school": "Silverline High School"
+   },
+   "car": "B",
+   "widthMm": 80.5,
+   "heightMm": 62.9,
+   "weightG": 53.1,
+   "wheelbaseMm": 135.9,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-029",
+    "number": "029",
+    "name": "Falcon Force",
+    "school": "Stonebridge Academy"
+   },
+   "car": "A",
+   "widthMm": 84.1,
+   "heightMm": 54.3,
+   "weightG": 50.6,
+   "wheelbaseMm": 134.6,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-029",
+    "number": "029",
+    "name": "Falcon Force",
+    "school": "Stonebridge Academy"
+   },
+   "car": "B",
+   "widthMm": 81.9,
+   "heightMm": 63.7,
+   "weightG": 50.3,
+   "wheelbaseMm": 123.9,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-030",
+    "number": "030",
+    "name": "Tachyon",
+    "school": "Golden Mile World School"
+   },
+   "car": "A",
+   "widthMm": 67.9,
+   "heightMm": 60.0,
+   "weightG": 53.0,
+   "wheelbaseMm": 124.3,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-030",
+    "number": "030",
+    "name": "Tachyon",
+    "school": "Golden Mile World School"
+   },
+   "car": "B",
+   "widthMm": 67.8,
+   "heightMm": 54.9,
+   "weightG": 50.0,
+   "wheelbaseMm": 121.1,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-031",
+    "number": "031",
+    "name": "Overdrive Owls",
+    "school": "Lakeshore International School"
+   },
+   "car": "A",
+   "widthMm": 75.2,
+   "heightMm": 63.9,
+   "weightG": 50.3,
+   "wheelbaseMm": 138.9,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-031",
+    "number": "031",
+    "name": "Overdrive Owls",
+    "school": "Lakeshore International School"
+   },
+   "car": "B",
+   "widthMm": 77.3,
+   "heightMm": 55.8,
+   "weightG": 51.9,
+   "wheelbaseMm": 122.7,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-032",
+    "number": "032",
+    "name": "Lightspeed Legion",
+    "school": "Greenleaf Academy"
+   },
+   "car": "A",
+   "widthMm": 67.7,
+   "heightMm": 52.7,
+   "weightG": 52.8,
+   "wheelbaseMm": 129.2,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-032",
+    "number": "032",
+    "name": "Lightspeed Legion",
+    "school": "Greenleaf Academy"
+   },
+   "car": "B",
+   "widthMm": 75.1,
+   "heightMm": 64.1,
+   "weightG": 49.3,
+   "wheelbaseMm": 136.7,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-033",
+    "number": "033",
+    "name": "Cobra Racing",
+    "school": "Stonebridge High School"
+   },
+   "car": "A",
+   "widthMm": 66.2,
+   "heightMm": 56.5,
+   "weightG": 52.8,
+   "wheelbaseMm": 122.4,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-033",
+    "number": "033",
+    "name": "Cobra Racing",
+    "school": "Stonebridge High School"
+   },
+   "car": "B",
+   "widthMm": 72.8,
+   "heightMm": 61.0,
+   "weightG": 52.7,
+   "wheelbaseMm": 137.0,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-034",
+    "number": "034",
+    "name": "Momentum",
+    "school": "Skyline Public School"
+   },
+   "car": "A",
+   "widthMm": 71.0,
+   "heightMm": 53.8,
+   "weightG": 48.7,
+   "wheelbaseMm": 136.3,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-034",
+    "number": "034",
+    "name": "Momentum",
+    "school": "Skyline Public School"
+   },
+   "car": "B",
+   "widthMm": 83.9,
+   "heightMm": 55.0,
+   "weightG": 50.1,
+   "wheelbaseMm": 123.7,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-035",
+    "number": "035",
+    "name": "Aurora Aerodynamics",
+    "school": "Stonebridge World School"
+   },
+   "car": "A",
+   "widthMm": 78.6,
+   "heightMm": 54.2,
+   "weightG": 50.6,
+   "wheelbaseMm": 131.9,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-035",
+    "number": "035",
+    "name": "Aurora Aerodynamics",
+    "school": "Stonebridge World School"
+   },
+   "car": "B",
+   "widthMm": 81.7,
+   "heightMm": 63.1,
+   "weightG": 53.0,
+   "wheelbaseMm": 128.5,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-036",
+    "number": "036",
+    "name": "Thunderbolt Racing",
+    "school": "Harbour View World School"
+   },
+   "car": "A",
+   "widthMm": 77.3,
+   "heightMm": 57.6,
+   "weightG": 52.8,
+   "wheelbaseMm": 128.4,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-036",
+    "number": "036",
+    "name": "Thunderbolt Racing",
+    "school": "Harbour View World School"
+   },
+   "car": "B",
+   "widthMm": 71.5,
+   "heightMm": 56.9,
+   "weightG": 50.2,
+   "wheelbaseMm": 134.8,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-037",
+    "number": "037",
+    "name": "Pulse",
+    "school": "Skyline High School"
+   },
+   "car": "A",
+   "widthMm": 70.5,
+   "heightMm": 55.0,
+   "weightG": 49.9,
+   "wheelbaseMm": 121.3,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-037",
+    "number": "037",
+    "name": "Pulse",
+    "school": "Skyline High School"
+   },
+   "car": "B",
+   "widthMm": 82.8,
+   "heightMm": 60.0,
+   "weightG": 53.5,
+   "wheelbaseMm": 134.9,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-038",
+    "number": "038",
+    "name": "Supersonic Sharks",
+    "school": "Banyan Grove Academy"
+   },
+   "car": "A",
+   "widthMm": 68.1,
+   "heightMm": 63.6,
+   "weightG": 51.1,
+   "wheelbaseMm": 133.8,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-038",
+    "number": "038",
+    "name": "Supersonic Sharks",
+    "school": "Banyan Grove Academy"
+   },
+   "car": "B",
+   "widthMm": 82.2,
+   "heightMm": 56.9,
+   "weightG": 52.4,
+   "wheelbaseMm": 121.1,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-039",
+    "number": "039",
+    "name": "Vector Racing",
+    "school": "Riverbend World School"
+   },
+   "car": "A",
+   "widthMm": 79.9,
+   "heightMm": 63.2,
+   "weightG": 48.8,
+   "wheelbaseMm": 129.5,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-039",
+    "number": "039",
+    "name": "Vector Racing",
+    "school": "Riverbend World School"
+   },
+   "car": "B",
+   "widthMm": 76.0,
+   "heightMm": 63.2,
+   "weightG": 52.4,
+   "wheelbaseMm": 125.0,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-040",
+    "number": "040",
+    "name": "Rapid Rhinos",
+    "school": "Lotus Valley Public School"
+   },
+   "car": "A",
+   "widthMm": 71.5,
+   "heightMm": 55.9,
+   "weightG": 48.7,
+   "wheelbaseMm": 123.2,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-040",
+    "number": "040",
+    "name": "Rapid Rhinos",
+    "school": "Lotus Valley Public School"
+   },
+   "car": "B",
+   "widthMm": 68.0,
+   "heightMm": 59.2,
+   "weightG": 51.7,
+   "wheelbaseMm": 138.9,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-041",
+    "number": "041",
+    "name": "Eclipse Engineering",
+    "school": "Indus Heights World School"
+   },
+   "car": "A",
+   "widthMm": 77.6,
+   "heightMm": 53.1,
+   "weightG": 49.3,
+   "wheelbaseMm": 135.4,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-041",
+    "number": "041",
+    "name": "Eclipse Engineering",
+    "school": "Indus Heights World School"
+   },
+   "car": "B",
+   "widthMm": 71.1,
+   "heightMm": 62.4,
+   "weightG": 53.3,
+   "wheelbaseMm": 135.9,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-042",
+    "number": "042",
+    "name": "Boost",
+    "school": "Lakeshore Academy"
+   },
+   "car": "A",
+   "widthMm": 76.5,
+   "heightMm": 57.1,
+   "weightG": 51.4,
+   "wheelbaseMm": 138.7,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-042",
+    "number": "042",
+    "name": "Boost",
+    "school": "Lakeshore Academy"
+   },
+   "car": "B",
+   "widthMm": 70.3,
+   "heightMm": 60.5,
+   "weightG": 51.9,
+   "wheelbaseMm": 129.1,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-043",
+    "number": "043",
+    "name": "Sidewinder Speed Lab",
+    "school": "Banyan Grove World School"
+   },
+   "car": "A",
+   "widthMm": 73.7,
+   "heightMm": 52.4,
+   "weightG": 53.4,
+   "wheelbaseMm": 127.6,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-043",
+    "number": "043",
+    "name": "Sidewinder Speed Lab",
+    "school": "Banyan Grove World School"
+   },
+   "car": "B",
+   "widthMm": 80.2,
+   "heightMm": 55.1,
+   "weightG": 50.5,
+   "wheelbaseMm": 122.7,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-044",
+    "number": "044",
+    "name": "Tailwind",
+    "school": "Saffron Fields International School"
+   },
+   "car": "A",
+   "widthMm": 81.1,
+   "heightMm": 64.2,
+   "weightG": 53.2,
+   "wheelbaseMm": 130.7,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-044",
+    "number": "044",
+    "name": "Tailwind",
+    "school": "Saffron Fields International School"
+   },
+   "car": "B",
+   "widthMm": 74.6,
+   "heightMm": 57.5,
+   "weightG": 51.8,
+   "wheelbaseMm": 124.0,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-045",
+    "number": "045",
+    "name": "Octane Orbit",
+    "school": "Lotus Valley World School"
+   },
+   "car": "A",
+   "widthMm": 77.2,
+   "heightMm": 56.3,
+   "weightG": 49.9,
+   "wheelbaseMm": 134.3,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-045",
+    "number": "045",
+    "name": "Octane Orbit",
+    "school": "Lotus Valley World School"
+   },
+   "car": "B",
+   "widthMm": 83.9,
+   "heightMm": 56.9,
+   "weightG": 49.6,
+   "wheelbaseMm": 133.5,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-046",
+    "number": "046",
+    "name": "Flux Racing",
+    "school": "Riverbend International School"
+   },
+   "car": "A",
+   "widthMm": 79.5,
+   "heightMm": 55.6,
+   "weightG": 50.4,
+   "wheelbaseMm": 133.5,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-046",
+    "number": "046",
+    "name": "Flux Racing",
+    "school": "Riverbend International School"
+   },
+   "car": "B",
+   "widthMm": 77.7,
+   "heightMm": 63.0,
+   "weightG": 50.6,
+   "wheelbaseMm": 125.7,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-047",
+    "number": "047",
+    "name": "Comet Crew",
+    "school": "Indus Heights Senior School"
+   },
+   "car": "A",
+   "widthMm": 65.3,
+   "heightMm": 57.3,
+   "weightG": 52.3,
+   "wheelbaseMm": 136.0,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-047",
+    "number": "047",
+    "name": "Comet Crew",
+    "school": "Indus Heights Senior School"
+   },
+   "car": "B",
+   "widthMm": 79.4,
+   "heightMm": 52.1,
+   "weightG": 49.4,
+   "wheelbaseMm": 128.5,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-048",
+    "number": "048",
+    "name": "Launch Control",
+    "school": "Maple Crest Senior School"
+   },
+   "car": "A",
+   "widthMm": 74.7,
+   "heightMm": 59.8,
+   "weightG": 49.6,
+   "wheelbaseMm": 138.5,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-048",
+    "number": "048",
+    "name": "Launch Control",
+    "school": "Maple Crest Senior School"
+   },
+   "car": "B",
+   "widthMm": 78.4,
+   "heightMm": 62.6,
+   "weightG": 49.0,
+   "wheelbaseMm": 122.9,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-049",
+    "number": "049",
+    "name": "Velocity Vanguard Racing Team",
+    "school": "Riverbend High School"
+   },
+   "car": "A",
+   "widthMm": 65.3,
+   "heightMm": 61.7,
+   "weightG": 52.6,
+   "wheelbaseMm": 134.2,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-049",
+    "number": "049",
+    "name": "Velocity Vanguard Racing Team",
+    "school": "Riverbend High School"
+   },
+   "car": "B",
+   "widthMm": 74.6,
+   "heightMm": 58.2,
+   "weightG": 49.7,
+   "wheelbaseMm": 135.4,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-050",
+    "number": "050",
+    "name": "Pole Position",
+    "school": "Peacock Hill World School"
+   },
+   "car": "A",
+   "widthMm": 80.0,
+   "heightMm": 60.3,
+   "weightG": 51.2,
+   "wheelbaseMm": 136.3,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-050",
+    "number": "050",
+    "name": "Pole Position",
+    "school": "Peacock Hill World School"
+   },
+   "car": "B",
+   "widthMm": 67.0,
+   "heightMm": 53.9,
+   "weightG": 52.8,
+   "wheelbaseMm": 123.0,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-051",
+    "number": "051",
+    "name": "Afterburner",
+    "school": "Silverline World School"
+   },
+   "car": "A",
+   "widthMm": 79.2,
+   "heightMm": 52.8,
+   "weightG": 48.6,
+   "wheelbaseMm": 127.5,
+   "status": "submitted"
+  },
+  {
+   "team": {
+    "id": "team-051",
+    "number": "051",
+    "name": "Afterburner",
+    "school": "Silverline World School"
+   },
+   "car": "B",
+   "widthMm": 65.4,
+   "heightMm": 56.1,
+   "weightG": 49.8,
+   "wheelbaseMm": 134.3,
+   "status": "submitted"
+  }
+ ]
+}

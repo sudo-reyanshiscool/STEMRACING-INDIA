@@ -1,0 +1,663 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>SRi Graphics Control</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+@font-face{font-family:"Magistral";font-weight:700;font-style:italic;src:url(team-intro/assets/fonts/Magistral-BoldItalic.woff2) format("woff2")}
+:root{color-scheme:dark;--carbon:#05000B;--c800:#261A3D;--c700:#2E2347;--c300:#A39FB8;--c100:#D7D6E3;--pink:#E6007E;--gold:#FCBC00;--orange:#ED6D05;--white:#fff;--display:"Magistral","Arial Narrow",sans-serif}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--carbon);color:var(--c100);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+.sample{margin:0;padding:6px max(16px,env(safe-area-inset-right,0px)) 6px max(16px,env(safe-area-inset-left,0px));background:var(--gold);color:var(--carbon);font-weight:700;font-size:13px}
+header{position:sticky;top:0;z-index:5;background:var(--carbon);border-bottom:1px solid var(--c700);padding:12px 20px;display:flex;flex-wrap:wrap;gap:12px 14px;align-items:center}
+h1{font:italic 700 20px var(--display);text-transform:uppercase;color:var(--white);margin:0}
+h2{font:italic 700 16px var(--display);text-transform:uppercase;color:var(--white);margin:0 0 12px}
+h3{font:600 13px/1.3 system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--c300);margin:18px 0 8px}
+button{font:italic 700 13px var(--display);text-transform:uppercase;letter-spacing:.04em;color:var(--white);background:var(--c800);border:1px solid var(--c700);border-radius:999px;padding:9px 16px;cursor:pointer}
+button.main{background:var(--pink);border-color:var(--pink);font-size:15px;padding:11px 26px}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+button[aria-pressed="true"],button[aria-selected="true"]{background:var(--c100);border-color:var(--c100);color:var(--carbon)}
+.tabs{display:flex;gap:6px}
+.status{flex:1 1 280px;min-width:0;display:flex;flex-direction:column;gap:2px}
+.status b{color:var(--white)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--c300);margin-right:6px}
+.dot.ok{background:var(--gold)}
+#warn{font-weight:700}
+#warn:empty{display:none}
+#warn:not(:empty){align-self:flex-start;margin-top:4px;background:var(--gold);color:var(--carbon);border-radius:4px;padding:4px 10px}
+main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:24px;padding:20px;align-items:start}
+.side{position:sticky;top:112px;display:flex;flex-direction:column;gap:12px}
+iframe{width:100%;aspect-ratio:16/9;border:1px solid var(--c700);border-radius:8px;background:#000}
+.keys{color:var(--c300);font-size:13px;margin:0}
+kbd{font:600 12px ui-monospace,monospace;background:var(--c800);border:1px solid var(--c700);border-radius:4px;padding:1px 6px;color:var(--white)}
+select,input[type=text]{width:100%;min-width:0;font:inherit;font-size:13px;color:var(--white);background:var(--carbon);border:1px solid var(--c700);border-radius:4px;padding:5px 6px}
+select.empty{color:var(--gold);border-color:var(--gold)}
+/* racing */
+.race label{display:block;font-size:13px;color:var(--c300);margin:12px 0 4px}
+.race select,.race input[type=text]{padding:9px 10px;font-size:14px}
+.pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 14px}
+.btns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.step{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:4px;min-width:0;border-radius:8px;border:2px solid var(--c700);background:var(--carbon);padding:12px 14px;font:inherit;text-transform:none;letter-spacing:0}
+.step:hover{border-color:var(--c300)}
+.step[aria-pressed="true"]{border-color:var(--gold);background:#3a2a12;color:var(--white)}
+.step .key{font:700 12px ui-monospace,monospace;background:var(--c700);color:var(--white);border-radius:4px;padding:2px 8px}
+.step[aria-pressed="true"] .key{background:var(--gold);color:var(--carbon)}
+.step .what{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--c300)}
+.step .who{font:italic 700 18px/1.15 var(--display);color:var(--white);overflow-wrap:anywhere}
+/* awards */
+.tools{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+li{display:grid;grid-template-columns:2.2em minmax(0,1fr) minmax(0,15em);gap:10px;align-items:center;padding:7px 10px;border:1px solid transparent;border-radius:8px;cursor:pointer}
+li:hover{background:var(--c800)}
+li.now{background:var(--c800);border-color:var(--pink)}
+li.now.paused{border-color:var(--c300);border-style:dashed}
+li.next{border-color:var(--c700)}
+li.need{border-color:var(--gold)}
+li .num{color:var(--c300);font-variant-numeric:tabular-nums;text-align:right}
+li .lab{min-width:0;color:var(--white)}
+li.k-photo .lab,li.k-winner .lab,li.k-nominees .lab{color:var(--c100);padding-left:14px}
+li .picks{grid-column:2 / -1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding-left:14px}
+li .picks select.empty{color:var(--c300);border-color:var(--c700)}
+.st{display:none;margin-left:.8em;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--c700);border-radius:999px;padding:1px 9px;color:var(--c300);white-space:nowrap}
+.st.in{color:var(--carbon);background:var(--c100);border-color:var(--c100)}
+body.hr .st{display:inline-block} body.hr li select,body.hr li .picks{display:none}
+#sync{color:var(--c300);font-size:13px}
+/* pit build timer */
+.pit-time{font:italic 700 clamp(64px,10vw,132px)/1 var(--display);color:var(--white);font-variant-numeric:tabular-nums;margin:10px 0 16px}
+#pit-mini:empty{display:none}
+.pit-time.low{color:var(--gold)} .pit-time.out{color:var(--pink)}
+button:disabled{opacity:.5;cursor:default}
+/* race order and running orders */
+.card{border:1px solid var(--c700);border-radius:8px;padding:12px 14px;margin-bottom:16px}
+.card .row{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+.card .row b{color:var(--white)}
+.card .grow{flex:1 1 12em;min-width:0}
+.note{color:var(--c300);font-size:13px;margin:8px 0 0}
+#races{max-height:17.5em;overflow:auto;margin-top:10px}
+#races:empty{display:none}
+#races li{grid-template-columns:2.6em minmax(0,1fr) auto;padding:6px 10px}
+#races .lab small{display:block;color:var(--c300);font-size:12px}
+.chip{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--c700);border-radius:999px;padding:1px 9px;color:var(--c300);white-space:nowrap}
+.chip.win{color:var(--carbon);background:var(--gold);border-color:var(--gold)}
+.chip.maybe{color:var(--gold);border-color:var(--gold)}
+.step.tip{border-color:var(--gold);border-style:dashed}
+li.o-team .lab{color:var(--c100);padding-left:14px}
+#stories li{align-items:start;padding:10px}
+#stories .lab small{display:block;margin-top:4px;color:var(--c300);font-size:13px;line-height:1.45}
+textarea{width:100%;font:13px/1.5 system-ui,sans-serif;color:var(--c100);background:var(--carbon);border:1px solid var(--c700);border-radius:8px;padding:10px 12px;resize:vertical}
+body.drag::after{content:"Drop the file to load it";position:fixed;inset:12px;z-index:20;display:grid;place-items:center;border:3px dashed var(--gold);border-radius:12px;background:rgba(5,0,11,.85);color:var(--white);font:italic 700 28px var(--display);text-transform:uppercase;pointer-events:none}
+
+@media (max-width:900px){header{padding:8px 16px;gap:6px 8px} h1{display:none} button{padding:7px 12px} button.main{padding:9px 22px}
+  .status{flex-basis:100%;order:5} main{grid-template-columns:minmax(0,1fr);padding:16px} .side{position:static}
+  li{grid-template-columns:2.2em minmax(0,1fr)} li>select{grid-column:2;margin-left:14px;width:auto}}
+@media (max-width:480px){.pair,.btns{grid-template-columns:minmax(0,1fr)}}
+</style>
+</head><body>
+<p class="sample" id="sample" hidden>Test version: sample teams only. Results entered here are shared with everyone who can open this page.</p>
+<header>
+  <h1>Graphics control</h1>
+  <div class="tabs" role="tablist" aria-label="What you are running">
+    <button id="tab-opening" type="button" role="tab" aria-selected="false" aria-controls="p-opening">Opening</button>
+    <button id="tab-race" type="button" role="tab" aria-selected="true" aria-controls="p-race">Racing</button>
+    <button id="tab-analysis" type="button" role="tab" aria-selected="false" aria-controls="p-analysis">Analysis</button>
+    <button id="tab-awards" type="button" role="tab" aria-selected="false" aria-controls="p-awards">Awards</button>
+    <button id="tab-pit" type="button" role="tab" aria-selected="false" aria-controls="p-pit">Pit build</button>
+  </div>
+  <button id="back" type="button">Back</button>
+  <button id="next" type="button" class="main">Next</button>
+  <button id="hold" type="button" title="Puts the holding screen up straight away, whatever is showing">Holding screen</button>
+  <button id="seats" type="button" aria-pressed="false" title="Puts “Please take your seats” on the big screen, whatever is showing. Press again to take it off">Take your seats</button>
+  <div class="status"><span>On screen: <b id="now"></b></span><span>Next: <b id="nxt"></b></span><span id="pit-mini"></span><span id="sync"></span><span id="warn" role="status"></span></div>
+  <span id="win"><i class="dot"></i><span id="win-text"></span></span>
+  <button id="open" type="button">Open big screen</button>
+</header>
+<main>
+  <div class="side">
+    <iframe id="preview" title="Preview of the big screen" allow="fullscreen"></iframe>
+    <p class="keys"><kbd>Space</kbd> or <kbd>→</kbd> next · <kbd>←</kbd> back · <kbd>H</kbd> holding screen · a clicker's page keys work too<span id="k-f"> · on the big screen press <kbd>F</kbd> for fullscreen</span>.</p>
+    <p class="keys">Everything shows in the one big-screen window. The holding screen is always running underneath, so there is something on screen at every moment; switching between <b>Opening</b>, <b>Racing</b>, <b>Analysis</b> and <b>Awards</b> here does not change the screen until you press a button.</p>
+    <div class="card">
+      <div class="row"><span class="grow"><b id="files-title">Files from the platform</b></span><button id="load" type="button">Load a file</button><button id="watch" type="button" hidden>Watch a folder</button></div>
+      <p class="note" id="files-note">Drop the platform’s JSON downloads anywhere on this page: <i>Heats</i> (teams, race order, knockout winners, fastest car), <i>Nominations</i> (nominees), <i>Awards</i> (winners), <i>Results</i> (the podium) and <i>Cars</i> (sizes from scrutineering, for the analysis). Dropping a newer one updates what it covers. <span id="watch-note"></span></p>
+      <p class="note" id="file-note"></p>
+      <input type="file" id="file" accept=".json,application/json" multiple hidden>
+    </div>
+  </div>
+
+  <section id="p-opening" role="tabpanel" aria-labelledby="tab-opening" hidden>
+    <h2>Opening ceremony</h2>
+    <p class="keys" style="margin-bottom:12px">Runs top to bottom with <b>Next</b>. Every team gets a walk-on card, in team-number order. The lines themselves are in <i>opening.js</i>. Click any line to jump to it.</p>
+    <ol id="osteps"></ol>
+  </section>
+
+  <section id="p-race" class="race" role="tabpanel" aria-labelledby="tab-race">
+    <h2>Racing</h2>
+    <div class="card" id="order">
+      <div class="row"><span class="grow"><b id="ev-name">No race order loaded</b> <span id="ev-info"></span></span><button id="unload" type="button" hidden>Remove</button></div>
+      <ol id="races"></ol>
+      <p class="note" id="ev-note">Load a heats file from the platform and the races appear here in order, with the teams filled in for you.</p>
+    </div>
+    <div class="pair">
+      <div><label for="t1">Team 1 (left side of stage)</label><select id="t1"></select></div>
+      <div><label for="t2">Team 2 (right side of stage)</label><select id="t2"></select></div>
+      <div><label for="slogan">Slogan on the walk-on card</label><input type="text" id="slogan" list="slogans" autocomplete="off"><datalist id="slogans"></datalist></div>
+      <div><label for="round">Qualified for…</label><input type="text" id="round" list="rounds" autocomplete="off"><datalist id="rounds"></datalist></div>
+    </div>
+    <p class="keys" style="margin-top:10px"><button id="swap" type="button">Swap sides</button> &nbsp;Changes here do not touch the big screen until you press one of the buttons below.</p>
+    <h3>Before the race</h3>
+    <div class="btns">
+      <button class="step" type="button" data-step="intro1" aria-pressed="false"><span class="key">1</span><span class="what">Team 1 walks on</span><span class="who" id="who-1"></span></button>
+      <button class="step" type="button" data-step="intro2" aria-pressed="false"><span class="key">2</span><span class="what">Team 2 walks on</span><span class="who" id="who-2"></span></button>
+      <button class="step" type="button" data-step="both" aria-pressed="false"><span class="key">3</span><span class="what">Both teams on stage</span><span class="who" id="who-3"></span></button>
+      <button class="step" type="button" data-step="hold" aria-pressed="false"><span class="key">0</span><span class="what">Between races</span><span class="who">Holding screen</span></button>
+    </div>
+    <h3>After the race</h3>
+    <div class="btns">
+      <button class="step" type="button" data-step="qual1" aria-pressed="false"><span class="key">4</span><span class="what">Team 1 qualifies for <span class="round-label"></span></span><span class="who" id="who-4"></span></button>
+      <button class="step" type="button" data-step="qual2" aria-pressed="false"><span class="key">5</span><span class="what">Team 2 qualifies for <span class="round-label"></span></span><span class="who" id="who-5"></span></button>
+    </div>
+    <h3>Results</h3>
+    <div class="btns">
+      <button class="step" type="button" data-step="fast1" aria-pressed="false"><span class="key">6</span><span class="what">Team 1 has the fastest car</span><span class="who" id="who-6"></span></button>
+      <button class="step" type="button" data-step="fast2" aria-pressed="false"><span class="key">7</span><span class="what">Team 2 has the fastest car</span><span class="who" id="who-7"></span></button>
+      <button class="step" type="button" data-step="ko1" aria-pressed="false"><span class="key">8</span><span class="what">Team 1 are knockout champions</span><span class="who" id="who-8"></span></button>
+      <button class="step" type="button" data-step="ko2" aria-pressed="false"><span class="key">9</span><span class="what">Team 2 are knockout champions</span><span class="who" id="who-9"></span></button>
+    </div>
+    <p class="keys" style="margin-top:12px"><kbd>1</kbd> to <kbd>9</kbd> and <kbd>0</kbd> jump to a screen · <kbd>R</kbd> play the entrance again.</p>
+  </section>
+
+  <section id="p-analysis" role="tabpanel" aria-labelledby="tab-analysis" hidden>
+    <h2>Car analysis</h2>
+    <p class="note" id="an-note" style="margin:0 0 12px"></p>
+    <div id="an-body" hidden>
+      <div class="card">
+        <div class="row"><span class="grow"><b>Compare any two teams</b></span></div>
+        <div class="pair race" style="margin-top:4px">
+          <div><label for="an-a">Team A</label><select id="an-a"></select></div>
+          <div><label for="an-b">Team B</label><select id="an-b"></select></div>
+        </div>
+        <div class="row" style="margin-top:12px"><button id="an-duel" type="button">Race simulation</button><button id="an-radar" type="button">Spider chart</button><button id="an-runs" type="button">Team A: every run</button></div>
+      </div>
+      <h3>Stories found in the timings</h3>
+      <p class="keys" style="margin-bottom:10px">Worked out from every run in the heats file, and redone whenever a newer file comes in. <b>Next</b> goes through them in order; click one to put its graphic up. The words under each one are a script to read out, and are never shown on the big screen.</p>
+      <ol id="stories"></ol>
+      <h3>The whole script</h3>
+      <div class="row" style="display:flex;gap:8px;margin-bottom:8px"><button id="an-copy" type="button">Copy the script</button></div>
+      <textarea id="an-script" readonly rows="12" aria-label="Commentary script"></textarea>
+    </div>
+  </section>
+
+  <section id="p-awards" role="tabpanel" aria-labelledby="tab-awards" hidden>
+    <h2>Awards ceremony</h2>
+    <div class="tools">
+      <button id="hide" type="button" aria-pressed="false" title="Hides which teams have been picked, so the person running the show does not see results early">Hide results</button>
+      <button id="load-results" type="button" title="Fills in the nominees and winners from a results file">Load results file</button>
+      <button id="fill" type="button" title="Fills every empty award with test nominees and a winner so you can click through the show">Fill test picks</button>
+      <button id="clear" type="button">Clear all picks</button>
+    </div>
+    <p class="note" id="res-note" style="margin:0 0 12px"></p>
+    <p class="keys" style="margin-bottom:12px">Pick the nominees (two or three) and the winner for each award before the show, or drop in the platform’s Nominations, Awards and Results files. The screen will not move on to nominees or a winner that have not been picked. <b>Hide results</b> swaps the team lists for “in” or “not in yet”. Click any line to jump to it.</p>
+    <ol id="steps"></ol>
+  </section>
+
+  <section id="p-pit" role="tabpanel" aria-labelledby="tab-pit" hidden>
+    <h2>Pit build</h2>
+    <div class="card">
+      <div class="row"><span class="grow"><b>Pit build timer</b></span></div>
+      <div class="pit-time" id="pit-time" role="timer" aria-label="Pit build time remaining">60:00</div>
+      <div class="row"><button id="pit-go" type="button" class="main">Start</button><button id="pit-reset" type="button">Reset</button><button id="pit-show" type="button" aria-pressed="false">Show on big screen</button></div>
+    </div>
+    <p class="keys">On this tab <b>Next</b> puts the timer on the big screen and <b>Back</b> takes it off; neither starts or stops the clock. It keeps counting whether or not it is on the big screen, on every tab, and through a reload of this page. Putting any other graphic up takes it off the screen; the clock carries on. The last five minutes show in gold.</p>
+  </section>
+</main>
+<script src="team-intro/teams.js"></script>
+<script src="awards/awards.js"></script>
+<script src="awards/show.js"></script>
+<script src="opening.js"></script>
+<script src="event-data.js"></script>
+<script src="analysis.js"></script>
+<script>
+(function(){
+const APP='sri-show', KEY='sri-awards-setup', LIVE='sri-show-live', EVENT='sri-event';
+const HOSTED=typeof window.OUT_HTML==='string';   // packed into one file for publishing: the big screen lives inside this page
+const PLATFORM=window.parent!==window&&/[?&]platform\b/.test(location.search);   // opened inside the events platform, which hands over the data itself
+const STEPS=buildSteps(), BUILT=window.TEAMS||[], E=window.SRIEvent;
+const slogans=window.SLOGANS||[], rounds=window.ROUNDS||['the next round'].concat(E.ROUNDS.slice(1).map(r=>'the '+r));
+const $=id=>document.getElementById(id), frame=$('preview'), list=$('steps');
+const IDLE=Math.max(0,STEPS.findIndex(s=>s.kind==='idle'));
+const warn=t=>{$('warn').textContent=t||'';};
+$('sample').hidden=!HOSTED;
+
+/* ---- teams: the built-in list, or the teams in the heats file once one is loaded ---- */
+let event=null, found={}, tv=0, cars=null;
+try{const s=JSON.parse(localStorage.getItem(EVENT)||'null'); if(s&&s.event&&Array.isArray(s.event.teams)&&Array.isArray(s.event.races)){event=s.event; found=s.found||{};} if(s&&s.cars&&s.cars.teams)cars=s.cars;}catch(e){}
+let ALL=[], TEAMS=[], known=new Set();
+function teamList(){ALL=event?event.teams.slice():BUILT.slice(); TEAMS=ALL.slice().sort((a,b)=>a.name.localeCompare(b.name)); known=new Set(ALL.map(t=>t.id));}
+teamList();
+const team=id=>ALL.find(t=>t.id===id), tname=id=>(team(id)||{name:id?'Team '+id:''}).name;
+const label=t=>t.name+(t.school?' · '+t.school:'')+(t.fake?' (sample)':'');
+// what the screens are told about the teams: names from the file, plus any pictures found in the team assets folder
+const outTeams=()=>event?event.teams.map(t=>Object.assign({},found[t.id]||{},t)):null;
+
+/* ---- what is on the big screen ---- */
+// src: 'hold' (holding screen), 'race' (a race graphic), 'awards' (the awards step in setup.i) or 'opening' (the opening line in live.oi)
+let live={src:'hold',tab:'race',rstep:'hold',k:0,race:null,oi:0,ri:-1,played:false}, setup={i:0,r:1,winners:{},nominees:{}}, out=null, lastN=0;
+try{const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s&&s.winners){setup.winners=s.winners; setup.nominees=s.nominees||{}; setup.auto=s.auto||{}; setup.i=Math.max(0,Math.min(STEPS.length-1,s.i|0)); setup.r=Math.max(1,s.r|0);}}catch(e){}
+try{const s=JSON.parse(localStorage.getItem(LIVE)||'null'); if(s&&/^(hold|race|awards|opening|ana)$/.test(s.src)){live.src=s.src; live.tab=/^(awards|opening|analysis|pit)$/.test(s.tab)?s.tab:'race'; live.ai=s.ai|0; live.ana=s.ana||null; live.anaK=s.anaK|0; if(live.src==='ana'&&!live.ana)live.src='hold'; live.rstep=s.rstep||'hold'; live.k=s.k|0; live.race=s.race||null; live.oi=s.oi|0; live.ri=typeof s.ri==='number'?s.ri:-1; live.played=!!s.played; if(live.src==='race'&&!live.race)live.src='hold';}}catch(e){}
+function cleanPicks(){Object.keys(setup.winners).forEach(k=>{if(!known.has(setup.winners[k]))delete setup.winners[k];});
+  Object.keys(setup.nominees).forEach(k=>{setup.nominees[k]=(setup.nominees[k]||[]).map(id=>known.has(id)?id:'');});}
+cleanPicks();
+const noms=a=>(setup.nominees[a.id]||[]).filter(Boolean);
+const ready=s=>s.kind==='winner'?!!setup.winners[s.award.id]:s.kind==='nominees'?noms(s.award).length>=2:true;
+while(setup.i>0&&!ready(STEPS[setup.i])) setup.i--;
+// the pit build timer: `end` is the clock time it runs out at while running, `left` is what remains while stopped
+const PIT='sri-pit', HOUR=3600000;
+let pit={end:0,left:HOUR,show:false,mode:'timer'};   // mode 'seats' puts up "Please take your seats" in place of the clock
+const seatsOn=()=>pit.show&&pit.mode==='seats';
+try{const s=JSON.parse(localStorage.getItem(PIT)||'null'); if(s&&typeof s.left==='number'){pit.end=+s.end||0; pit.left=Math.max(0,Math.min(HOUR,s.left)); pit.show=!!s.show; pit.mode=s.mode==='seats'?'seats':'timer';}}catch(e){}
+const pitLeft=()=>pit.end?Math.max(0,pit.end-Date.now()):pit.left;
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(setup)); localStorage.setItem(LIVE,JSON.stringify(live)); localStorage.setItem(PIT,JSON.stringify(pit));}catch(e){}};
+const saveEvent=()=>{try{event||cars?localStorage.setItem(EVENT,JSON.stringify({event,found,cars})):localStorage.removeItem(EVENT);}catch(e){}};
+
+/* ---- opening ceremony ---- */
+const pickSlogan=()=>($('slogan').value.trim()||slogans[0]||'');
+let OSTEPS=[], orows=[];
+function buildOpening(){OSTEPS=[];
+  (window.OPENING||[]).forEach(s=>{if(s.teams) ALL.forEach(t=>OSTEPS.push({team:t.id,label:'Walk-on: '+t.name}));
+    else OSTEPS.push(Object.assign({bg:'sr',dark:s.kind==='presenter'?.3:s.kind==='card'?.35:.12},s));});
+  live.oi=Math.max(0,Math.min(OSTEPS.length-1,live.oi));
+  orows=OSTEPS.map((s,i)=>{const li=document.createElement('li'); li.className=s.team?'o-team':'';
+    const num=document.createElement('span'); num.className='num'; num.textContent=i+1;
+    const lab=document.createElement('span'); lab.className='lab'; lab.style.gridColumn='2 / -1'; lab.textContent=s.label||s.title||s.text||s.kind; li.append(num,lab);
+    li.addEventListener('click',()=>goO(i)); return li;});
+  $('osteps').replaceChildren(...orows);}
+function goO(i){if(i<0||i>=OSTEPS.length)return; warn(''); pit.show=false; live.oi=i; live.src='opening'; live.rstep='hold'; if(OSTEPS[i].team)live.k++; save(); paint(); send();}
+
+function message(){lastN=Math.max(Date.now(),lastN+1);
+  // off the awards, the awards page underneath shows the holding screen
+  const on=live.src==='awards', o=live.src==='opening'?OSTEPS[live.oi]:null;
+  const st={n:lastN,tv,src:live.src==='ana'?'ana':live.src==='race'||(o&&o.team)?'race':'hold',
+    ana:live.src==='ana'?{k:live.anaK,scene:live.ana,teams:anaTeams()}:null,
+    race:live.src==='race'?live.race:o&&o.team?{k:live.k,scene:'intro',side:1,t1:o.team,t2:o.team,slogan:pickSlogan(),round:''}:null,
+    awards:{i:on?setup.i:IDLE,r:on?setup.r:1,winners:setup.winners,nominees:setup.nominees,custom:o&&!o.team?o:null}};
+  st.pit={show:pit.show,mode:pit.mode,end:pit.end,left:pit.left,full:HOUR};
+  st.teams=outTeams();   // null puts the screens back on their built-in list
+  return {app:APP,type:'state',state:st};}
+function send(){const msg=message(); [out,frame.contentWindow].forEach(w=>{try{if(w&&!w.closed)w.postMessage(msg,'*');}catch(e){}});}
+
+/* ---- racing ---- */
+const t1=$('t1'),t2=$('t2'),slogan=$('slogan'),round=$('round');
+slogans.forEach(s=>$('slogans').append(new Option('',s))); rounds.forEach(r=>$('rounds').append(new Option('',r)));
+let rs={}; try{rs=JSON.parse(localStorage.getItem('sri-intro-setup'))||{};}catch(e){}
+function raceSelects(a,b){for(const sel of [t1,t2]) sel.replaceChildren(...ALL.map(t=>new Option(label(t),t.id)));
+  t1.value=known.has(a)?a:(ALL[0]||{}).id; t2.value=known.has(b)&&b!==t1.value?b:(ALL.find(t=>t.id!==t1.value)||ALL[0]||{}).id; prev={t1:t1.value,t2:t2.value};}
+let prev={};
+raceSelects(rs.t1,rs.t2);
+slogan.value=typeof rs.slogan==='string'&&rs.slogan?rs.slogan:(slogans[0]||'');
+round.value=typeof rs.round==='string'&&rs.round?rs.round:rounds[0];
+const saveRace=()=>{try{localStorage.setItem('sri-intro-setup',JSON.stringify({t1:t1.value,t2:t2.value,slogan:slogan.value,round:round.value}));}catch(e){}};
+function labels(){[1,4,6,8].forEach(k=>$('who-'+k).textContent=tname(t1.value)); [2,5,7,9].forEach(k=>$('who-'+k).textContent=tname(t2.value));
+  $('who-3').textContent=tname(t1.value)+' and '+tname(t2.value);
+  document.querySelectorAll('.round-label').forEach(n=>n.textContent=round.value.trim()||rounds[0]); paint();}
+// picking the team already on the other side swaps the two
+t1.onchange=()=>{if(t1.value===t2.value)t2.value=prev.t1; prev={t1:t1.value,t2:t2.value}; labels(); saveRace();};
+t2.onchange=()=>{if(t2.value===t1.value)t1.value=prev.t2; prev={t1:t1.value,t2:t2.value}; labels(); saveRace();};
+$('swap').onclick=()=>{const a=t1.value; t1.value=t2.value; t2.value=a; prev={t1:t1.value,t2:t2.value}; labels(); saveRace();};
+slogan.oninput=saveRace; round.oninput=()=>{labels(); saveRace();};
+const ORDER=['hold','intro1','intro2','both'];
+// result screens use the qualified layout with their own two lines of text
+const RESULT={fast:['Regional Finals','Fastest Car'],ko:['Regional Finals','Knockout Champions']}, res=to=>RESULT[to.slice(0,-1)];
+const raceText=(to,p)=>to==='hold'?'Holding screen':res(to)?tname(to.slice(-1)==='2'?p.t2:p.t1)+': '+res(to)[1]:to==='both'?tname(p.t1)+' and '+tname(p.t2):/^qual/.test(to)?tname(to==='qual2'?p.t2:p.t1)+' qualified for '+p.round:tname(to==='intro2'?p.t2:p.t1)+' walk-on';
+const picked=()=>({t1:t1.value,t2:t2.value,slogan:pickSlogan(),round:round.value.trim()||rounds[0]});
+function race(to){warn(''); pit.show=false; live.rstep=to;
+  if(to==='hold'){live.src='hold';}
+  else{const qual=/^qual/.test(to)||!!res(to), p=picked(); if(res(to)){p.lead=res(to)[0]; p.round=res(to)[1];}
+    if(to==='both'||qual)live.played=true;
+    live.src='race'; live.race=Object.assign(p,{k:++live.k,scene:qual?'qualified':to==='both'?'both':'intro',side:to.slice(-1)==='2'?2:1});}
+  save(); paint(); send();}
+document.querySelectorAll('.step').forEach(b=>b.onclick=()=>race(b.dataset.step));
+
+/* ---- the race order from the platform ---- */
+const cur=()=>event&&event.races[live.ri]||null;
+const raceTitle=r=>'Race '+r.order+(r.codes.length?' · '+r.codes.join(', '):'')+(r.phase==='knockout'&&r.round!=null?' · '+E.roundName(r.round):'');
+// which side of the stage the winner of the selected race is on, once the file knows it (knockout only)
+function winSide(){const r=cur(); if(!r||r.phase!=='knockout'||!r.winner)return 0; return r.winner===t1.value?1:r.winner===t2.value?2:0;}
+const afterRace=()=>{const r=cur(), side=winSide(); return side?(r.round>=E.ROUNDS.length?'ko':'qual')+side:'';};
+function selectRace(k,quiet){const r=event&&event.races[k]; if(!r)return; live.ri=k; live.played=false;
+  raceSelects(r.a,r.b||t2.value); if(r.phase==='knockout'&&r.round!=null&&E.nextRound(r.round))round.value=E.nextRound(r.round);
+  saveRace(); save(); if(!quiet){labels(); paintRaces();}}
+// what Next does on the Racing tab: the walk-ons, both teams, the winner's screen when the file has it, then on to the next race
+function plan(by){const at=live.src==='race'?live.rstep:'hold';
+  if(by<0){const i=ORDER.indexOf(at); return {to:ORDER[Math.max(0,(i<0?ORDER.length:i)-1)]};}
+  if(at==='hold'){const nextRace=event&&(live.played||live.ri<0)&&event.races[live.ri+1]; return nextRace?{to:'intro1',advance:live.ri+1}:{to:'intro1'};}
+  if(at==='intro1')return {to:cur()&&!cur().b?'hold':'intro2'};
+  if(at==='intro2')return {to:'both'};
+  if(at==='both'&&afterRace())return {to:afterRace()};
+  return {to:'hold'};}
+function planText(){const p=plan(1); if(p.advance==null)return raceText(p.to,picked());
+  const r=event.races[p.advance]; return raceTitle(r)+': '+tname(r.a)+' walk-on';}
+function runPlan(by){const p=plan(by); if(p.advance!=null)selectRace(p.advance); race(p.to);}
+let raceRows=[];
+function paintRaces(){const has=!!event; $('unload').hidden=!has;
+  $('ev-name').textContent=has?(event.name||'Race order'):'No race order loaded';
+  $('ev-info').textContent=has?'· '+event.teams.length+' teams · '+event.races.length+' races'+(event.generatedAt?' · file made '+new Date(event.generatedAt).toLocaleString([], {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):''):'';
+  $('ev-note').textContent=!has?'Load a heats file from the platform and the races appear here in order, with the teams filled in for you.':
+    event.full?'Click a race to put its teams in. Next walks through each race in turn; when a newer file shows who won a knockout race, the winner’s screen is offered by itself.':
+    'Click a race to put its teams in. This is the Heats-Graphics file, which has no results in it; load Heats.json as well to see knockout winners.';
+  raceRows=has?event.races.map((r,k)=>{const li=document.createElement('li');
+    const num=document.createElement('span'); num.className='num'; num.textContent=r.order;
+    const lab=document.createElement('span'); lab.className='lab'; lab.textContent=tname(r.a)+(r.b?' v '+tname(r.b):' (both cars)');
+    const sm=document.createElement('small'); sm.textContent=r.codes.join(', ')+(r.phase==='knockout'&&r.round!=null?' · '+E.roundName(r.round):r.phase==='reaction'?' · Reaction':''); lab.append(sm);
+    const chip=document.createElement('span'); chip.className='chip'+(r.winner?(r.sure?' win':' maybe'):'');
+    chip.textContent=r.winner?(r.sure?'Winner: ':'Likely: ')+tname(r.winner):r.done?'Raced':''; chip.hidden=!chip.textContent;
+    li.append(num,lab,chip); li.classList.toggle('now',k===live.ri); li.addEventListener('click',()=>selectRace(k)); return li;}):[];
+  $('races').replaceChildren(...raceRows); if(raceRows[live.ri])raceRows[live.ri].scrollIntoView({block:'nearest'});}
+// pictures: a team's files in team-intro/assets/teams are picked up by name, e.g. 014-logo.png, 014-school.svg, 014-car.png, 014-photo.jpg
+const KINDS={logo:'logo',schoolLogo:'school',car:'car',photo:'photo'}, EXTS=['png','svg','jpg','jpeg','webp'];
+const exists=src=>new Promise(r=>{const i=new Image(); i.onload=()=>r(true); i.onerror=()=>r(false); i.src=src;});
+let scanning=0;
+async function scanAssets(){if(HOSTED||PLATFORM||!event)return; const mine=++scanning, got={};
+  await Promise.all(event.teams.map(async t=>{const f={};
+    for(const key in KINDS) for(const ext of EXTS){const rel='assets/teams/'+t.id+'-'+KINDS[key]+'.'+ext; if(await exists('team-intro/'+rel)){f[key]=rel; break;}}
+    if(Object.keys(f).length)got[t.id]=f;}));
+  if(mine!==scanning||!event)return; const changed=JSON.stringify(got)!==JSON.stringify(found); found=got; saveEvent();
+  fileNote(); if(changed){tv++; send();}}
+function fileNote(){if(PLATFORM)return platformNote(); if(!event){$('file-note').textContent=''; return;} if(HOSTED){$('file-note').textContent='Loaded: '+(event.name||'heats file')+'. Team pictures are only picked up when this runs from the files on the computer.'; return;}
+  const n=event.teams.filter(t=>found[t.id]&&found[t.id].logo).length;
+  $('file-note').textContent='Loaded: '+(event.name||'heats file')+'. Team logos found for '+n+' of '+event.teams.length+' teams. Name the files by team number in team-intro/assets/teams, for example 014-logo.png, 014-school.png, 014-car.png, 014-photo.png.';}
+function setEvent(ev){const before=cur(), same=r=>before&&r.phase===before.phase&&(r.phase==='knockout'&&r.round!=null?r.round===before.round&&r.match===before.match:r.a===before.a&&r.b===before.b);
+  const keepT=[t1.value,t2.value];
+  event=ev; teamList(); cleanPicks(); tv++;
+  if(event){const k=event.races.findIndex(same); live.ri=k; if(k<0)live.played=false;} else {live.ri=-1; live.played=false; found={}; cars=null;}
+  raceSelects(keepT[0],keepT[1]);
+  // a corrected knockout pairing follows the file, as long as that race has not been put on screen yet
+  if(cur()&&!live.played&&(cur().a!==t1.value&&cur().a!==t2.value||cur().b&&cur().b!==t1.value&&cur().b!==t2.value))selectRace(live.ri,true);
+  nomineeOptions(); buildOpening(); analyse(); saveEvent(); saveRace(); heatsResults(); refresh(); labels(); paintRaces(); fileNote(); scanAssets();}
+$('unload').addEventListener('click',()=>{const b=$('unload'); if(b.dataset.armed!=='1'){b.dataset.armed='1'; b.textContent='Click again to remove'; setTimeout(()=>{b.dataset.armed=''; b.textContent='Remove';},4000); return;}
+  b.dataset.armed=''; b.textContent='Remove'; setEvent(null); warn('Race order removed. Back on the built-in team list.');});
+
+/* ---- car analysis ---- */
+const SA=window.SRIAnalysis; let AN=null, srows=[];
+const plainName=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'');
+// what the analysis page is told about each team: its name, and its pictures and colours where there are any
+function anaTeams(){const m={}; ALL.forEach(t=>{const b=BUILT.find(x=>x.id===t.id&&plainName(x.name)===plainName(t.name))||{}, f=found[t.id]||{};
+  m[t.id]={name:t.name,logo:f.logo||b.logo||null,car:f.car||b.car||null,colors:b.colors||null};}); return m;}
+function analyse(){AN=event&&event.full&&Array.isArray(event.runs)&&event.runs.length?SA.build(event,cars):null; const ok=!!(AN&&AN.stories.length);
+  $('an-body').hidden=!ok;
+  $('an-note').textContent=ok?AN.runs+' finished runs from '+AN.ranked.length+' teams. Times are each car’s '+AN.label+(AN.split?' (finish time with the reaction time taken off)':'')+'. '+(AN.sized?'Car sizes from scrutineering are in for '+AN.sized+' teams.':'Drop in the platform’s Cars file to add the width and frontal-area analysis.'):
+    event&&!event.full?'The Heats-Graphics file has no timings in it. Load Heats.json to get the analysis.':event&&event.full&&!Array.isArray(event.runs)?'Load the Heats file again to get the analysis (it was loaded before this page learned to read the timings).':
+    event?'No finished runs in the heats file yet.':'Load Heats.json from the platform and the analysis appears here by itself.';
+  if(!ok){srows=[]; $('stories').replaceChildren(); return;}
+  live.ai=Math.max(0,Math.min(AN.stories.length-1,live.ai|0));
+  const keep=[$('an-a').value,$('an-b').value], opts=()=>AN.ranked.map(t=>new Option(t.rank+'. '+t.name,t.id));
+  $('an-a').replaceChildren(...opts()); $('an-b').replaceChildren(...opts());
+  $('an-a').value=AN.teams[keep[0]]&&AN.teams[keep[0]].count?keep[0]:AN.ranked[0].id; $('an-b').value=AN.teams[keep[1]]&&AN.teams[keep[1]].count?keep[1]:(AN.ranked[1]||AN.ranked[0]).id;
+  srows=AN.stories.map((s,i)=>{const li=document.createElement('li'); li.className='story';
+    const num=document.createElement('span'); num.className='num'; num.textContent=i+1;
+    const lab=document.createElement('span'); lab.className='lab'; lab.style.gridColumn='2 / -1'; lab.textContent=s.title;
+    const sm=document.createElement('small'); sm.textContent=s.script; lab.append(sm); li.append(num,lab); li.addEventListener('click',()=>goA(i)); return li;});
+  $('stories').replaceChildren(...srows); $('an-script').value=AN.script;}
+function showAna(scene){if(!scene){warn('There are no finished runs for that yet.'); return;} warn(''); pit.show=false; live.src='ana'; live.rstep='hold'; live.ana=scene; live.anaK=(live.anaK|0)+1; save(); paint(); send();}
+function goA(i){if(!AN||i<0||i>=AN.stories.length)return; live.ai=i; showAna(AN.stories[i].scene);}
+function moveA(by){if(!AN)return; if(live.src!=='ana')return goA(live.ai); goA(live.ai+by);}
+$('an-duel').addEventListener('click',()=>{if($('an-a').value===$('an-b').value)return warn('Pick two different teams.'); showAna(SA.duel(AN,$('an-a').value,$('an-b').value));});
+$('an-radar').addEventListener('click',()=>showAna(SA.radar(AN,$('an-a').value,$('an-b').value)));
+$('an-runs').addEventListener('click',()=>showAna(SA.runs(AN,$('an-a').value)));
+$('an-copy').addEventListener('click',()=>{const done=()=>{$('an-copy').textContent='Copied'; setTimeout(()=>{$('an-copy').textContent='Copy the script';},2000);}, pick=()=>{$('an-script').focus(); $('an-script').select();};
+  try{navigator.clipboard.writeText($('an-script').value).then(done,pick);}catch(e){pick();}});
+
+/* ---- awards ---- */
+const winSel={};
+function fillWinner(a){const sel=winSel[a.id]; if(!sel)return; const pool=a.nominees===false?TEAMS:TEAMS.filter(t=>noms(a).includes(t.id));
+  if(setup.winners[a.id]&&!pool.some(t=>t.id===setup.winners[a.id])) delete setup.winners[a.id];
+  sel.replaceChildren(new Option(a.nominees===false||pool.length?'Choose winner…':'Pick the nominees first',''));
+  pool.forEach(t=>sel.append(new Option(label(t),t.id))); sel.value=setup.winners[a.id]||''; sel.classList.toggle('empty',!sel.value);}
+const nomSels=[];
+function nomineeOptions(){nomSels.forEach(([sel,k])=>{sel.replaceChildren(new Option('Nominee '+(k+1)+'…',''),...TEAMS.map(t=>new Option(label(t),t.id)));});}
+const rows=STEPS.map((s,i)=>{
+  const li=document.createElement('li'); li.className='k-'+s.kind;
+  const num=document.createElement('span'); num.className='num'; num.textContent=i+1;
+  const lab=document.createElement('span'); lab.className='lab'; lab.textContent=s.label; li.append(num,lab);
+  const done=()=>{li.classList.remove('need'); warn(''); if(s.award&&setup.auto)delete setup.auto[s.award.id]; save(); if(s.award)push(s.award.id); chips(); paint(); send();};
+  if(s.kind==='nominees'||s.kind==='winner'){const c=document.createElement('span'); c.className='st'; lab.append(c); li.chip=c;}
+  if(s.kind==='nominees'){
+    lab.style.gridColumn='2 / -1'; const picks=document.createElement('div'); picks.className='picks';
+    [0,1,2].forEach(k=>{const sel=document.createElement('select'); sel.id='nom-'+s.award.id+'-'+k; sel.setAttribute('aria-label','Nominee '+(k+1)+' for '+s.award.name);
+      nomSels.push([sel,k]);
+      sel.addEventListener('click',e=>e.stopPropagation());
+      sel.addEventListener('change',()=>{const arr=(setup.nominees[s.award.id]||['','','']).slice(); while(arr.length<3)arr.push('');
+        if(sel.value&&arr.includes(sel.value)){sel.value=arr[k]||''; warn('That team is already a nominee for this award.'); return;}
+        arr[k]=sel.value; setup.nominees[s.award.id]=arr; sel.classList.toggle('empty',!sel.value); fillWinner(s.award); done();});
+      picks.append(sel);});
+    li.append(picks);
+  }
+  if(s.kind==='winner'){
+    const sel=document.createElement('select'); sel.id='win-'+s.award.id; sel.setAttribute('aria-label','Winner of '+s.award.name);
+    winSel[s.award.id]=sel;
+    sel.addEventListener('click',e=>e.stopPropagation());
+    sel.addEventListener('change',()=>{if(sel.value)setup.winners[s.award.id]=sel.value; else delete setup.winners[s.award.id];
+      sel.classList.toggle('empty',!sel.value); done();});
+    li.append(sel); li.sel=sel;
+  }
+  li.addEventListener('click',()=>go(i)); list.append(li); return li;
+});
+nomineeOptions();
+function chips(){rows.forEach((li,i)=>{if(!li.chip)return; const s=STEPS[i], n=noms(s.award).length, ok=s.kind==='winner'?!!setup.winners[s.award.id]:n>=2;
+  li.chip.textContent=s.kind==='winner'?(ok?'Winner in':'Not in yet'):(ok?n+' nominees in':'Not in yet'); li.chip.classList.toggle('in',ok);});}
+// puts the picks in `setup` back onto the lists (after a fill, a clear, a results file, or a change made by someone else)
+function refresh(){STEPS.forEach(s=>{if(s.kind!=='nominees')return; const now=setup.nominees[s.award.id]||[];
+    [0,1,2].forEach(k=>{const sel=$('nom-'+s.award.id+'-'+k); sel.value=now[k]||''; sel.classList.toggle('empty',!sel.value);});});
+  window.AWARDS.forEach(fillWinner); while(setup.i>0&&!ready(STEPS[setup.i])){setup.i--; setup.r=1;}
+  rows.forEach(li=>li.classList.remove('need')); chips(); save(); paint(); send();}
+// shared results: on the published page every award is one shared record, so organisers can put results in from their own devices
+let db=null; const pend={}, busy={};
+function push(aid){if(!db)return; pend[aid]=true; if(busy[aid])return; busy[aid]=true;
+  (async()=>{while(pend[aid]){pend[aid]=false;
+      try{await db.collection('results').doc(aid).set({winner:setup.winners[aid]||'',nominees:(setup.nominees[aid]||[]).slice(0,3).map(x=>x||'')});}
+      catch(e){$('sync').textContent=e&&e.code==='invalid_argument'?'You can see the shared results but not change them.':'A change could not be saved to the shared results.';}}
+    busy[aid]=false;})();}
+function pushAll(){window.AWARDS.forEach(a=>push(a.id));}
+if(window.claude&&window.claude.use){$('sync').textContent='Connecting to shared results…';
+  window.claude.use('db').then(d=>{if(!d){$('sync').textContent='Results are saved in this browser only.'; return;}
+    db=d; const slow=setTimeout(()=>{$('sync').textContent='Shared results cannot be reached yet.';},10000);
+    db.collection('results').onSnapshot(snap=>{const seen={};
+      snap.docs.forEach(doc=>{const aid=doc.id, v=doc.data()||{}; seen[aid]=1; if(pend[aid]||busy[aid])return;
+        setup.nominees[aid]=(Array.isArray(v.nominees)?v.nominees:[]).slice(0,3).map(id=>known.has(id)?id:'');
+        if(known.has(v.winner))setup.winners[aid]=v.winner; else delete setup.winners[aid];});
+      if(!snap.metadata.fromCache){window.AWARDS.forEach(a=>{if(!seen[a.id]&&!pend[a.id]&&!busy[a.id]){delete setup.winners[a.id]; delete setup.nominees[a.id];}});
+        clearTimeout(slow); $('sync').textContent='Results are shared live with everyone who has this page.';}
+      refresh();},()=>{clearTimeout(slow); $('sync').textContent='Shared results stopped updating. Reload the page.';});});}
+// hide results from the person running the show
+let hidden=false; try{hidden=localStorage.getItem('sri-awards-hide')==='1';}catch(e){}
+function setHidden(v){hidden=v; document.body.classList.toggle('hr',v); $('hide').setAttribute('aria-pressed',v); $('hide').textContent=v?'Results hidden':'Hide results'; try{localStorage.setItem('sri-awards-hide',v?'1':'0');}catch(e){}}
+$('hide').addEventListener('click',()=>setHidden(!hidden));
+const count=s=>s.kind==='nominees'?Math.max(1,noms(s.award).length):1;
+// off the awards (or the opening), the first press of Next or Back brings that ceremony back where it was left
+const resumeA=()=>live.src!=='awards'&&STEPS[setup.i].kind!=='idle';
+const resumeO=()=>live.src!=='opening'&&OSTEPS[live.oi]&&OSTEPS[live.oi].kind!=='idle';
+function move(by){if(resumeA())return go(setup.i,setup.r);
+  if(live.src!=='awards'&&by<0)return;
+  const c=count(STEPS[setup.i]), r=Math.min(setup.r,c);
+  if(live.src==='awards'){if(by>0&&r<c){setup.r=r+1; pit.show=false; save(); paint(); return send();} if(by<0&&r>1){setup.r=r-1; pit.show=false; save(); paint(); return send();}}
+  const i=setup.i+by; go(i,by<0&&STEPS[i]?count(STEPS[i]):1);}
+function go(i,r){if(i<0||i>=STEPS.length)return; const s=STEPS[i];
+  if(!ready(s)){rows[i].classList.add('need'); rows[i].scrollIntoView({block:'center'});
+    warn(s.kind==='winner'?'Choose the winner of '+s.award.name+' first.':'Choose at least two nominees for '+s.award.name+' first.'); return;}
+  warn(''); pit.show=false; setup.i=i; setup.r=r||1; live.src='awards'; live.rstep='hold'; save(); paint(); send();}
+function moveO(by){if(resumeO())return goO(live.oi); if(live.src!=='opening'&&by<0)return; goO(live.oi+by);}
+// rehearsal helper: gives every award that has nothing picked three nominees and a winner.
+// Sample teams where there are any, with Supercharged (001) winning R&D and Regional Champions.
+function fill(){const f=TEAMS.filter(t=>t.fake), pool=f.length>=3?f:TEAMS, n=pool.length, star=known.has('001')?'001':''; if(!n)return;
+  window.AWARDS.forEach((a,k)=>{const top=star&&(a.id==='research'||a.id==='champions');
+    if(a.nominees!==false&&noms(a).length<2){const ids=[pool[k%n].id,pool[(k+6)%n].id,pool[(k+12)%n].id]; if(top)ids[1]=star; setup.nominees[a.id]=ids;}
+    if(!setup.winners[a.id]) setup.winners[a.id]=a.nominees===false?(top?star:pool[k%n].id):(top&&noms(a).includes(star)?star:noms(a)[0]);});
+  save();}
+$('fill').addEventListener('click',()=>{fill(); pushAll(); refresh();});
+const autofill=/[?&]fill\b/.test(location.search); if(autofill){fill(); try{history.replaceState(null,'',location.pathname);}catch(e){}}
+let armed=0;
+$('clear').addEventListener('click',()=>{const b=$('clear');
+  if(Date.now()-armed>4000){armed=Date.now(); b.textContent='Click again to clear'; setTimeout(()=>{b.textContent='Clear all picks';},4000); return;}
+  armed=0; b.textContent='Clear all picks'; setup.winners={}; setup.nominees={}; setup.auto={}; pushAll(); refresh(); $('res-note').textContent='';});
+// A results file fills in what it names and leaves everything else as it is. The note names awards, never teams, so it is safe with results hidden.
+// what was filled in from a file is remembered (setup.auto) so a newer file may replace it, while anything picked by hand is never overwritten by the heats file.
+function mergeResults(r,soft){setup.auto=setup.auto||{}; let n=0;
+  const mine=a=>!soft||setup.auto[a]||(!setup.winners[a]&&!(setup.nominees[a]||[]).some(Boolean));
+  Object.keys(r.nominees).forEach(a=>{if(!mine(a))return; const ns=r.nominees[a].slice(0,3); while(ns.length<3)ns.push(''); setup.nominees[a]=ns; if(soft)setup.auto[a]=1; n++;});
+  Object.keys(r.winners).forEach(a=>{if(!mine(a))return; setup.winners[a]=r.winners[a]; if(soft)setup.auto[a]=1; n++;});
+  // the winner is always one of the nominees on screen
+  window.AWARDS.forEach(a=>{const w=setup.winners[a.id]; if(!w||a.nominees===false)return; const ns=(setup.nominees[a.id]||[]).filter(Boolean);
+    if(!ns.includes(w)&&ns.length<3){ns.push(w); while(ns.length<3)ns.push(''); setup.nominees[a.id]=ns;}});
+  return n;}
+function checkPicks(){const bits=[], names=f=>window.AWARDS.filter(f).map(a=>a.name);
+  const clash=names(a=>a.nominees!==false&&setup.winners[a.id]&&!noms(a).includes(setup.winners[a.id])); if(clash.length)bits.push('The winner is not one of the three nominees for: '+clash.join(', ')+'.');
+  const few=names(a=>a.nominees!==false&&(setup.winners[a.id]||noms(a).length)&&noms(a).length<2); if(few.length)bits.push('Fewer than two nominees for: '+few.join(', ')+'.');
+  const none=names(a=>!setup.winners[a.id]); if(none.length)bits.push('Still no winner for: '+none.join(', ')+'.');
+  return bits;}
+function applyResults(r,name){mergeResults(r,false); Object.keys(r.winners).concat(Object.keys(r.nominees)).forEach(a=>{if(setup.auto)delete setup.auto[a];});
+  pushAll(); refresh();
+  const by=w=>[...new Set(r.problems.filter(p=>p.what===w).map(p=>p.award))], bits=[];
+  if(by('award').length)bits.push('Not an award in this show: '+by('award').join(', ')+'.');
+  const who=[...new Set(by('winner').concat(by('nominee')))]; if(who.length)bits.push('A team was not recognised in: '+who.join(', ')+'.');
+  if(by('tie').length)bits.push('Tied in the standings, so not filled in: '+by('tie').join(', ')+'.');
+  if(by('no-rank').length)bits.push('Not in the standings yet: '+by('no-rank').join(', ')+'.');
+  if(by('nominee-tie').length)bits.push('More than three teams tie for the nominee places in: '+by('nominee-tie').join(', ')+' (the first three in the file were used).');
+  const all=bits.concat(checkPicks());
+  $('res-note').textContent='Loaded '+r.what+' from '+name+': '+r.loaded+' award'+(r.loaded===1?'':'s')+' filled in. '+all.join(' ');
+  warn(bits.length?'Loaded, with things to check (see the Awards tab).':''); }
+// the heats file knows two results by itself: the fastest cars and, once the final is run, the knockout champions
+function heatsResults(){if(!event||!event.full)return; const r={winners:{},nominees:{}}, A=id=>window.AWARDS.find(a=>a.id===id);
+  if(A('fastest-car')&&event.fastest&&event.fastest.length){r.winners['fastest-car']=event.fastest[0]; if(event.fastest.length>=2)r.nominees['fastest-car']=event.fastest.slice();}
+  if(A('knockout')&&event.champion)r.winners.knockout=event.champion;
+  if(mergeResults(r,true)){pushAll(); $('res-note').textContent='Fastest Car'+(event.champion?' and Knockout Champions':'')+' filled in from the heats file (raw times, before any penalties). '+checkPicks().join(' ');}}
+
+/* ---- files: drop anywhere, pick, or watch a folder ---- */
+function loadText(text,name){let j; try{j=JSON.parse(text);}catch(e){warn(name+' is not a JSON file the graphics can read.'); return false;}
+  try{if(j&&j.kind==='cars'){cars=E.cars(j); saveEvent(); analyse(); paint(); warn(''); $('file-note').textContent='Car sizes loaded from '+name+': '+cars.count+' cars measured.'; return true;}
+    if(j&&(j.kind==='heats'||j.kind==='heat-matchups')){
+      const ev=E.heats(j);
+      // the graphics-only file has no results in it, so it never replaces the full file for the same event
+      if(!ev.full&&event&&event.full&&event.name===ev.name&&ev.generatedAt<=event.generatedAt){warn(name+' was not loaded: the full heats file for this event is already in and has the results too.'); return false;}
+      setEvent(ev); warn(''); return true;}
+    applyResults(E.results(j,window.AWARDS,ALL),name); return true;}
+  catch(e){warn(name+': '+e.message); return false;}}
+const readFile=f=>f.text().then(t=>loadText(t,f.name));
+$('load').addEventListener('click',()=>$('file').click()); $('load-results').addEventListener('click',()=>$('file').click());
+$('file').addEventListener('change',async()=>{for(const f of [...$('file').files])await readFile(f); $('file').value='';});
+let dragN=0; const hasFiles=e=>e.dataTransfer&&[...e.dataTransfer.types].includes('Files');
+window.addEventListener('dragenter',e=>{if(!hasFiles(e))return; e.preventDefault(); dragN++; document.body.classList.add('drag');});
+window.addEventListener('dragover',e=>{if(hasFiles(e))e.preventDefault();});
+window.addEventListener('dragleave',e=>{if(!hasFiles(e))return; if(--dragN<=0){dragN=0; document.body.classList.remove('drag');}});
+window.addEventListener('drop',async e=>{if(!hasFiles(e))return; e.preventDefault(); dragN=0; document.body.classList.remove('drag');
+  // heats first, so a results file dropped with it is matched against the right teams
+  const rank=f=>/heats/i.test(f.name)?0:/nomination/i.test(f.name)?1:/award/i.test(f.name)?3:2, fs=[...e.dataTransfer.files].sort((a,b)=>rank(a)-rank(b)); for(const f of fs)await readFile(f);});
+// watching: point it at the folder the platform's files are saved into, and each newer heats or results file is picked up by itself
+let watchDir=null; const WATCH=['heats','cars','nominations','results','awards'], seenFile={};
+async function pollDir(){if(!watchDir)return; const cands={}; WATCH.forEach(k=>cands[k]=[]);
+  try{for await(const h of watchDir.values()){if(h.kind!=='file'||!/\.json$/i.test(h.name))continue; const kind=/heats/i.test(h.name)?'heats':/_cars/i.test(h.name)?'cars':/nomination/i.test(h.name)?'nominations':/award/i.test(h.name)?'awards':/result/i.test(h.name)?'results':''; if(!kind)continue;
+      const f=await h.getFile(); cands[kind].push(f);}}
+  catch(e){watchDir=null; $('watch-note').textContent='The folder can no longer be read; press Watch a folder again.'; $('watch').setAttribute('aria-pressed','false'); return;}
+  for(const kind of WATCH){const fs=cands[kind]; if(!fs.length)continue; const newest=Math.max(...fs.map(f=>f.lastModified)); if(newest<=(seenFile[kind]||0))continue;
+    // exported together, the full heats file wins over the graphics-only one
+    const recent=fs.filter(f=>f.lastModified>=newest-60000).sort((a,b)=>/graphics/i.test(a.name)-/graphics/i.test(b.name)||b.lastModified-a.lastModified);
+    seenFile[kind]=newest; await readFile(recent[0]);}}
+window.__watch=d=>{watchDir=d; return pollDir();};   // lets a check hand in a stand-in folder
+if(!HOSTED&&window.showDirectoryPicker){$('watch').hidden=false;
+  $('watch').addEventListener('click',async()=>{try{watchDir=await window.showDirectoryPicker({mode:'read'});}catch(e){return;}
+    WATCH.forEach(k=>seenFile[k]=0); $('watch').setAttribute('aria-pressed','true'); $('watch-note').textContent='Watching the folder “'+watchDir.name+'”: a newer heats or results file saved there is loaded by itself (this needs pressing again after the page is reloaded).'; pollDir();});
+  setInterval(pollDir,3000);}
+
+/* ---- inside the events platform: teams, race order, results, car sizes and pictures arrive by themselves ---- */
+// The platform page that holds this one sends {app:'sri-platform',type:'data',files:[{name,text}]} (the same JSON as its downloads)
+// whenever something changes, and {type:'pictures',pictures:{teamNumber:{logo,schoolLogo,car,photo,colors}}} as the pictures come in.
+let platformAt=0, platformName='';
+function platformNote(){const n=event?event.teams.filter(t=>found[t.id]&&(found[t.id].logo||found[t.id].photo)).length:0;
+  $('file-note').textContent=!platformAt?'Waiting for the events platform…':'Connected to '+(platformName||'the events platform')+'. Last change received at '+new Date(platformAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'})+(event?'. '+event.teams.length+' teams, pictures in for '+n+'.':'. No races have been created yet.');}
+if(PLATFORM){const seen={}; found={};
+  $('load').hidden=true; $('watch').hidden=true; $('files-title').textContent='Events platform';
+  $('files-note').textContent='This page is fed by the events platform: teams, the race order, knockout winners, fastest cars, nominations, awards, the podium, car sizes and team pictures arrive by themselves and update as they change there. A file dropped here still loads, for anything the platform does not have.';
+  const rank=f=>/heats/i.test(f.name)?0:/nomination/i.test(f.name)?1:/award/i.test(f.name)?3:2;
+  window.addEventListener('message',e=>{const d=e.data; if(e.source!==window.parent||e.origin!==location.origin||!d||d.app!=='sri-platform')return;
+    if(d.type==='data'){platformAt=Date.now(); platformName=d.eventName||'';
+      (d.files||[]).slice().sort((a,b)=>rank(a)-rank(b)).forEach(f=>{if(seen[f.name]===f.text)return; seen[f.name]=f.text; loadText(f.text,f.name);}); platformNote();}
+    if(d.type==='pictures'&&d.pictures){found=Object.assign({},found,d.pictures); tv++; platformNote(); send();}});
+  // say so until the platform answers; it answers with everything it has
+  const hello=()=>{if(!platformAt)try{window.parent.postMessage({app:'sri-platform',type:'ready'},location.origin);}catch(e){}}; hello(); const again=setInterval(()=>{platformAt?clearInterval(again):hello();},1500);
+  platformNote();}
+
+/* ---- pit build timer ---- */
+function pitPaint(){const s=Math.ceil(pitLeft()/1000), el=$('pit-time'), g=$('pit-go');
+  el.textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); el.classList.toggle('low',s>0&&s<=300); el.classList.toggle('out',s===0);
+  g.textContent=s===0?'Finished':pit.end?'Pause':pit.left<HOUR?'Resume':'Start'; g.disabled=s===0;
+  $('pit-mini').textContent=pit.end||pit.left<HOUR?'Pit build: '+el.textContent+(s===0?' (finished)':pit.end?' left':' (paused)'):'';
+  const on=pit.show&&!seatsOn(); $('pit-show').setAttribute('aria-pressed',String(on)); $('pit-show').textContent=on?'On big screen':'Show on big screen';
+  $('seats').setAttribute('aria-pressed',String(seatsOn()));}
+$('pit-go').addEventListener('click',()=>{if(pit.end){pit.left=pitLeft(); pit.end=0;} else if(pit.left>0)pit.end=Date.now()+pit.left; save(); paint(); send();});
+// a reset part-way through asks twice, so a stray click cannot wipe a running clock
+$('pit-reset').addEventListener('click',()=>{const b=$('pit-reset');
+  if((pit.end||pit.left<HOUR)&&pitLeft()>0&&b.dataset.armed!=='1'){b.dataset.armed='1'; b.textContent='Click again to reset'; setTimeout(()=>{b.dataset.armed=''; b.textContent='Reset';},4000); return;}
+  b.dataset.armed=''; b.textContent='Reset'; pit.end=0; pit.left=HOUR; save(); paint(); send();});
+function pitShow(v){if(pit.show===v&&!seatsOn())return; pit.show=v; pit.mode='timer'; warn(''); save(); paint(); send();}
+$('pit-show').addEventListener('click',()=>pitShow(!(pit.show&&!seatsOn())));
+// "Please take your seats": a screen of its own, over whatever is showing; pressing it again (or anything else) takes it off
+$('seats').addEventListener('click',()=>{if(seatsOn())pit.show=false; else{pit.show=true; pit.mode='seats';} warn(''); save(); paint(); send();});
+setInterval(pitPaint,250);
+
+/* ---- shared between the three ---- */
+const TABS=['opening','race','analysis','awards','pit'];
+function setTab(t){live.tab=t; TABS.forEach(k=>{$('tab-'+k).setAttribute('aria-selected',k===t); $('p-'+k).hidden=k!==t;}); save(); paint();
+  if(t==='awards')rows[setup.i].scrollIntoView({block:'nearest'}); if(t==='opening'&&orows[live.oi])orows[live.oi].scrollIntoView({block:'nearest'});}
+TABS.forEach(k=>$('tab-'+k).onclick=()=>setTab(k));
+function paint(){const on=live.src==='awards', onO=live.src==='opening', s=STEPS[setup.i], c=count(s), r=Math.min(setup.r,c), o=OSTEPS[live.oi];
+  rows.forEach((li,i)=>{li.classList.toggle('now',i===setup.i); li.classList.toggle('paused',i===setup.i&&!on&&s.kind!=='idle'); li.classList.toggle('next',on&&i===setup.i+1);});
+  orows.forEach((li,i)=>{li.classList.toggle('now',i===live.oi); li.classList.toggle('paused',i===live.oi&&!onO&&o.kind!=='idle'); li.classList.toggle('next',onO&&i===live.oi+1);});
+  const tip=live.src==='race'&&live.rstep==='both'?afterRace():'';
+  document.querySelectorAll('.step').forEach(b=>{b.setAttribute('aria-pressed',String(live.src==='race'?b.dataset.step===live.rstep:live.src==='hold'&&!pit.show&&b.dataset.step==='hold')); b.classList.toggle('tip',b.dataset.step===tip);});
+  raceRows.forEach((li,k)=>li.classList.toggle('now',k===live.ri));
+  srows.forEach((li,k)=>{li.classList.toggle('now',k===live.ai); li.classList.toggle('paused',k===live.ai&&live.src!=='ana');});
+  pitPaint();
+  $('hold').setAttribute('aria-pressed',live.src==='hold'&&!pit.show);
+  $('now').textContent=seatsOn()?'Please take your seats':pit.show?'Pit build timer':live.src==='hold'?'Holding screen':live.src==='ana'?'Analysis: '+(live.ana.title||''):live.src==='race'?raceText(live.rstep,live.race):onO?(o.label||o.title):s.label+(s.kind==='nominees'?' ('+r+' of '+c+' showing)':'');
+  $('nxt').textContent=live.tab==='pit'?(pit.show&&!seatsOn()?'The timer is on the big screen':'Pit build timer on the big screen'):live.tab==='race'?planText():
+    live.tab==='analysis'?(!AN||!AN.stories.length?'Nothing to analyse yet':live.src!=='ana'?AN.stories[live.ai].title:AN.stories[live.ai+1]?AN.stories[live.ai+1].title:'End of the analysis'):
+    live.tab==='opening'?(resumeO()?'Back to the opening: '+o.label:OSTEPS[live.oi+1]?OSTEPS[live.oi+1].label:'End of the opening'):
+    resumeA()?'Back to the ceremony: '+s.label:on&&r<c?'Next nominee':STEPS[setup.i+1]?STEPS[setup.i+1].label:'End of show';
+  if(on&&live.tab==='awards')rows[setup.i].scrollIntoView({block:'nearest'}); if(onO&&live.tab==='opening')orows[live.oi].scrollIntoView({block:'nearest'});}
+const step=by=>live.tab==='pit'?pitShow(by>0):live.tab==='race'?runPlan(by):live.tab==='opening'?moveO(by):live.tab==='analysis'?moveA(by):move(by);
+const holding=()=>race('hold');
+$('next').addEventListener('click',()=>step(1)); $('back').addEventListener('click',()=>step(-1)); $('hold').addEventListener('click',holding);
+function key(k){if(k===' '||k==='ArrowRight'||k==='PageDown'){step(1); return true;}
+  if(k==='ArrowLeft'||k==='PageUp'){step(-1); return true;}
+  if(k==='h'||k==='H'){holding(); return true;}
+  if(live.tab==='race'){const map={'1':'intro1','2':'intro2','3':'both','4':'qual1','5':'qual2','6':'fast1','7':'fast2','8':'ko1','9':'ko2','0':'hold'};
+    if(map[k]){race(map[k]); return true;}
+    if((k==='r'||k==='R')&&live.src==='race'){race(live.rstep); return true;}}
+  if(live.tab==='analysis'&&(k==='r'||k==='R')&&live.src==='ana'){showAna(live.ana); return true;}
+  return false;}
+// a button that has just been clicked lets go of the keyboard, so Space goes back to meaning Next
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('button'); if(b)b.blur();});
+document.addEventListener('keydown',e=>{if(e.metaKey||e.ctrlKey||e.altKey)return; const tag=e.target.tagName;
+  if(/^(SELECT|INPUT|TEXTAREA)$/.test(tag)||(tag==='BUTTON'&&e.key===' '))return;
+  if(key(e.key))e.preventDefault();});
+
+/* ---- the big screen window ---- */
+if(HOSTED){$('open').textContent='Fullscreen'; $('win').hidden=true; $('k-f').hidden=true;
+  $('open').addEventListener('click',()=>{const p=frame.requestFullscreen&&frame.requestFullscreen(); if(p&&p.catch)p.catch(()=>warn('Fullscreen is not available here.'));});}
+else $('open').addEventListener('click',()=>{out=window.open('screen.html','sri-show-screen','popup,width=1280,height=720');
+  if(!out)warn('The browser blocked the big-screen window. Allow pop-ups for this page and press the button again.'); setTimeout(send,600); status();});
+function status(){const ok=!!out&&!out.closed; $('win').querySelector('.dot').classList.toggle('ok',ok); $('win-text').textContent=ok?'Big screen open':'Big screen not open'; if(!HOSTED)$('open').textContent=ok?'Reopen big screen':'Open big screen';}
+setInterval(status,1000);
+window.addEventListener('message',e=>{const d=e.data; if(!d||d.app!==APP)return;
+  const mine=e.source===frame.contentWindow||(out&&e.source===out);
+  // a big-screen window that was opened before this page was reloaded says hello and is picked up again
+  if(d.type==='hello'){if(!mine){if(e.source===window||(out&&!out.closed))return; out=e.source; status();}
+    if(!(d.n>=lastN)){try{e.source.postMessage(message(),'*');}catch(x){}} return;}
+  if(!mine)return;
+  if(d.type==='key')key(d.key);
+  // the heartbeat sound plays here, because this is the window the operator is pressing keys in
+  if(d.type==='heart'&&window.SRHeart){const main=out&&!out.closed?out:frame.contentWindow; if(e.source!==main)return; d.on?SRHeart.start(2):SRHeart.stop();}});
+buildOpening(); analyse(); setHidden(hidden); refresh(); chips(); labels(); paintRaces(); fileNote(); setTab(live.tab); status(); scanAssets();
+if(HOSTED) frame.srcdoc=window.OUT_HTML; else frame.src='screen.html';
+frame.addEventListener('load',send);
+})();
+</script>
+</body></html>

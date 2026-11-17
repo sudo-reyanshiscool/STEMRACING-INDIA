@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Lotus Valley High School crest (fake)">
+<defs><path id="arc" d="M 76 256 A 180 180 0 0 1 436 256"/></defs>
+<circle cx="256" cy="256" r="244" fill="#FFFFFF"/>
+<circle cx="256" cy="256" r="232" fill="#727A1F"/>
+<circle cx="256" cy="256" r="150" fill="#FFFFFF"/>
+<circle cx="256" cy="256" r="138" fill="none" stroke="#5DD926" stroke-width="6"/>
+<text font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="27.3" letter-spacing="3" fill="#FFFFFF" text-anchor="middle"><textPath href="#arc" startOffset="50%">LOTUS VALLEY HIGH SCHOOL</textPath></text>
+<text x="256" y="284" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="700" font-size="80" fill="#727A1F">LVHS</text>
+<polygon points="256,420 268,446 296,448 274,466 282,494 256,478 230,494 238,466 216,448 244,446" fill="#FFFFFF"/>
+</svg>

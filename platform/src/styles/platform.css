@@ -489,3 +489,8 @@ html[data-magicui-theme-vt="active"] * { transition: none !important; }
 .branding-track{position:absolute;z-index:0;width:280px;height:auto;right:-30px;bottom:-130px;pointer-events:none}.branding-logo{position:relative;z-index:1;width:140px;height:140px;object-fit:contain;padding:16px;background:var(--white)}
 .branding-palette{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}.branding-swatch{display:grid;gap:.5rem}.branding-swatch__colour{height:120px;border:1px solid var(--rule);border-radius:4px}.branding-members,.branding-assets{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem}.branding-assets article{min-width:0;overflow-wrap:anywhere}.branding-page .actions{display:flex;flex-wrap:wrap;gap:.75rem}.branding-asset-preview{width:100%;max-height:300px;object-fit:contain}
 @media(max-width:600px){.branding-identity{align-items:flex-start;flex-direction:column;gap:1rem}.branding-identity__copy{max-width:76%}.branding-track{width:220px;right:-85px;bottom:-90px}.branding-logo{width:90px;height:90px}.branding-palette{gap:.6rem}.branding-swatch__colour{height:80px}}
+
+/* Graphics: the control page needs the width of the window and most of its height */
+main:has(.graphics-screen) { max-width: 1800px; padding-block: 24px; }
+.graphics-heading { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-end; justify-content: space-between; }
+.graphics-frame { display: block; width: 100%; height: max(640px, calc(100vh - 150px)); border: 1px solid var(--rule); border-radius: 12px; background: #05000B; }

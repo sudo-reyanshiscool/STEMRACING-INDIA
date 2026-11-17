@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SRi Team Introduction · Output</title>
+<style>
+@font-face{font-family:"Magistral";src:url("assets/fonts/Magistral-BoldItalic.woff2") format("woff2");font-weight:700;font-style:italic;font-display:block}
+@font-face{font-family:"MachoModular";src:url("assets/fonts/MachoModular-Medium.otf") format("opentype");font-weight:500;font-display:block}
+@font-face{font-family:"MachoModular";src:url("assets/fonts/MachoModular-Bold.otf") format("opentype");font-weight:700;font-display:block}
+:root{--carbon-shadow:#05000B;--carbon-800:#261A3D;--carbon-700:#2E2347;--carbon-300:#A39FB8;--carbon-100:#D7D6E3;--ignite-indigo:#312783;--chicane-violet:#961B81;--pitlane-pink:#E6007E;--burnout-orange:#ED6D05;--podium-gold:#FCBC00;--ease:cubic-bezier(.16,.84,.28,1)}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:#000;overflow:hidden}
+body{display:grid;place-items:center;color:#fff;font-family:"MachoModular",Arial,sans-serif;font-weight:500}
+body.fs{cursor:none}
+.stage{width:min(100vw,177.7778vh);aspect-ratio:16/9;position:relative;overflow:hidden;background:var(--carbon-shadow);container-type:inline-size}
+.layer{position:absolute;inset:0;transition:opacity .25s ease}
+.layer.out{opacity:0}
+.scene{position:absolute;inset:0;display:none;overflow:hidden}
+.scene.on{display:block}
+.band{position:absolute;left:0;right:0;bottom:0;height:.7cqw;background:linear-gradient(90deg,var(--ignite-indigo),var(--chicane-violet),var(--pitlane-pink),var(--burnout-orange),var(--podium-gold));z-index:3}
+.display{font-family:"Magistral",Arial,sans-serif;font-weight:700;font-style:italic;font-synthesis:none;text-transform:uppercase;letter-spacing:-.01em;line-height:1}
+
+/* Logos and placeholder crest */
+.mark{flex:none;display:block;object-fit:contain}
+.crest-ph{flex:none;display:grid;place-items:center;align-content:center;border-radius:50%;border:.25cqw solid #ffffffb0;background:#ffffff14;text-align:center;line-height:1.1}
+.crest-ph b{font:700 2.1em/1 "MachoModular",Arial,sans-serif;letter-spacing:.02em}
+.crest-ph span{font:500 .62em/1.2 "MachoModular",Arial,sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--carbon-100);margin-top:.5em}
+
+/* Scene: single team walk-on */
+.intro{background:linear-gradient(160deg,var(--ignite-indigo) 0%,#4a2390 45%,var(--chicane-violet) 100%)}
+.intro .top{position:absolute;left:3cqw;right:3cqw;top:8cqw;display:flex;align-items:center;justify-content:space-between;gap:1.6cqw}
+.intro .mark,.intro .crest-ph{width:11cqw;height:11cqw;font-size:1.15cqw}
+.intro .tname{flex:1;min-width:0;text-align:center;white-space:nowrap;overflow:hidden;font-size:6.4cqw;padding:.4cqw 0}
+.track{position:absolute;left:0;right:0;top:27cqw;bottom:2cqw;display:flex;flex-direction:column;justify-content:center;gap:.4cqw}
+.row{white-space:nowrap;display:flex;width:max-content;align-self:center;font-size:6cqw;line-height:1.12;text-transform:none}
+.row span{padding-right:3cqw}
+.row.outl{color:transparent;-webkit-text-stroke:.12cqw #ffffffb0}
+.row.shift{position:relative;left:-21cqw}
+
+/* Scene: both teams on stage. Each half: team logo + name, then school crest with the car stepping down to its right, and the shape filling the lower part. */
+.both{background:var(--carbon-shadow)}
+.half{position:absolute;top:0;bottom:0;width:50%;overflow:hidden;isolation:isolate;background:linear-gradient(180deg,var(--carbon-800),var(--carbon-shadow))}
+.half.l{left:0}
+.half.r{right:0;border-left:.15cqw solid var(--pitlane-pink)}
+.half .shape{position:absolute;left:50%;top:28cqw;width:54cqw;height:54cqw;margin-left:-27cqw;z-index:0}
+.half .shape svg{display:block;width:100%;height:100%;overflow:visible}
+.half .stack{position:absolute;inset:0;z-index:1;padding:3.4cqw 2.4cqw 0 5.4cqw}
+.half .head{display:flex;align-items:flex-start;gap:2cqw}
+.half .head .mark,.half .head .crest-ph{width:8.6cqw;height:8.6cqw;font-size:.9cqw}
+.half .who{flex:1;min-width:0}
+.both .tname{height:6cqw;line-height:6cqw;white-space:nowrap;overflow:hidden;font-size:5.6cqw}
+.both .school{font-size:1.5cqw;font-weight:700;letter-spacing:.14em;line-height:1.3;height:2.6em;text-transform:uppercase;color:var(--carbon-100);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;text-wrap:balance;margin-top:.2cqw}
+.half .mid{display:flex;align-items:flex-start;margin-top:1.6cqw;padding-left:.6cqw}
+.half .mid .mark,.half .mid .crest-ph{width:9.2cqw;height:9.2cqw;font-size:.95cqw;position:relative;z-index:1}
+.both .car{display:block;width:30cqw;height:17cqw;object-fit:contain;object-position:left bottom;margin:.6cqw 0 0 -1.2cqw}
+
+/* Scene: one team qualifies for a round */
+.qualified{background:linear-gradient(180deg,var(--carbon-800),var(--carbon-shadow))}
+.qualified .shape{position:absolute;right:-9cqw;top:1cqw;width:58cqw;height:58cqw;z-index:0}
+.qualified .shape svg{display:block;width:100%;height:100%;overflow:visible}
+/* Team row and announcement stack in one column, so a tall team row pushes the announcement down rather than overlapping it. */
+.qualified .q-left{position:absolute;left:5cqw;top:3.6cqw;width:58cqw;z-index:1}
+.qualified .q-team{width:47cqw;min-height:8.6cqw;display:flex;align-items:center;gap:2cqw}
+.qualified .q-team .mark,.qualified .q-team .crest-ph{width:8.6cqw;height:8.6cqw;font-size:.9cqw}
+.qualified .who{flex:1;min-width:0}
+.qualified .tname{min-height:5.4cqw;line-height:5.4cqw;white-space:nowrap;overflow:hidden;font-size:4.8cqw}
+/* A name too long for one line at a readable size wraps onto two. */
+.qualified .tname.wrap{white-space:normal;line-height:1.08;text-wrap:balance;padding-bottom:.5cqw}
+.qualified .school{font-size:1.5cqw;font-weight:700;letter-spacing:.14em;line-height:1.3;text-transform:uppercase;color:var(--carbon-100);display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;text-wrap:balance}
+.qualified .q-copy{margin-top:4.6cqw}
+.qualified .q-for{font-size:3.4cqw;color:var(--podium-gold);letter-spacing:0}
+.qualified .q-round{font-size:8.4cqw;line-height:1.02;margin-top:.8cqw;text-wrap:balance;overflow-wrap:anywhere}
+.qualified .car{position:absolute;right:5cqw;top:19cqw;width:32cqw;height:17cqw;object-fit:contain;object-position:center;z-index:1}
+.qualified .photo{position:absolute;right:1.5cqw;bottom:.7cqw;width:45cqw;height:39cqw;object-fit:contain;object-position:right bottom;z-index:2}
+/* With a team picture, the car moves up out of its way. */
+.qualified .has-photo .car{top:2cqw;right:4cqw;width:24cqw;height:13cqw;object-position:right center}
+.qualified .has-photo .q-copy{width:50cqw}
+.qualified .q-team.tall+.q-copy{margin-top:2.4cqw}
+.qualified .q-team.tall+.q-copy .q-round{font-size:7.4cqw}
+
+/* Scene: holding */
+.hold{background:radial-gradient(ellipse at 50% 40%,var(--carbon-700),var(--carbon-shadow) 70%)}
+.hold .event{position:absolute;left:50%;top:50%;width:46cqw;transform:translate(-50%,-50%)}
+.hold .event img,.hold .event svg{display:block;width:100%;height:auto}
+
+/* Entrances. Everything holds still once it has landed. */
+@keyframes inL{from{opacity:0;transform:translateX(-14cqw)}to{opacity:1;transform:none}}
+@keyframes inR{from{opacity:0;transform:translateX(14cqw)}to{opacity:1;transform:none}}
+@keyframes inUp{from{opacity:0;transform:translateY(3cqw) scale(.96)}to{opacity:1;transform:none}}
+@keyframes inDown{from{opacity:0;transform:translateY(-3cqw)}to{opacity:1;transform:none}}
+@keyframes bgIn{from{filter:brightness(.4)}to{filter:none}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.scene.on{animation:bgIn .6s ease both}
+.intro.on .top>*{animation:inUp .8s var(--ease) both}
+.intro.on .top>:nth-child(3){animation-delay:.1s}
+.intro.on .top>:nth-child(2){animation-name:inL;animation-delay:.35s}
+.intro.on .top>:nth-child(4){animation-name:inR;animation-delay:.35s}
+.intro.on .top>:nth-child(1){animation-name:inL;animation-delay:.5s}
+.intro.on .top>:nth-child(5){animation-name:inR;animation-delay:.5s}
+.intro.on .row{animation:inL .9s var(--ease) both}
+.intro.on .row:nth-child(1){animation-delay:.9s}
+.intro.on .row:nth-child(2){animation-name:inR;animation-delay:1.05s}
+.intro.on .row:nth-child(3){animation-delay:1.2s}
+.both.on .shape-sweep{animation:draw 2.1s cubic-bezier(.34,.62,.36,1) .2s both,widen 2.1s cubic-bezier(.34,.62,.36,1) .2s both}
+.both.on .head>*{animation:inL .8s var(--ease) both}
+.both.on .head>:nth-child(1){animation-delay:.3s}
+.both.on .head>:nth-child(2){animation-delay:.42s}
+.both.on .mid>.mark,.both.on .mid>.crest-ph{animation:inDown .8s var(--ease) .6s both}
+.both.on .car{animation:inL .9s var(--ease) .8s both}
+.qualified.on .shape-sweep{animation:draw 2.1s cubic-bezier(.34,.62,.36,1) .2s both,widen 2.1s cubic-bezier(.34,.62,.36,1) .2s both}
+.qualified.on .q-team>*{animation:inL .8s var(--ease) both}
+.qualified.on .q-team>:nth-child(1){animation-delay:.3s}
+.qualified.on .q-team>:nth-child(2){animation-delay:.4s}
+.qualified.on .q-team>:nth-child(3){animation-delay:.5s}
+.qualified.on .q-for{animation:inL .8s var(--ease) .9s both}
+.qualified.on .q-round{animation:inUp 1s var(--ease) 1.1s both}
+.qualified.on .car{animation:inR 1s var(--ease) 1.3s both}
+.qualified.on .photo{animation:inUp 1s var(--ease) 1.2s both}
+@keyframes draw{from{stroke-dashoffset:var(--len)}to{stroke-dashoffset:0}}
+@keyframes widen{0%{stroke-width:230px}40%{stroke-width:330px}75%{stroke-width:600px}100%{stroke-width:900px}}
+.hold.on .event{animation:fade 1s ease .2s both}
+body.static *{animation:none!important;transition:none!important}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+.hint{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#05000Bd9;border:1px solid var(--carbon-700);border-radius:999px;padding:8px 16px;font-size:14px;color:var(--carbon-100);transition:opacity .6s;z-index:10}
+.hint.gone{opacity:0;pointer-events:none}
+.error{position:fixed;inset:0;display:grid;place-items:center;padding:40px;text-align:center;background:var(--carbon-shadow);font-size:20px;z-index:20}
+.error[hidden]{display:none}
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="layer" id="layer">
+    <section class="scene hold on" data-scene="hold" aria-label="Holding screen">
+      <div class="event" id="hold-logo" role="img" aria-label="STEM Racing Regional Finals India"><img src="assets/brand/sr-india-colour-white.png" alt=""></div>
+      <div class="band"></div>
+    </section>
+
+    <section class="scene intro" data-scene="intro" aria-label="Team introduction">
+      <div class="top" id="intro-top"></div>
+      <div class="track" id="intro-track" aria-hidden="true"></div>
+      <div class="band"></div>
+    </section>
+
+    <section class="scene both" data-scene="both" aria-label="Both teams">
+      <div class="half l" id="half-1"></div>
+      <div class="half r" id="half-2"></div>
+      <div class="band"></div>
+    </section>
+    <section class="scene qualified" data-scene="qualified" aria-label="Team qualifies">
+      <div id="qualified-body"></div>
+      <div class="band"></div>
+    </section>
+  </div>
+</div>
+<div class="hint gone" id="hint">Press F or double-click for fullscreen</div>
+<div class="error" id="error" hidden role="alert">Team data could not be loaded. Keep output.html, teams.js and the assets folder together, then reopen this file.</div>
+
+<script src="teams.js"></script>
+<script src="brand-shape.js"></script>
+<script src="assets/brand/rf-idle-logo.js"></script>
+<script>try{window.SRIdleLogo&&SRIdleLogo.mount(document.getElementById("hold-logo"))}catch(e){console.error(e)}</script>
+<script>
+(function(){
+  const APP='sri-intro';
+  const BASE=window.TEAMS||[];let teams=BASE;
+  const plainName=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'');
+  // teams handed over by the control page (from a platform file) replace the built-in list; a built-in team with the same number and name lends its pictures and colours
+  const mergeTeams=list=>list&&list.length?list.map(t=>{const b=BASE.find(x=>x.id===t.id&&plainName(x.name)===plainName(t.name));return Object.assign({},b?{colors:b.colors,logo:b.logo,schoolLogo:b.schoolLogo,car:b.car,photo:b.photo}:{},t)}):BASE;
+  if(!teams.length){document.getElementById('error').hidden=false;return}
+  const params=new URLSearchParams(location.search);
+  const inFrame=window.parent!==window;
+  const controller=inFrame?window.parent:window.opener;
+  const layer=document.getElementById('layer');
+  if(params.get('static')==='1')document.body.classList.add('static');
+
+  const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!=null)n.textContent=text;return n};
+  const team=id=>teams.find(t=>t.id===id)||teams[0];
+  const initials=s=>s.split(/\s+/).filter(Boolean).map(w=>/^\d+$/.test(w)?w:w[0]).join('').slice(0,5).toUpperCase();
+
+  function logo(t){
+    if(!t.logo){const d=el('div','crest-ph');d.append(el('b',null,initials(t.name)));d.title=t.name;return d}
+    const i=el('img','mark');i.src=t.logo;i.alt=t.name+' logo';return i}
+  function crest(t){
+    if(t.schoolLogo){const i=el('img','mark');i.src=t.schoolLogo;i.alt=t.school+' logo';return i}
+    const d=el('div','crest-ph');d.append(el('b',null,initials(t.school)),el('span',null,'School crest'));d.title=t.school;return d;
+  }
+  // Shrink a one-line name until it fits its box. Sizes stay in cqw so they scale with the screen.
+  function fit(node,max,min){
+    let size=max;node.style.fontSize=size+'cqw';
+    while(node.scrollWidth>node.clientWidth+1&&size>min){size=Math.round((size-.1)*100)/100;node.style.fontSize=size+'cqw'}
+  }
+
+  function buildIntro(t,slogan){
+    const top=document.getElementById('intro-top');
+    const name=el('div','tname display',t.name);
+    top.replaceChildren(crest(t),logo(t),name,logo(t),crest(t));
+    const track=document.getElementById('intro-track');
+    track.replaceChildren();
+    ['outl','shift','outl'].forEach(cls=>{
+      const row=el('div','row display '+cls);
+      for(let i=0;i<8;i++)row.append(el('span',null,slogan));
+      track.append(row);
+    });
+    return ()=>fit(name,6.4,2.4);
+  }
+  // The official STEM Racing shape, filled with the team's three colours and drawn on by a sweeping mask.
+  let uid=0;
+  function shape(variant,colors){
+    const host=el('div','shape'),S=(window.BRAND_SHAPES||{})[variant];
+    if(!S)return {host,ready(){}};
+    const ns='http://www.w3.org/2000/svg';
+    const mk=(tag,attrs)=>{const n=document.createElementNS(ns,tag);for(const k in attrs)n.setAttribute(k,attrs[k]);return n};
+    const [x,y,w,h]=S.viewBox.split(' ').map(Number),gid='sr-grad-'+(++uid),mid='sr-mask-'+uid;
+    const svg=mk('svg',{viewBox:S.viewBox,'aria-hidden':'true',focusable:'false'}),defs=mk('defs',{});
+    const grad=mk('linearGradient',Object.assign({id:gid},S.gradient));
+    ['0%','52%','100%'].forEach((offset,i)=>grad.append(mk('stop',{offset,'stop-color':colors[i]||colors[0]})));
+    const mask=mk('mask',{id:mid,maskUnits:'userSpaceOnUse',maskContentUnits:'userSpaceOnUse',x:-1200,y:-1200,width:3500,height:3500});
+    mask.style.maskType='luminance';
+    const sweep=mk('path',{'class':'shape-sweep',d:window.BRAND_SWEEP,transform:'matrix('+S.sweepTransform.join(' ')+')',fill:'none',stroke:'#fff','stroke-linecap':'round','stroke-linejoin':'round','stroke-width':900});
+    mask.append(sweep);
+    const g=mk('g',{transform:'rotate('+S.rotation+' '+(x+w/2)+' '+(y+h/2)+')'});
+    g.append(mk('path',{d:S.path,fill:'url(#'+gid+')',mask:'url(#'+mid+')'}));
+    defs.append(grad,mask);svg.append(defs,g);host.append(svg);
+    return {host,ready(){const len=sweep.getTotalLength();sweep.style.strokeDasharray=len;sweep.style.setProperty('--len',len)}};
+  }
+  function buildHalf(host,t,variant){
+    const sh=shape(variant,t.colors||['#E6007E','#312783','#FCBC00']);
+    const stack=el('div','stack'),head=el('div','head'),mid=el('div','mid');
+    const name=el('div','tname display',t.name);
+    const who=el('div','who');who.append(name,el('div','school',t.school));
+    head.append(logo(t),who);
+    mid.append(crest(t));
+    if(t.car){const c=el('img','car');c.src=t.car;c.alt=t.name+' car';mid.append(c)}
+    stack.append(head,mid);
+    host.replaceChildren(sh.host,stack);
+    return ()=>{fit(name,5.6,2);sh.ready()};
+  }
+
+  function buildQualified(t,round,lead){
+    const sh=shape('yellow',t.colors||['#E6007E','#312783','#FCBC00']);
+    const teamRow=el('div','q-team'),who=el('div','who'),name=el('div','tname display',t.name);
+    who.append(name,el('div','school',t.school));
+    teamRow.append(logo(t),crest(t),who);
+    const copy=el('div','q-copy');
+    const big=el('div','q-round display',round);
+    copy.append(el('div','q-for display',lead||'Qualified for'),big);
+    const left=el('div','q-left');left.append(teamRow,copy);
+    const kids=[sh.host,left];
+    if(t.car){const c=el('img','car');c.src=t.car;c.alt=t.name+' car';kids.push(c)}
+    if(t.photo){const p=el('img','photo');p.src=t.photo;p.alt=t.name+' team';kids.push(p)}
+    const body=document.getElementById('qualified-body');body.classList.toggle('has-photo',!!t.photo);
+    body.replaceChildren(...kids);
+    return ()=>{
+      // One line if it fits at a readable size; otherwise several words wrap, and a single long word shrinks further.
+      name.classList.remove('wrap');teamRow.classList.remove('tall');
+      const many=/\s/.test(t.name.trim());
+      fit(name,4.8,many?3:1.8);
+      if(many&&name.scrollWidth>name.clientWidth+1){name.style.fontSize='3.4cqw';name.classList.add('wrap');teamRow.classList.add('tall')}
+      // Shrink the big line until its longest word fits, so no word is ever split.
+      let z=teamRow.classList.contains('tall')?7.4:8.4;big.style.overflowWrap='normal';big.style.fontSize=z+'cqw';
+      while(big.scrollWidth>big.clientWidth+1&&z>4){z=Math.round((z-.2)*100)/100;big.style.fontSize=z+'cqw'}
+      sh.ready();
+    };
+  }
+
+  // Load the fonts before the first scene so names are measured at their real width.
+  const fontsLoaded=Promise.all(['italic 700 16px Magistral','700 16px MachoModular','500 16px MachoModular'].map(f=>document.fonts.load(f))).catch(()=>{});
+  let last=0,current=null,busy=Promise.resolve();
+  function render(s){
+    const fits=[];
+    if(s.scene==='intro')fits.push(buildIntro(team(s.side===2?s.t2:s.t1),s.slogan||(window.SLOGANS||[''])[0]));
+    if(s.scene==='both'){fits.push(buildHalf(document.getElementById('half-1'),team(s.t1),'pink'));fits.push(buildHalf(document.getElementById('half-2'),team(s.t2),'blue'))}
+    if(s.scene==='qualified')fits.push(buildQualified(team(s.side===2?s.t2:s.t1),s.round||'the next round',s.lead));
+    document.querySelectorAll('.scene').forEach(sc=>sc.classList.remove('on'));
+    void layer.offsetWidth; // restart entrance animations
+    const target=document.querySelector('.scene[data-scene="'+s.scene+'"]')||document.querySelector('.scene.hold');
+    target.classList.add('on');
+    fits.forEach(f=>f());
+  }
+  function apply(s){
+    if(!s||typeof s.n!=='number'||s.n<=last)return;
+    last=s.n;current=s;
+    if('teams' in s)teams=mergeTeams(s.teams);
+    busy=busy.then(async()=>{
+      const quick=document.body.classList.contains('static')||matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if(!quick){layer.classList.add('out');await new Promise(r=>setTimeout(r,260))}
+      await fontsLoaded;
+      render(s);
+      layer.classList.remove('out');
+    });
+  }
+
+  window.addEventListener('message',e=>{
+    if(!controller||e.source!==controller)return;
+    const d=e.data;if(!d||d.app!==APP||d.type!=='state')return;
+    apply(d.state);
+  });
+  if(controller)controller.postMessage({app:APP,type:'hello'},'*');
+
+  // Standalone use and testing: output.html?scene=intro&side=1&t1=001&t2=002
+  if(params.get('scene'))apply({n:1,scene:params.get('scene'),side:Number(params.get('side'))||1,t1:params.get('t1')||teams[0].id,t2:params.get('t2')||(teams[1]||teams[0]).id,slogan:params.get('slogan')||'',round:params.get('round')||''});
+
+  // Fullscreen on the big screen
+  const hint=document.getElementById('hint');
+  async function toggleFullscreen(){try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen()}catch(e){}}
+  if(!inFrame){
+    hint.classList.remove('gone');setTimeout(()=>hint.classList.add('gone'),8000);
+    document.addEventListener('keydown',e=>{if(e.key.toLowerCase()==='f')toggleFullscreen()});
+    document.addEventListener('dblclick',toggleFullscreen);
+    document.addEventListener('fullscreenchange',()=>{document.body.classList.toggle('fs',!!document.fullscreenElement);if(document.fullscreenElement)hint.classList.add('gone')});
+  }
+})();
+</script>
+</body>
+</html>

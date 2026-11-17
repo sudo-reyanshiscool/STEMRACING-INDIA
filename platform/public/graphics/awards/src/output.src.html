@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>SRi Awards Output</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+@font-face{font-family:"Magistral";font-weight:700;font-style:italic;src:url(../team-intro/assets/fonts/Magistral-BoldItalic.woff2) format("woff2")}
+@font-face{font-family:"Magistral";font-weight:500;font-style:italic;src:url(../team-intro/assets/fonts/Magistral-MediumItalic.woff2) format("woff2")}
+:root{--carbon:#05000B;--carbon-100:#D7D6E3;--gold:#FCBC00;--white:#fff;--display:"Magistral","Arial Narrow",sans-serif}
+html,body{margin:0;height:100%;background:#000;overflow:hidden}
+body{display:grid;place-items:center}
+/* 16:9 screen that fits any window; everything inside is sized in cqw */
+#screen{position:relative;width:min(100vw,177.78vh);aspect-ratio:16/9;overflow:hidden;background:var(--carbon);container-type:inline-size;color:var(--white);font-family:var(--display);font-style:italic}
+.bg{position:absolute;inset:0;opacity:0;transition:opacity 1.2s ease}
+.bg.on{opacity:1}
+/* the event logo stays on screen throughout and glides between sizes */
+#logo{position:absolute;left:50%;transform:translateX(-50%);z-index:2;top:1.5cqw;width:36cqw;transition:top 1s cubic-bezier(.3,.7,.2,1),width 1s cubic-bezier(.3,.7,.2,1),opacity .5s ease}
+.k-photo #logo{opacity:0}
+/* photo wall: the event logo repeated in a staggered grid, for pictures on stage */
+.wall{position:absolute;inset:0;overflow:hidden;background:#000;animation:wallin .6s ease both}
+.wall img{position:absolute;height:auto;transform:translate(-50%,-50%);animation:tile 1.1s cubic-bezier(.2,.7,.2,1) both;animation-delay:var(--d,0s)}
+@keyframes tile{from{opacity:0;transform:translate(-50%,-50%) scale(.8);filter:blur(.5cqw)}}
+.wall .wn.rise{animation-name:winin;animation-duration:1.3s}
+@keyframes winin{from{opacity:0;transform:scale(1.18);letter-spacing:.12em;filter:blur(.6cqw)}}
+.wall img.ev{width:14.4cqw}
+.wall img.sp{width:15.6cqw}
+.wall .mid2{position:absolute;left:21cqw;right:21cqw;top:18.75cqw;height:18.75cqw;display:flex;align-items:center;justify-content:center;gap:2cqw;text-align:center}
+.wall .mid2 .txt{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:1.8cqw}
+.wall .mid2 img.mk{position:static;transform:none;flex:none;width:auto;height:9.5cqw;max-width:10cqw;object-fit:contain;animation:rise 1.1s cubic-bezier(.2,.7,.2,1) both;animation-delay:var(--d,0s)}
+.wall .aw{font-weight:700;font-size:3.6cqw;line-height:1;color:#b9b9bd;width:100%;white-space:nowrap;overflow:hidden;padding:.3cqw 0}
+.wall .wn{font-weight:700;font-size:8.2cqw;line-height:.9;color:#fff;width:100%;white-space:nowrap;overflow:hidden;padding:.4cqw 0}
+@keyframes wallin{from{opacity:0}}
+#logo svg{display:block;width:100%;height:auto}
+.k-title #logo,.k-close #logo{top:3cqw;width:64cqw}
+.k-hold #logo,.k-idle #logo{top:10.1cqw;width:64cqw}
+.k-presenter #logo{top:4.6cqw;width:25cqw}
+.k-award #logo,.k-card #logo{top:1cqw;width:22cqw}
+.k-winner #logo,.k-nominees #logo{top:.4cqw;width:18cqw}
+#content{position:absolute;inset:0;z-index:1;transition:opacity .35s ease}
+#content.out{opacity:0}
+.rise{animation:rise 1.1s cubic-bezier(.2,.7,.2,1) both;animation-delay:var(--d,0s)}
+.open{animation:open 1.2s cubic-bezier(.2,.7,.2,1) both;animation-delay:var(--d,0s)}
+@keyframes rise{from{opacity:0;transform:translateY(1.2cqw)}}
+@keyframes open{from{opacity:0;transform:scaleX(0)}}
+@keyframes glow{from{opacity:.72}to{opacity:1}}
+.mid{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1.5cqw;text-align:center}
+.low{position:absolute;left:0;right:0;bottom:6.5cqw;display:flex;flex-direction:column;align-items:center;gap:1.4cqw;text-align:center}
+.low.up{bottom:11cqw}
+.big{font-weight:700;text-transform:uppercase;line-height:1;font-size:6cqw}
+.line{width:86cqw;white-space:nowrap;overflow:hidden;text-align:center;padding:.4cqw 0}
+.small{font-weight:500;text-transform:uppercase;letter-spacing:.14em;font-size:1.65cqw;color:var(--carbon-100)}
+.rule{width:12cqw;height:.16cqw;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.k-seats .big{animation:rise 1.1s cubic-bezier(.2,.7,.2,1) both,glow 4s 1.2s ease-in-out infinite alternate}
+/* presenter introduction: SR track shape on the left, picture, name and role on the right */
+.pres{position:absolute;inset:0;overflow:hidden}
+.pres .shape{position:absolute;left:-44.3cqw;top:-24.9cqw;width:93cqw;aspect-ratio:1;transform:rotate(-232.5deg)}
+.pres .shape svg{display:block;width:100%;height:100%}
+.pres .shape svg{display:block;width:100%;height:auto}
+.pres .who{position:absolute;right:12cqw;top:17.5cqw;bottom:5cqw;width:44cqw;display:flex;flex-direction:column;align-items:flex-end;text-align:right}
+.pres .ppic{width:27.6cqw;overflow:hidden;animation:prespic 1s .5s cubic-bezier(.6,0,.2,1) both}
+.pres .ppic img{display:block;width:100%;height:auto}
+.pres .pname{margin-top:1.4cqw;font-weight:700;font-size:6.9cqw;line-height:1.04}
+.pres .pname .up{display:block;overflow:hidden;padding:0 .12em .1em 0;margin:0 -.12em -.1em 0}
+.pres .pname .up>span{display:block;animation:presup .9s cubic-bezier(.2,.85,.2,1) both;animation-delay:var(--d,0s)}
+.pres .prole{margin-top:auto;font-weight:500;font-size:1.75cqw;line-height:1.18;color:#fff}
+@keyframes prespic{from{clip-path:inset(0 0 0 100%)}to{clip-path:inset(0 0 0 0)}}
+@keyframes presup{from{transform:translateY(112%)}}
+@media (prefers-reduced-motion:reduce){.pres .ppic,.pres .pname .up>span{animation:none}}
+/* text tracks (brand guidelines p.36): the message once in solid white, repeated in outline, like tyre marks */
+.trk{position:absolute;inset:0;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5cqw;font-weight:700;line-height:1.08;font-size:7cqw;white-space:nowrap}
+.trk.one{inset:auto 0 9.5cqw 0;font-size:5cqw}
+.trk.one.end{bottom:5.5cqw}
+.trk .row{display:flex;justify-content:center;animation:trkin 1.5s cubic-bezier(.16,.8,.2,1) both;animation-delay:var(--d,0s)}
+.trk .row.r{--from:40cqw}.trk .row.l{--from:-40cqw}
+.trk .w{flex:none;padding:0 .22em;color:transparent;-webkit-text-stroke:.09cqw rgba(255,255,255,.85)}
+.trk .w.solid{color:#fff;-webkit-text-stroke:0}
+.trk .row.ghost{opacity:.42}
+.trk .row .run{display:flex;animation:trkrun var(--t,60s) linear infinite}
+.trk .row.l .run{animation-direction:reverse}
+.trk .sub{margin-top:1.6cqw;font-weight:500;text-transform:uppercase;letter-spacing:.14em;font-size:1.65cqw;color:var(--carbon-100)}
+@keyframes trkin{from{opacity:0;transform:translateX(var(--from,0))}}
+@keyframes trkrun{to{transform:translateX(calc(var(--p,0px) * -1))}}
+/* patterns (brand guidelines p.35): supplied artwork in carbon, laid over the gradient at the edge behind the picture */
+.pat{position:absolute;top:0;bottom:0;right:0;width:47cqw;pointer-events:none;background:center/cover no-repeat;opacity:.8;-webkit-mask:linear-gradient(to left,#000 45%,transparent);mask:linear-gradient(to left,#000 45%,transparent);animation:patin 1.6s .15s cubic-bezier(.2,.7,.2,1) both}
+@keyframes patin{from{opacity:0;transform:translateX(6cqw)}}
+@media (prefers-reduced-motion:reduce){.trk .row,.trk .row .run,.pat{animation:none}}
+/* podium: the build-up before third, second and first */
+.pod{overflow:hidden}
+.pod .beams{position:absolute;inset:-60%;pointer-events:none;background:conic-gradient(from 0deg at 50% 50%,transparent 0 8deg,rgba(255,255,255,.07) 12deg,transparent 16deg 172deg,rgba(255,255,255,.06) 178deg,transparent 184deg 360deg);animation:spin 14s linear infinite,wallin 2s ease both}
+.pod .beams.b2{animation:spin 22s linear infinite reverse,wallin 2s ease both}
+.pod .hint{position:absolute;width:50cqw;pointer-events:none;filter:drop-shadow(0 0 3cqw rgba(0,0,0,.45))}
+.pod .hint svg{display:block;width:100%;height:auto}
+.pod .hint.h1{left:-20cqw;bottom:-29cqw;animation:hint1 2.6s 2.2s cubic-bezier(.16,.8,.2,1) both,float1 9s 4.8s ease-in-out infinite alternate}
+.pod .hint.h2{right:-20cqw;top:-29cqw;animation:hint2 2.6s 2.5s cubic-bezier(.16,.8,.2,1) both,float2 9s 5.1s ease-in-out infinite alternate}
+@keyframes hint1{from{opacity:0;transform:translate(-26cqw,20cqw) rotate(-16deg) scale(.8)}}
+@keyframes hint2{from{opacity:0;transform:translate(26cqw,-20cqw) rotate(-16deg) scale(.8)}}
+@keyframes float1{to{transform:translate(1.6cqw,-1.4cqw) rotate(2.5deg)}}
+@keyframes float2{to{transform:translate(-1.6cqw,1.4cqw) rotate(2.5deg)}}
+.pod .numeral{position:absolute;left:50%;top:50%;font-weight:700;font-size:44cqw;line-height:1;color:transparent;-webkit-text-stroke:.18cqw var(--pc);opacity:.34;transform:translate(-50%,-50%);animation:numin 2.4s cubic-bezier(.2,.7,.2,1) both,drift 24s 2.4s linear both}
+.pod .ptitle{position:relative;font-weight:700;text-transform:uppercase;line-height:1;font-size:9.4cqw;white-space:nowrap;animation:beat 1.5s 2s ease-in-out infinite}
+.pod .ptitle span{display:inline-block;white-space:pre;animation:letter .9s cubic-bezier(.2,.8,.2,1) both;animation-delay:var(--d,0s)}
+.pod .pk{position:relative;font-weight:500;text-transform:uppercase;letter-spacing:.5em;margin-right:-.5em;font-size:1.7cqw;color:var(--pc)}
+.pod.p1 .ptitle{animation:beat1 1.5s 2s ease-out infinite}
+.pod.p1 .edges{position:absolute;inset:0;pointer-events:none;animation:edge 1.5s 2s ease-out infinite}
+.pod.p1 .numeral{animation:numin 2.4s cubic-bezier(.2,.7,.2,1) both,npulse 1.5s 2s ease-out infinite}
+@keyframes beat1{0%,48%,100%{text-shadow:0 0 0 transparent;transform:scale(1)}8%{text-shadow:0 0 3.4cqw var(--pc);transform:scale(1.035)}20%{text-shadow:0 0 .8cqw var(--pc);transform:scale(1.005)}28%{text-shadow:0 0 2.2cqw var(--pc);transform:scale(1.02)}}
+@keyframes edge{0%,48%,100%{box-shadow:inset 0 0 6cqw 0 rgba(252,188,0,.06)}8%{box-shadow:inset 0 0 10cqw 1.6cqw rgba(252,188,0,.62)}20%{box-shadow:inset 0 0 7cqw .2cqw rgba(252,188,0,.16)}28%{box-shadow:inset 0 0 8cqw .9cqw rgba(252,188,0,.4)}}
+@keyframes npulse{0%,48%,100%{opacity:.3;transform:translate(-50%,-50%) scale(1)}8%{opacity:.6;transform:translate(-50%,-50%) scale(1.04)}20%{opacity:.36;transform:translate(-50%,-50%) scale(1.01)}28%{opacity:.5;transform:translate(-50%,-50%) scale(1.025)}}
+.p1{--pc:#FCBC00}.p2{--pc:#D7D6E3}.p3{--pc:#ED6D05}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes numin{from{opacity:0;transform:translate(-50%,-50%) scale(1.6)}}
+@keyframes drift{from{transform:translate(-50%,-50%) scale(1)}to{transform:translate(-50%,-50%) scale(1.14)}}
+@keyframes letter{from{opacity:0;transform:translateY(3cqw) scale(1.5);filter:blur(.8cqw)}}
+@keyframes beat{0%,100%{text-shadow:0 0 0 transparent;transform:scale(1)}12%{text-shadow:0 0 3cqw var(--pc);transform:scale(1.025)}30%{text-shadow:0 0 .6cqw var(--pc);transform:scale(1)}}
+/* podium: the reveal */
+.flash{position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 35% 50%,#fff 0,var(--pc) 30%,transparent 75%);animation:flash 1.3s ease-out both}
+.ring{position:absolute;left:35%;top:50%;width:150cqw;aspect-ratio:1;border-radius:50%;border:.5cqw solid var(--pc);pointer-events:none;transform:translate(-50%,-50%) scale(0);animation:ring 1.5s cubic-bezier(.1,.6,.2,1) both}
+.rays{position:absolute;left:35%;top:50%;width:220cqw;aspect-ratio:1;pointer-events:none;background:repeating-conic-gradient(from 0deg,rgba(255,255,255,.085) 0 5deg,transparent 5deg 15deg);-webkit-mask:radial-gradient(circle,#000 0,transparent 55%);mask:radial-gradient(circle,#000 0,transparent 55%);translate:-50% -50%;animation:spin 70s linear infinite,wallin 2.5s .4s ease both}
+.win.podw .tname.rise{animation-name:slam;animation-duration:1s;animation-timing-function:cubic-bezier(.2,.9,.2,1);transform-origin:20% 50%;text-shadow:0 0 2.4cqw color-mix(in srgb,var(--pc) 55%,transparent)}
+.win.podw .eyebrow{color:var(--pc);font-size:2.3cqw}
+.win.podw{animation:thud .55s .42s cubic-bezier(.3,.6,.3,1) both}
+@keyframes flash{from{opacity:.95}to{opacity:0}}
+@keyframes ring{0%{transform:translate(-50%,-50%) scale(0);opacity:.9}100%{transform:translate(-50%,-50%) scale(1);opacity:0}}
+@keyframes slam{0%{opacity:0;transform:scale(2.8);filter:blur(1.4cqw)}45%{opacity:1;transform:scale(.95);filter:blur(0)}70%{transform:scale(1.025)}100%{transform:scale(1)}}
+@keyframes thud{0%{transform:translate(0,0)}20%{transform:translate(-.5cqw,.35cqw)}40%{transform:translate(.4cqw,-.25cqw)}60%{transform:translate(-.22cqw,.14cqw)}80%{transform:translate(.1cqw,-.06cqw)}100%{transform:none}}
+#fx{position:absolute;inset:0;width:100%;height:100%;z-index:3;pointer-events:none}
+/* winner */
+.win{position:absolute;inset:11.5cqw 6cqw 5cqw 7cqw;display:grid;grid-template-columns:minmax(0,1fr) 35cqw;gap:4cqw;align-items:center}
+.win.nopic{grid-template-columns:minmax(0,1fr);text-align:center}
+.win.nopic .info{align-items:center}
+.info{display:flex;flex-direction:column;gap:1.2cqw;min-width:0}
+.eyebrow{font-weight:700;text-transform:uppercase;letter-spacing:.16em;font-size:1.9cqw;color:var(--gold)}
+.tname{font-weight:700;text-transform:uppercase;line-height:1.05;font-size:6.4cqw;white-space:nowrap;overflow:hidden;width:100%;padding:.3cqw 0}
+.school{font-weight:500;font-size:2.2cqw;color:var(--carbon-100)}
+.marks{display:flex;gap:2.6cqw;align-items:center;margin-top:1.4cqw}
+.marks img{height:9.5cqw;max-width:15cqw;object-fit:contain}
+.pic{width:100%;aspect-ratio:10/9;border-radius:.6cqw;overflow:hidden;background:rgba(5,0,11,.35)}
+.pic img{display:block;width:100%;height:100%;object-fit:cover;object-position:50% 20%}
+.pic.car img{object-fit:contain}
+.top .eyebrow{font-size:2.6cqw}
+/* nominees */
+.noms{position:absolute;inset:11cqw 6cqw 5cqw;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2.2cqw;text-align:center}
+.noms .head{display:flex;flex-direction:column;align-items:center;gap:.8cqw}
+.card.hid{opacity:0;animation:none}
+.noms .word{font-weight:700;text-transform:uppercase;font-size:3.6cqw;line-height:1}
+.cards{display:flex;gap:2.4cqw;justify-content:center;width:100%}
+.card{flex:1 1 0;max-width:27cqw;min-width:0;display:flex;flex-direction:column;align-items:center;gap:1cqw;padding:1cqw 1.6cqw}
+.card .lg{height:10cqw;max-width:16cqw;object-fit:contain}
+.card .n{font-weight:700;text-transform:uppercase;font-size:2.6cqw;line-height:1.1;white-space:nowrap;overflow:hidden;width:100%;padding:.2cqw 0}
+.card .s{font-weight:500;font-size:1.35cqw;color:var(--carbon-100)}
+.sample{position:absolute;left:7cqw;bottom:1.8cqw;font-weight:500;text-transform:uppercase;letter-spacing:.12em;font-size:1.05cqw;padding:.35cqw 1cqw;border:.1cqw solid rgba(255,255,255,.55);border-radius:99cqw;color:var(--carbon-100)}
+/* on-screen stepping, only when the screen runs on its own as a preview */
+[hidden]{display:none!important}
+#nav{position:absolute;z-index:5;right:1.2cqw;bottom:1.2cqw;display:flex;gap:.6cqw;align-items:center}
+#nav button{font:italic 700 max(11px,1.1cqw) var(--display);text-transform:uppercase;letter-spacing:.06em;color:var(--white);background:rgba(5,0,11,.6);border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:.5em 1.1em;cursor:pointer}
+#nav button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+#nav select{font:italic 500 max(11px,1cqw) var(--display);color:var(--white);background:rgba(5,0,11,.75);border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:.5em .9em;max-width:26cqw;cursor:pointer}
+#nav select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+#nav span{font:italic 500 max(10px,1cqw) var(--display);color:var(--carbon-100);min-width:5em;text-align:center}
+@media (prefers-reduced-motion:reduce){.rise,.open,.k-seats .big{animation:none}#logo,.bg,#content{transition:none}}
+</style>
+</head><body>
+<div id="screen" class="k-seats">
+  <div class="bg on" id="bgA"></div><div class="bg" id="bgB"></div>
+  <div id="logo"><!--LOGO_SVG--></div>
+  <div id="content"></div>
+  <canvas id="fx"></canvas>
+  <div id="nav" hidden><button id="nav-back" type="button">Back</button><select id="nav-jump" aria-label="Jump to a screen"></select><span id="nav-label" hidden></span><button id="nav-next" type="button">Next</button></div>
+</div>
+<script src="../shared/sr-background.js"></script>
+<script src="../team-intro/teams.js"></script>
+<script src="../team-intro/brand-shape.js"></script>
+<script src="awards.js"></script>
+<script src="show.js"></script>
+<script>
+(function(){
+const screen=document.getElementById('screen'), content=document.getElementById('content');
+const STEPS=buildSteps(), BASE=window.TEAMS||[]; let TEAMS=BASE, byId={}; TEAMS.forEach(t=>byId[t.id]=t);
+  const plainName=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'');
+// teams handed over by the control page (from a platform file) replace the built-in list; a built-in team with the same number and name lends its pictures and colours
+const mergeTeams=list=>list&&list.length?list.map(t=>{const b=BASE.find(x=>x.id===t.id&&plainName(x.name)===plainName(t.name));return Object.assign({},b?{colors:b.colors,logo:b.logo,schoolLogo:b.schoolLogo,car:b.car,photo:b.photo}:{},t)}):BASE;
+const q=new URLSearchParams(location.search);
+const DEMO=!!window.SRI_DEMO||location.hash==='#demo', STAR='001';
+// in the demo, team 001 wins these two awards
+const starred=a=>!!byId[STAR]&&/^(Research & Development Award|Regional Champions)$/.test(a.name);
+let shown=null;
+let state={r:1,n:0,i:Math.max(0,Math.min(STEPS.length-1,+(q.get('i')||0))),winners:{},nominees:{}}, controlled=false, first=true;
+try{const s=JSON.parse(localStorage.getItem('sri-awards-setup')||'null'); if(s&&s.winners&&!DEMO){state.winners=s.winners; state.nominees=s.nominees||{};}}catch(e){}
+const el=(tag,cls,text)=>{const n=document.createElement(tag); if(cls)n.className=cls; if(text!=null)n.textContent=text; return n;};
+const d=(n,delay)=>{n.style.setProperty('--d',delay+'s'); return n;};
+const asset=p=>p?((window.ASSET_DATA&&window.ASSET_DATA[p])||(/^(data:|blob:|https?:)/.test(p)?p:'../team-intro/'+p)):null;
+const img=(src,alt)=>{const i=el('img'); i.src=src; i.alt=alt||''; return i;};
+function fit(node,max,min){let size=max; node.style.fontSize=size+'cqw';
+  while(node.scrollWidth>node.clientWidth+1&&size>min){size=Math.round((size-.1)*100)/100; node.style.fontSize=size+'cqw';}}
+function winnerOf(a){let id=state.winners[a.id];
+  if(!id&&DEMO){const f=TEAMS.filter(t=>t.fake), k=window.AWARDS.indexOf(a); if(starred(a))id=STAR; else if(f.length) id=f[k%f.length].id;}
+  return byId[id]||null;}
+function nomineesOf(a){let ids=((state.nominees||{})[a.id]||[]).filter(id=>byId[id]);
+  if(!ids.length&&DEMO){const f=TEAMS.filter(t=>t.fake), k=window.AWARDS.indexOf(a), n=f.length; if(n>=3) ids=[f[k%n].id,f[(k+6)%n].id,f[(k+12)%n].id]; if(starred(a))ids[1]=STAR;}
+  return ids.map(id=>byId[id]);}
+// two background layers that cross-fade
+const A={el:document.getElementById('bgA')}, B={el:document.getElementById('bgB')};
+A.h=SRBackground.mount(A.el,'sr',{darken:.12}); B.h=SRBackground.mount(B.el,'sr',{darken:.12});
+let cur=A, curKey='sr|0.12';
+function setBg(name,dark){const key=name+'|'+dark; if(key===curKey)return; curKey=key;
+  const next=cur===A?B:A; next.h.set(name); next.h.darken(dark); next.el.classList.add('on');
+  if(next===A) B.el.classList.remove('on'); cur=next;}
+function build(s){
+  const S=window.SHOW, fits=[];
+  const centre=(title,small,cls)=>{const m=el('div','mid'), b=d(el('div','big line rise',title),.15);
+    m.append(b); if(small)m.append(d(el('div','small rise',small),.8)); fits.push(()=>fit(b,cls||7.6,3)); return m;};
+  // text track: rows=3 puts ghosted outline rows above and below that drift slowly; rows=1 is a single line
+  const track=(title,max,rows,small,cls)=>{const t=el('div','trk'+(rows===1?' one':'')+(cls?' '+cls:'')), word=(solid)=>el('span','w'+(solid?' solid':''),title);
+    const mid=d(el('div','row l'),.15); let solid; for(let k=0;k<7;k++){const w=word(k===3); if(k===3)solid=w; mid.append(w);}
+    const side=(dir,delay)=>{const r=d(el('div','row ghost '+dir),delay), run=el('div','run'); for(let k=0;k<8;k++)run.append(word(false)); r.append(run); return r;};
+    if(rows===1)t.append(mid); else t.append(side('r',.35),mid,side('l',.5));
+    if(small)t.append(d(el('div','sub rise',small),.9));
+    fits.push(()=>{let z=max; t.style.fontSize=z+'cqw'; const lim=t.clientWidth*(rows===1?.6:.8); while(solid.offsetWidth>lim&&z>2.6){z-=.2; t.style.fontSize=z+'cqw';}
+      t.style.setProperty('--p',solid.offsetWidth+'px'); t.style.setProperty('--t',Math.max(40,solid.offsetWidth/t.clientWidth*90)+'s');});
+    return t;};
+  if(s.kind==='hold') return [[],fits];
+  if(s.kind==='idle') return [[],fits];   // holding screen: the moving background and the looping logo only
+  if(s.kind==='presenter'){const P=s.presenter||S.presenter, w=el('div','pres'), who=el('div','who'), nm=el('div','pname');
+    if(window.SRPinkShape){const h=el('div','shape'); w.append(h); fits.push(()=>window.SRPinkShape.mount(h,matchMedia('(prefers-reduced-motion: reduce)').matches));}
+    if(P.photo){const pp=el('div','ppic'); pp.append(img((window.ASSET_DATA&&window.ASSET_DATA[P.photo])||P.photo,P.name)); who.append(pp);}
+    P.name.split(' ').forEach((part,k)=>{const o=el('span','up'); o.append(d(el('span',null,part),.9+k*.14)); nm.append(o);});
+    const role=d(el('div','prole rise'),1.5); (P.role||[]).forEach(line=>role.append(el('div',null,line)));
+    who.append(nm,role); w.append(who); return [[w],fits];}
+  if(s.kind==='seats'){const m=el('div','mid'); m.append(el('div','big rise',s.text||S.seats),d(el('div','small rise',s.small!=null?s.small:S.seatsSmall),.5)); return [[m],fits];}
+  if(s.kind==='title'||s.kind==='close') return [[track(s.text||(s.kind==='title'?S.title:S.close),5,1,null,s.kind==='close'?'end':'')],fits];
+  if(s.kind==='photo'){const w=el('div','wall'), a=s.award, m=el('div','mid2');
+    for(let r=0;r<6;r++) for(let c=0;c<5;c++){if((r===2||r===3)&&c>0&&c<4)continue; const ev=(r+c)%2===0;
+      const i=img(ev?window.WALL_LOGO:window.WALL_PARTNER,''); i.className=ev?'ev':'sp'; i.style.left=(10+c*20)+'cqw'; i.style.top=(4.6875+r*9.375)+'cqw'; d(i,1+Math.hypot((c-2)*1.6,r-2.5)*.16); w.append(i);}
+    const t=winnerOf(a), big=d(el('div','wn rise',t?t.name:'Winner'),.55), aw=d(el('div','aw rise',a.name),.25);
+    const txt=el('div','txt'); txt.append(aw,big);
+    const mk=(src,alt)=>{const i=d(img(asset(src),alt),.8); i.className='mk'; return i;};
+    if(t&&t.logo)m.append(mk(t.logo,t.name+' logo')); m.append(txt); if(t&&t.schoolLogo)m.append(mk(t.schoolLogo,t.school+' crest'));
+    const marks=!!(t&&(t.logo||t.schoolLogo));
+    fits.push(()=>fit(aw,marks?2.8:3.6,1.5)); fits.push(()=>fit(big,marks?6:(t&&t.name.length>9?6.6:8.2),2.2)); w.append(m);
+    const out=[w]; if(t&&t.fake)out.push(el('div','sample','Sample team'));
+    return [out,fits];}
+  if(s.kind==='card') return [[track(s.title,7.4,3,s.small)],fits];
+  if(s.kind==='award'&&s.award.place){const pl=s.award.place, m=el('div','mid pod p'+pl), t=el('div','ptitle');
+    [...s.award.name].forEach((ch,k)=>t.append(d(el('span',null,ch),.9+k*.07)));
+    const wt=winnerOf(s.award), hints=[];
+    if(wt&&wt.colors&&window.BRAND_SHAPES) [['pink','h1'],['yellow','h2']].forEach(([v,c],n)=>{const S=window.BRAND_SHAPES[v], h=el('div','hint '+c), id='hg'+n+Date.now(), cs=n?wt.colors.slice().reverse():wt.colors;
+      const ns='http://www.w3.org/2000/svg', mk=(tag,at)=>{const e=document.createElementNS(ns,tag); for(const k in at)e.setAttribute(k,at[k]); return e;};
+      const svg=mk('svg',{viewBox:S.viewBox,'aria-hidden':'true'}), g=mk('linearGradient',Object.assign({id},S.gradient));
+      ['0%','52%','100%'].forEach((offset,i)=>g.append(mk('stop',{offset,'stop-color':cs[i]||cs[0]})));
+      const defs=mk('defs',{}); defs.append(g); svg.append(defs,mk('path',{d:S.path,fill:'url(#'+id+')'})); h.append(svg); hints.push(h);});
+    m.append(el('div','beams'),el('div','beams b2'),...hints,el('div','numeral',String(pl)),d(el('div','pk rise',pl===1?'And now':'Regional Finals'),.3),t);
+    if(pl===1)m.append(el('div','edges'));
+    fits.push(()=>{let z=9.4; t.style.fontSize=z+'cqw'; while(t.scrollWidth>m.clientWidth*.9&&z>4){z-=.2; t.style.fontSize=z+'cqw';}}); return [[m],fits];}
+  if(s.kind==='award') return [[track(s.award.name,7,3)],fits];
+  if(s.kind==='nominees'){const ts=nomineesOf(s.award);
+    if(!ts.length) return [[centre(s.award.name,'Nominees not chosen yet')],fits];
+    const w=el('div','noms'), head=el('div','head rise'), cards=el('div','cards');
+    head.append(el('div','eyebrow',s.award.name),el('div','word','Nominees')); 
+    const r=Math.max(1,state.r||1);
+    ts.forEach((t,k)=>{const c=d(el('div','card rise'+(k<r?'':' hid')),k<r?.4+k*.35:0), n=el('div','n',t.name);
+      if(t.logo){const i=img(asset(t.logo),t.name+' logo'); i.className='lg'; c.append(i);}
+      c.append(n,el('div','s',t.school)); cards.append(c); fits.push(()=>fit(n,2.6,1.3));});
+    w.append(head,cards); const out=[w]; if(ts.some(t=>t.fake))out.push(el('div','sample','Sample teams')); return [out,fits];}
+  const t=winnerOf(s.award);
+  if(!t) return [[centre(s.award.name,'Winner not chosen yet')],fits];
+  const pic=asset(t.photo)||asset(t.car);
+  const pl=s.award.place, w=el('div','win'+(pic?'':' nopic')+(s.award.top?' top':'')+(pl?' podw p'+pl:'')), info=el('div','info');
+  const name=d(el('div','tname rise',t.name),.35), marks=d(el('div','marks rise'),.9);
+  if(t.logo)marks.append(img(asset(t.logo),t.name+' logo')); if(t.schoolLogo)marks.append(img(asset(t.schoolLogo),t.school+' crest'));
+  info.append(d(el('div','eyebrow rise',s.award.name),.1),name,d(el('div','school rise',t.school),.6),marks); w.append(info);
+  if(pic){const p=d(el('div','pic rise'+(t.photo?'':' car')),.5); p.append(img(pic,t.name+' team')); w.append(p);}
+  fits.push(()=>fit(name,s.award.top?7.4:6.4,2.4));
+  const out=[w]; if(t.fake)out.push(el('div','sample','Sample team'));
+  if(!pl&&pic&&window.PATTERNS){const names=['jagged','wave','curve'], pt=el('div','pat'); pt.style.backgroundImage='url('+window.PATTERNS[names[window.AWARDS.indexOf(s.award)%3]]+')'; out.unshift(pt);}
+  if(pl){const pre=[]; if(pl===1){const r=el('div','rays p1'); pre.push(r);} const f=el('div','flash p'+pl), r=el('div','ring p'+pl); out.unshift(...pre); out.push(r,f);}
+  return [out,fits];
+}
+// confetti for the podium reveals
+const FX=(()=>{const cv=document.getElementById('fx'), cx=cv.getContext('2d'); let ps=[], raf=0, rainUntil=0, cols=[], last=0;
+  const quiet=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const size=()=>{const r=Math.min(2,devicePixelRatio||1); cv.width=cv.clientWidth*r; cv.height=cv.clientHeight*r;};
+  const add=(x,y,vx,vy)=>ps.push({x,y,vx,vy,w:.006+Math.random()*.008,h:.003+Math.random()*.005,a:Math.random()*6.3,va:(Math.random()-.5)*12,ph:Math.random()*6.3,c:cols[Math.random()*cols.length|0],life:1});
+  function tick(ts){const dt=Math.min(.05,(ts-last)/1000||0); last=ts; const W=cv.width,H=cv.height; cx.clearRect(0,0,W,H);
+    if(ts<rainUntil) for(let k=0;k<3;k++) add(Math.random(),-.03,(Math.random()-.5)*.08,.12+Math.random()*.12);
+    ps=ps.filter(p=>p.y<1.15&&p.life>0);
+    for(const p of ps){p.vy+=.55*dt; p.vx*=1-.9*dt; p.vy=Math.min(p.vy,.38); p.x+=p.vx*dt+Math.sin(ts/400+p.ph)*.0006; p.y+=p.vy*dt*(W/H); p.a+=p.va*dt;
+      cx.save(); cx.translate(p.x*W,p.y*H); cx.rotate(p.a); cx.scale(1,Math.cos(ts/180+p.ph)); cx.fillStyle=p.c; cx.fillRect(-p.w*W/2,-p.h*W/2,p.w*W,p.h*W); cx.restore();}
+    raf=(ps.length||ts<rainUntil)?requestAnimationFrame(tick):0; if(!raf)cx.clearRect(0,0,W,H);}
+  return {stop(){ps=[]; rainUntil=0; if(raf)cancelAnimationFrame(raf); raf=0; cx.clearRect(0,0,cv.width,cv.height);},
+    go(place){this.stop(); if(quiet)return; size();
+      cols=place===1?['#FCBC00','#FFE08A','#fff','#E6007E','#ED6D05']:place===2?['#D7D6E3','#fff','#A39FB8','#7FB6FF']:['#ED6D05','#FFB36B','#fff','#C9772E'];
+      const n=place===1?170:place===2?110:80;
+      for(let k=0;k<n;k++){const left=k%2===0, sp=.55+Math.random()*.75, an=(left?-1:1)*(.35+Math.random()*.75);
+        add(left?-.02:1.02,1.02,Math.sin(an)*sp*(left?-1:1)*-1*.9,-Math.cos(an)*sp*.62);}
+      if(place===1) rainUntil=performance.now()+16000; last=performance.now(); raf=requestAnimationFrame(tick);}};})();
+const quietMotion=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function show(){
+  // state.custom is a screen described by the control page itself (the opening ceremony), shown in place of an awards step
+  const s=state.custom||STEPS[state.i]; if(!s)return; const key=state.custom?JSON.stringify(state.custom):state.i;
+  if(shown===key&&s.kind==='nominees'&&content.querySelector('.cards')){const r=Math.max(1,state.r||1);
+    content.querySelectorAll('.cards .card').forEach((c,k)=>c.classList.toggle('hid',k>=r)); label(); return;}
+  shown=key;
+  const apply=()=>{const [nodes,fits]=build(s); screen.className='k-'+s.kind; content.replaceChildren(...nodes); setBg(s.bg,s.dark);
+    const heart=s.kind==='award'&&s.award.place===1&&!quietMotion;
+    if(controlled){try{boss&&boss.postMessage({app:'sri-awards',type:'heart',on:heart},'*');}catch(e){}} else if(window.SRHeart){heart?SRHeart.start(2):SRHeart.stop();}
+    FX.stop(); if(s.kind==='winner'&&s.award.place&&winnerOf(s.award)) setTimeout(()=>{if(STEPS[state.i]===s&&!state.custom)FX.go(s.award.place);},350);
+    (document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(()=>fits.forEach(f=>f()));
+    content.classList.remove('out'); label();};
+  if(first){first=false; apply();} else {content.classList.add('out'); setTimeout(apply,380);}
+}
+// from the control window
+window.addEventListener('message',e=>{const m=e.data; if(!m||m.app!=='sri-awards'||m.type!=='state')return;
+  controlled=true; nav.hidden=true; if(m.state.n<=state.n)return; state=m.state; if('teams' in state){TEAMS=mergeTeams(state.teams); byId={}; TEAMS.forEach(t=>byId[t.id]=t);} show();});
+const boss=window.opener||(window.parent!==window?window.parent:null);
+try{boss&&boss.postMessage({app:'sri-awards',type:'hello'},'*');}catch(e){}
+// on its own: arrow keys step through
+const nav=document.getElementById('nav');
+const jump=document.getElementById('nav-jump');
+STEPS.forEach((st,i)=>jump.append(new Option((i+1)+'. '+st.label,i)));
+jump.addEventListener('change',()=>{const i=+jump.value; jump.blur(); state.i=i; state.r=1; show();});
+function label(){document.getElementById('nav-label').textContent=(state.i+1)+' / '+STEPS.length; jump.value=state.i;}
+const count=s=>s&&s.kind==='nominees'?Math.max(1,nomineesOf(s.award).length):1;
+function step(by){const c=count(STEPS[state.i]), r=Math.min(state.r||1,c);
+  if(by>0&&r<c){state.r=r+1; return show();} if(by<0&&r>1){state.r=r-1; return show();}
+  const i=state.i+by; if(i<0||i>=STEPS.length)return; state.i=i; state.r=by<0?count(STEPS[i]):1; show();}
+document.getElementById('nav-back').addEventListener('click',()=>step(-1));
+document.getElementById('nav-next').addEventListener('click',()=>step(1));
+const full=()=>{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen().catch(()=>{});};
+document.addEventListener('dblclick',full);
+document.addEventListener('keydown',e=>{if(e.target===jump)return; if(e.key==='f'||e.key==='F')return full(); if(controlled)return;
+  if(e.key==='Home'||e.key==='End'){e.preventDefault(); state.i=e.key==='Home'?0:STEPS.length-1; state.r=1; return show();}
+  if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'){e.preventDefault();step(1);} if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();step(-1);}});
+if(DEMO) setTimeout(()=>{if(!controlled)nav.hidden=false;},400);
+show();
+})();
+</script>
+<!--LOGO_SCRIPT-->
+</body></html>

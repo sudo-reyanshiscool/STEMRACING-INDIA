@@ -1,0 +1,129 @@
+{
+  "_how": "Fill in team numbers (or exact team names). Awards with a nominees screen take two or three nominees, and the winner should be one of them. Drop the finished file on the graphics control page.",
+  "awards": {
+    "fastest-car": {
+      "winner": "",
+      "nominees": [
+        "",
+        "",
+        ""
+      ]
+    },
+    "engineered-car": {
+      "winner": "",
+      "nominees": [
+        "",
+        "",
+        ""
+      ]
+    },
+    "scrutineering": {
+      "winner": "",
+      "nominees": [
+        "",
+        "",
+        ""
+      ]
+    },
+    "research": {
+      "winner": "",
+      "nominees": [
+        "",
+        "",
+        ""
+      ]
+    },
+    "innovative": {
+      "winner": "",
+      "nominees": [
+        "",
+        "",
+        ""
+      ]
+    },
+    "sustainability": {
+      "winner": "",
+      "nominees": [
+        "",
+        "",
+        ""
+      ]
+    },
+    "project": {
+      "winner": "",
+      "nominees": [
+        "",
+        "",
+        ""
+      ]
+    },
+    "sponsorship": {
+      "winner": "",
+      "nominees": [
+        "",
+        "",
+        ""
+      ]
+    },
+    "digital-media": {
+      "winner": "",
+      "nominees": [
+        "",
+        "",
+        ""
+      ]
+    },
+    "team-identity": {
+      "winner": "",
+      "nominees": [
+        "",
+        "",
+        ""
+      ]
+    },
+    "pit-display": {
+      "winner": "",
+      "nominees": [
+        "",
+        "",
+        ""
+      ]
+    },
+    "verbal": {
+      "winner": "",
+      "nominees": [
+        "",
+        "",
+        ""
+      ]
+    },
+    "newcomer": {
+      "winner": "",
+      "nominees": [
+        "",
+        "",
+        ""
+      ]
+    },
+    "collaboration": {
+      "winner": "",
+      "nominees": [
+        "",
+        "",
+        ""
+      ]
+    },
+    "knockout": {
+      "winner": ""
+    },
+    "third": {
+      "winner": ""
+    },
+    "second": {
+      "winner": ""
+    },
+    "champions": {
+      "winner": ""
+    }
+  }
+}

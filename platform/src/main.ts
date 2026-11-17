@@ -47,6 +47,7 @@ const SCREENS = {
   scorecard: () => import('./ui/scorecard'),
   inspection: () => import('./ui/inspection'),
   racing: () => import('./ui/racing'),
+  graphics: () => import('./ui/graphics'),
   scores: () => import('./ui/scores'),
   moderation: () => import('./ui/moderation'),
   rankings: () => import('./ui/rankings'),
@@ -255,6 +256,7 @@ async function screenFor(route: Route, ctx: Ctx): Promise<HTMLElement> {
     case 'scorecard': return (await SCREENS.scorecard()).scorecardScreen(ctx, route.eventId, route.teamId, route.areaId);
     case 'inspection': return (await SCREENS.inspection()).inspectionScreen(ctx, route.eventId, route.teamId, route.car);
     case 'racing': return (await SCREENS.racing()).racingScreen(ctx, route.eventId);
+    case 'graphics': return (await SCREENS.graphics()).graphicsScreen(ctx, route.eventId);
     case 'scores': return (await SCREENS.scores()).scoresScreen(ctx, route.eventId);
     case 'moderate': return (await SCREENS.moderation()).moderationScreen(ctx, route.eventId);
     case 'rankings': return (await SCREENS.rankings()).rankingsScreen(ctx, route.eventId);
