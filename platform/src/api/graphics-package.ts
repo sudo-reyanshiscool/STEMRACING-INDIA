@@ -9,7 +9,7 @@ export function graphicsTeamFolder(p:TeamBrandingProfile):string{
  return `${id}_${fileName(p.team.name)}`;
 }
 export function graphicsAssetPath(p:TeamBrandingProfile,key:string,name:string):string{
- const category:Record<string,string>={team_logo:'Logos',official_photo_original:'Team photos/Original',official_photo_approved:'Team photos/Approved cutout',car_render_fl:'Car renders/Front-left',car_render_fr:'Car renders/Front-right',car_model_3d:'3D models',model_materials:'3D models/Materials'};
+ const category:Record<string,string>={team_logo:'Logos',school_logo:'School logos',official_photo_original:'Team photos/Original',official_photo_approved:'Team photos/Approved cutout',car_render_fl:'Car renders/Front-left',car_render_fr:'Car renders/Front-right',car_model_3d:'3D models',model_materials:'3D models/Materials'};
  if(category[key])return category[key]+'/'+fileName(name);
  const i=p.members.findIndex(m=>m.assetKey===key);
  if(i<0)throw new ApiError('invalid','Unknown member portrait');
@@ -71,7 +71,7 @@ export async function buildGraphicsPackage(api:GraphicsApi,eventId:string,onProg
     return value;
    });
    const paths=new Map(p.assets.map(a=>[a.key,folder+'/'+graphicsAssetPath(p,a.key,a.name)]));
-   teamRows.push([id,name,p.team.school??'',city,...colours,...['team_logo','official_photo_original','official_photo_approved','car_render_fl','car_render_fr','car_model_3d','model_materials'].map(key=>paths.get(key)??'')]);
+   teamRows.push([id,name,p.team.school??'',city,...colours,...['team_logo','school_logo','official_photo_original','official_photo_approved','car_render_fl','car_render_fr','car_model_3d','model_materials'].map(key=>paths.get(key)??'')]);
    for(const [field,value] of [['School/institution',p.team.school],['City',city]])if(!value)missingInfo.push([id,name,field!,'Not recorded']);
    if(!p.members.length){missingInfo.push([id,name,'Member details','Not recorded']);missingAssets.push([id,name,'Member portraits','','No member details or portraits recorded']);}
    for(const m of p.members){
@@ -79,7 +79,7 @@ export async function buildGraphicsPackage(api:GraphicsApi,eventId:string,onProg
     if(!m.name)missingInfo.push([id,name,'Member name','Not recorded']);if(!m.role)missingInfo.push([id,name,'Member role','Not recorded']);
     if(!m.assetKey||!paths.has(m.assetKey))missingAssets.push([id,name,'Member portrait',m.name??'','Not available']);
    }
-   for(const [key,label] of [['team_logo','Logo'],['official_photo_original','Team photo'],['car_render_fl','Car render front-left'],['car_render_fr','Car render front-right'],['car_model_3d','3D model']])if(!p.assets.some(a=>a.key===key))missingAssets.push([id,name,label!,'','Not available']);
+   for(const [key,label] of [['team_logo','Logo'],['school_logo','School logo'],['official_photo_original','Team photo'],['car_render_fl','Car render front-left'],['car_render_fr','Car render front-right'],['car_model_3d','3D model']])if(!p.assets.some(a=>a.key===key))missingAssets.push([id,name,label!,'','Not available']);
    for(let start=0;start<p.assets.length;start+=3){
     const files=await Promise.all(p.assets.slice(start,start+3).map(async asset=>{
     stopped();onProgress?.(`${prefix} — Preparing ${asset.label.toLowerCase()}…`);

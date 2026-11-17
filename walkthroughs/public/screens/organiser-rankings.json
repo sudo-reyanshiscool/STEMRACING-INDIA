@@ -1,0 +1,47 @@
+[
+  {
+    "h": 44,
+    "text": "Toggle theme",
+    "y": 25
+  },
+  {
+    "h": 48,
+    "text": "Sign out",
+    "y": 23
+  },
+  {
+    "h": 46,
+    "text": "Rankings",
+    "y": 387
+  },
+  {
+    "h": 28,
+    "text": "Protest penalty",
+    "y": 2116
+  },
+  {
+    "h": 48,
+    "text": "Use the protest penalty (15 points)",
+    "y": 2335
+  },
+  {
+    "h": 48,
+    "text": "Add penalty",
+    "y": 2335
+  },
+  {
+    "h": 28,
+    "text": "Publish and release",
+    "y": 2419
+  },
+  {
+    "h": 48,
+    "text": "Publish ranking",
+    "y": 2916
+  },
+  {
+    "h": 48,
+    "text": "Release results to teams and the public",
+    "y": 2916
+  }
+]

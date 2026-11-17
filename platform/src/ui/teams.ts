@@ -17,8 +17,8 @@ export async function teamsScreen(ctx: Ctx, eventId: string): Promise<HTMLElemen
 
   const listHolder = h('div');
   const showTeams = async () => {
-    const contacts=canEdit?await ctx.api.listTeamContacts(eventId):[];
-    const teams = [...(await ctx.api.listTeams(eventId))].sort((a, b) => a.number.localeCompare(b.number, 'en', { numeric: true }));
+    const [contacts,loaded]=await Promise.all([canEdit?ctx.api.listTeamContacts(eventId):[],ctx.api.listTeams(eventId)]);
+    const teams = [...loaded].sort((a, b) => a.number.localeCompare(b.number, 'en', { numeric: true }));
     if (!alive) return;
     listHolder.replaceChildren(
       teams.length === 0

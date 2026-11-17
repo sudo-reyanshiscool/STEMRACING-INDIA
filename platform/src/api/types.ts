@@ -323,6 +323,8 @@ export interface Api {
   getCompulsoryAssets(eventId: string, teamId: string): Promise<TeamCompulsoryAssets>;
   saveTeamColours(eventId: string, teamId: string, colours: TeamColours, revision?: number): Promise<TeamColours>;
   saveTeamMemberPortraits(eventId: string, teamId: string, members: TeamMemberPortrait[], revision?: number): Promise<TeamMemberPortrait[]>;
+  /** Records the team's school. This is the same school shown in results and reports, not a separate copy. */
+  saveSchoolName(eventId: string, teamId: string, name: string, revision?: number): Promise<string>;
   uploadCompulsoryAsset(eventId: string, teamId: string, key: CompulsoryAssetKey, file: { name: string; mime: string; base64: string }, revision?: number): Promise<StoredCompulsoryFile>;
   downloadCompulsoryAsset(eventId: string, teamId: string, key: CompulsoryAssetKey): Promise<StoredCompulsoryFile>;
   deleteCompulsoryAsset(eventId: string, teamId: string, key: CompulsoryAssetKey): Promise<void>;

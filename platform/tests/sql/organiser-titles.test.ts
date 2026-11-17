@@ -44,3 +44,29 @@ it('grants real admin controls separately from titles and keeps private identiti
   expect((await as(x.db,'outsider',q=>q('select platform_access() as a'))).rows[0].a).toMatchObject({kind:'platform',canAdminister:false,displayTitle:'Platform Administrator'});
  }finally{await x.db.close();}
 });
+it('keeps the owner private with no organiser row, and refuses to make an existing row visible',async()=>{
+ const x=await seedWorld(await makeDb());
+ try{
+  await x.db.query("insert into platform_organisers(user_id,email,scope,granted_by) values($1,'invitee@x.test','platform',$2) on conflict(user_id) do update set scope='platform'",[ids.invitee,ids.admin]);
+  await x.db.query("insert into platform_organisers(user_id,email,scope,granted_by) values($1,'outsider@x.test','spectator',$2)",[ids.outsider,ids.admin]);
+  await x.db.query("insert into event_roles(event_id,user_id,role,email,display_name) values($1,$2,'organiser','reyanshg11111@gmail.com','')",[x.eventId,ids.admin]);
+  await x.db.query("insert into audit_log(event_id,actor,action,entity,detail) values($1,$2,'invite','invitations','{}')",[x.eventId,ids.admin]);
+  await x.db.query("insert into broadcast_emails(event_id,sender_id,sender_email,audience_type,subject,body) values($1,$2,'reyanshg11111@gmail.com','all_judges','Hello','Notice')",[x.eventId,ids.admin]);
+  const check=async()=>{for(const who of ['invitee','outsider','organiser','chair','mgr1'] as const){
+   const seen=JSON.stringify([
+    (await as(x.db,who,q=>q('select platform_access() as a'))).rows,
+    (await as(x.db,who,q=>q('select * from list_event_people($1)',[x.eventId]))).rows,
+    (await as(x.db,who,q=>q('select user_id,display_name from event_roles where event_id=$1',[x.eventId]))).rows,
+    (await as(x.db,who,q=>q('select * from audit_log where event_id=$1',[x.eventId]))).rows,
+    (await as(x.db,who,q=>q('select * from broadcast_emails where event_id=$1',[x.eventId]))).rows]);
+   expect(seen).not.toContain(ids.admin);expect(seen).not.toContain('reyanshg11111@gmail.com');
+  }};
+  await check();
+  await x.db.query("insert into platform_organisers(user_id,email,scope,granted_by,display_name) values($1,'reyanshg11111@gmail.com','platform',$1,'Reyansh')",[ids.admin]);
+  await x.db.query('update platform_organisers set hide_identity=false,hide_email=false where user_id=$1',[ids.admin]);
+  expect((await x.db.query('select hide_identity,hide_email from platform_organisers where user_id=$1',[ids.admin])).rows).toEqual([{hide_identity:true,hide_email:true}]);
+  await check();
+  expect((await as(x.db,'admin',q=>q('select platform_access() as a,is_platform_owner() as owner'))).rows[0]).toMatchObject({owner:true,a:{kind:'admin',ownerId:ids.admin}});
+  expect((await as(x.db,'admin',q=>q('select * from list_event_people($1)',[x.eventId]))).rows.some((r:any)=>r.user_id===ids.admin)).toBe(true);
+ }finally{await x.db.close();}
+});

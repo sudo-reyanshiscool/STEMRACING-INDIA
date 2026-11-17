@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
-import { ApiError, MemoryApi } from '../../src/api';
+import { ApiError } from '../../src/api';
+import { MemoryApi } from '../../src/api/memory';
 import { emailConfirmScreen } from '../../src/ui/email-confirm';
 import { readEmailCallback, clearEmailCallback } from '../../src/ui/email-callback';
 import { makeCtx, text } from './helpers';

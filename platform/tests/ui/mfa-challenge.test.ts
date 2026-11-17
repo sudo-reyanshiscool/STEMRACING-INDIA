@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
-import { MemoryApi } from '../../src/api';
+import { MemoryApi } from '../../src/api/memory';
 import { mfaChallengeScreen } from '../../src/ui/mfa-challenge';
 import { makeCtx, text } from './helpers';
 

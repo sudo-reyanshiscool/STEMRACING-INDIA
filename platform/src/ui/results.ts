@@ -3,6 +3,7 @@ import { ApiError, type CardRow, type FeedbackRow, type PenaltyRow, type TeamRow
 import type { RankRow, Ruleset } from '../engine';
 import { errorText, notFound, tag } from './common';
 import {resultDelivery} from './result-delivery';
+import { jsonDownloads } from './json-downloads';
 import type { Ctx } from './ctx';
 import { h } from './dom';
 import { routeHref } from './router';
@@ -56,9 +57,10 @@ export async function resultsScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
   if (!event) return notFound('These results have not been released, or the event was not found.', '#/', 'All events');
   const isStaff = roles.some((r) => r.role === 'organiser' || r.role === 'chair');
   const readStaff=isStaff||roles.some(r=>r.role==='spectator');
-  const delivery=isStaff?await resultDelivery(ctx,event):null;
   const managed = [...new Set(roles.filter((r) => r.role === 'team_manager' && r.teamId).map((r) => r.teamId as string))];
-  const latest = readStaff ? await ctx.api.latestSnapshot(eventId) : await ctx.api.publicStandings(eventId);
+  // Staff and read-only spectators; the Api decides again what each of them may read.
+  const downloads = readStaff ? jsonDownloads(ctx, event) : null;
+  const [delivery, latest] = await Promise.all([isStaff?resultDelivery(ctx,event):null, readStaff ? ctx.api.latestSnapshot(eventId) : ctx.api.publicStandings(eventId)]);
   const eventHref = signedIn ? routeHref({ name: 'event', eventId }) : '#/';
 
   // The Api already withholds unreleased snapshots from everyone but staff; checked again so a lax backend leaks nothing.
@@ -79,7 +81,7 @@ export async function resultsScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
     return h('div', { class: 'stack stack--lg' }, head,
       h('p', { class: 'lead' }, event.resultsReleased
         ? 'The ranking has not been published yet. Check back soon.'
-        : 'Results have not been released yet.'),delivery);
+        : 'Results have not been released yet.'),downloads,delivery);
   }
 
   const rows = snapshot.rows;
@@ -119,5 +121,5 @@ export async function resultsScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
     h('p', { class: 'notice' }, 'Final standings show total points only. Team managers can sign in to view their own teams’ detailed scores and feedback.'),
     anyTied ? h('p', { class: 'notice' }, 'Tied teams share a rank: they have equal total points and an equal tie-break score.') : null,
     h('p', { class: 'muted small' }, `Snapshot taken ${when(snapshot.createdAt)}.`),
-    table, mine, delivery);
+    table, mine, downloads, delivery);
 }

@@ -11,7 +11,9 @@ export type CompulsoryAssetKey =
   | 'model_materials'
   | 'official_photo'
   | 'team_colours'
-  | 'member_portraits';
+  | 'member_portraits'
+  | 'school_logo'
+  | 'school_name';
 
 export interface CompulsoryAssetSpec {
   num: number;
@@ -87,7 +89,27 @@ export const COMPULSORY_ASSET_SPECS: readonly CompulsoryAssetSpec[] = [
     specifications: 'High-resolution individual portrait photograph per registered team member with name and role',
     compulsory: true,
   },
+  {
+    num: 9,
+    key: 'school_logo',
+    name: 'School logo',
+    format: 'SVG preferred, PNG accepted',
+    specifications: 'Official logo of your school or institution, high resolution, transparent background',
+    compulsory: true,
+  },
+  {
+    num: 10,
+    key: 'school_name',
+    name: 'School name',
+    format: 'Text',
+    specifications: 'Full official name of your school or institution, as it should appear on screen and in print',
+    compulsory: true,
+  },
 ] as const;
+
+/** Every count shown to teams and organisers comes from the checklist itself. */
+export const COMPULSORY_ASSET_TOTAL = 10;
+export const SCHOOL_NAME_MAX = 120;
 
 export interface TeamColours {
   primary: string;
@@ -128,8 +150,11 @@ export interface TeamCompulsoryAssets {
   officialPhoto?: TeamPhoto;
   teamColours?: TeamColours;
   memberPortraits?: TeamMemberPortrait[];
+  schoolLogo?: StoredCompulsoryFile;
+  /** The team's school as recorded for the event; one value shared with results and reports. */
+  schoolName?: string;
   completedCount: number;
-  totalCount: 8;
+  totalCount: typeof COMPULSORY_ASSET_TOTAL;
   isAllCompleted: boolean;
   missingKeys: CompulsoryAssetKey[];
 }
@@ -195,7 +220,10 @@ export function computeCompulsoryAssetStatus(
   if (!raw.teamColours || !['primary','secondary','accent'].every(k=>/^#[A-Fa-f0-9]{6}$/.test(raw.teamColours![k as keyof TeamColours]))) missing.push('team_colours');
   if (!raw.memberPortraits?.length || raw.memberPortraits.some(m=>!m.name?.trim()||!m.role?.trim()||!m.photoBase64||!['image/jpeg','image/png'].includes(m.photoMime??''))) missing.push('member_portraits');
 
-  const completedCount = 8 - missing.length;
+  if (!raw.schoolLogo) missing.push('school_logo');
+  if (!raw.schoolName?.trim()) missing.push('school_name');
+
+  const completedCount = COMPULSORY_ASSET_TOTAL - missing.length;
   return {
     eventId,
     teamId,
@@ -208,13 +236,20 @@ export function computeCompulsoryAssetStatus(
     officialPhoto: raw.officialPhoto,
     teamColours: raw.teamColours,
     memberPortraits: raw.memberPortraits,
+    schoolLogo: raw.schoolLogo,
+    schoolName: raw.schoolName?.trim() || undefined,
     completedCount,
-    totalCount: 8,
-    isAllCompleted: completedCount === 8,
+    totalCount: COMPULSORY_ASSET_TOTAL,
+    isAllCompleted: completedCount === COMPULSORY_ASSET_TOTAL,
     missingKeys: missing,
   };
 }
 
+export function validateSchoolName(name:string):string {
+ const value=typeof name==='string'?name.trim():'';
+ if(!value||value.length>SCHOOL_NAME_MAX||/[\x00-\x1f]/.test(value))throw new ApiError('invalid',`Enter your school name (up to ${SCHOOL_NAME_MAX} characters).`);
+ return value;
+}
 export function validateMemberPortraits(members:TeamMemberPortrait[]):TeamMemberPortrait[] {
  if(!Array.isArray(members)||members.length>12)throw new ApiError('invalid','Provide up to 12 member portraits.');
  const ids=new Set<string>();
@@ -228,7 +263,7 @@ export function validateMemberPortraits(members:TeamMemberPortrait[]):TeamMember
  });
 }
 export function validateCompulsoryFile(key:CompulsoryAssetKey,file:{name:string;mime:string;base64:string}):{size:number;width:number|null;height:number|null} {
- if(key==='team_logo')return {size:validateTeamFile({...file,kind:'logo'}),width:null,height:null};
+ if(key==='team_logo'||key==='school_logo')return {size:validateTeamFile({...file,kind:'logo'}),width:null,height:null};
  if(!['car_render_fl','car_render_fr','car_model_3d','model_materials'].includes(key)||!file||typeof file.name!=='string'||!file.name.trim()||file.name.length>180||/[\x00-\x1f/\\]/.test(file.name))throw new ApiError('invalid','Invalid media file details.');
  const limit=(key.startsWith('car_render_')?25:50)*1024*1024;
  if(typeof file.base64!=='string'||!file.base64.length||file.base64.length>Math.ceil(limit/3)*4||file.base64.length%4||!/^[A-Za-z0-9+/]*={0,2}$/.test(file.base64))throw new ApiError('invalid','Invalid media file encoding or size.');

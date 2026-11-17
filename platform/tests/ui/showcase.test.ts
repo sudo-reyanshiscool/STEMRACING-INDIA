@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
-import { MemoryApi } from '../../src/api';
+import { MemoryApi } from '../../src/api/memory';
 import { SHOWCASE_EVENT_ID, exitShowcaseHref } from '../../src/api/showcase';
 import { showcaseSeed } from '../fixtures/showcase';
 import { buildShowcaseExamples } from '../../src/api/showcase-examples';

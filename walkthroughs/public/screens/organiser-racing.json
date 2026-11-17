@@ -1,0 +1,137 @@
+[
+  {
+    "h": 44,
+    "text": "Toggle theme",
+    "y": 25
+  },
+  {
+    "h": 48,
+    "text": "Sign out",
+    "y": 23
+  },
+  {
+    "h": 38,
+    "text": "Race control",
+    "y": 356
+  },
+  {
+    "h": 0,
+    "text": "Auto-generate heats",
+    "y": 0
+  },
+  {
+    "h": 48,
+    "text": "Download reaction heats PDF",
+    "y": 358
+  },
+  {
+    "h": 0,
+    "text": "Download knockout heats PDF",
+    "y": 0
+  },
+  {
+    "h": 25,
+    "text": "Race queue",
+    "y": 649
+  },
+  {
+    "h": 140,
+    "text": "HEAT 01 · ReactionReaction heat 1#001 Apex Racing / #002 Velocity WorksNo winner · eligible rerun",
+    "y": 690
+  },
+  {
+    "h": 25,
+    "text": "New pairing",
+    "y": 867
+  },
+  {
+    "h": 48,
+    "text": "Add pairing",
+    "y": 1087
+  },
+  {
+    "h": 27,
+    "text": "Reaction heat 1",
+    "y": 1231
+  },
+  {
+    "h": 48,
+    "text": "Save race result",
+    "y": 2076
+  },
+  {
+    "h": 48,
+    "text": "Reload saved race",
+    "y": 2076
+  },
+  {
+    "h": 48,
+    "text": "Queue lane-swapped race",
+    "y": 2140
+  },
+  {
+    "h": 48,
+    "text": "Queue eligible rerun",
+    "y": 2140
+  },
+  {
+    "h": 28,
+    "text": "Competition racing",
+    "y": 2253
+  },
+  {
+    "h": 46,
+    "text": "Racing setup and stage points",
+    "y": 2408
+  },
+  {
+    "h": 25,
+    "text": "Reaction racing and Fastest Car scoring",
+    "y": 2948
+  },
+  {
+    "h": 48,
+    "text": "Save racing setup",
+    "y": 3458
+  },
+  {
+    "h": 48,
+    "text": "Download reaction heats PDF",
+    "y": 3539
+  },
+  {
+    "h": 46,
+    "text": "Preview top-64 seeds · 0 finishers",
+    "y": 3620
+  },
+  {
+    "h": 48,
+    "text": "Approve knockout seeds",
+    "y": 3698
+  },
+  {
+    "h": 46,
+    "text": "Racing points",
+    "y": 3874
+  },
+  {
+    "h": 28,
+    "text": "Denford timing",
+    "y": 3979
+  },
+  {
+    "h": 48,
+    "text": "Capture next track run",
+    "y": 3973
+  },
+  {
+    "h": 48,
+    "text": "Pair track laptop",
+    "y": 4185
+  },
+  {
+    "h": 28,
+    "text": "Reaction racing standings",
+    "y": 4348
+  }
+]

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MemoryApi } from '../../src/api';
+import { MemoryApi } from '../../src/api/memory';
 
 describe('team concern memory backend',()=>{
  it('scopes submissions and responses to the correct roles and teams',async()=>{

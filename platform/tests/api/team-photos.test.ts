@@ -1,6 +1,6 @@
 import {watchGuide} from '../guide-helper';
 import { describe, expect, it } from 'vitest';
-import { MemoryApi } from '../../src/api';
+import { MemoryApi } from '../../src/api/memory';
 import { extractDimensions, checkResolution } from '../../src/api/team-photos';
 
 describe('team photos memory backend', () => {

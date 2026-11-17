@@ -1,0 +1,282 @@
+[
+  {
+    "h": 44,
+    "text": "Toggle theme",
+    "y": 25
+  },
+  {
+    "h": 48,
+    "text": "Sign out",
+    "y": 23
+  },
+  {
+    "h": 46,
+    "text": "Teams",
+    "y": 387
+  },
+  {
+    "h": 48,
+    "text": "Edit manager email",
+    "y": 586
+  },
+  {
+    "h": 48,
+    "text": "Delete team",
+    "y": 642
+  },
+  {
+    "h": 0,
+    "text": "Confirm delete team",
+    "y": 0
+  },
+  {
+    "h": 0,
+    "text": "Cancel",
+    "y": 0
+  },
+  {
+    "h": 48,
+    "text": "Edit manager email",
+    "y": 841
+  },
+  {
+    "h": 48,
+    "text": "Delete team",
+    "y": 897
+  },
+  {
+    "h": 0,
+    "text": "Confirm delete team",
+    "y": 0
+  },
+  {
+    "h": 0,
+    "text": "Cancel",
+    "y": 0
+  },
+  {
+    "h": 48,
+    "text": "Edit manager email",
+    "y": 1095
+  },
+  {
+    "h": 48,
+    "text": "Delete team",
+    "y": 1151
+  },
+  {
+    "h": 0,
+    "text": "Confirm delete team",
+    "y": 0
+  },
+  {
+    "h": 0,
+    "text": "Cancel",
+    "y": 0
+  },
+  {
+    "h": 48,
+    "text": "Edit manager email",
+    "y": 1350
+  },
+  {
+    "h": 48,
+    "text": "Delete team",
+    "y": 1406
+  },
+  {
+    "h": 0,
+    "text": "Confirm delete team",
+    "y": 0
+  },
+  {
+    "h": 0,
+    "text": "Cancel",
+    "y": 0
+  },
+  {
+    "h": 48,
+    "text": "Edit manager email",
+    "y": 1604
+  },
+  {
+    "h": 48,
+    "text": "Delete team",
+    "y": 1660
+  },
+  {
+    "h": 0,
+    "text": "Confirm delete team",
+    "y": 0
+  },
+  {
+    "h": 0,
+    "text": "Cancel",
+    "y": 0
+  },
+  {
+    "h": 48,
+    "text": "Edit manager email",
+    "y": 1859
+  },
+  {
+    "h": 48,
+    "text": "Delete team",
+    "y": 1915
+  },
+  {
+    "h": 0,
+    "text": "Confirm delete team",
+    "y": 0
+  },
+  {
+    "h": 0,
+    "text": "Cancel",
+    "y": 0
+  },
+  {
+    "h": 48,
+    "text": "Edit manager email",
+    "y": 2114
+  },
+  {
+    "h": 48,
+    "text": "Delete team",
+    "y": 2170
+  },
+  {
+    "h": 0,
+    "text": "Confirm delete team",
+    "y": 0
+  },
+  {
+    "h": 0,
+    "text": "Cancel",
+    "y": 0
+  },
+  {
+    "h": 48,
+    "text": "Edit manager email",
+    "y": 2368
+  },
+  {
+    "h": 48,
+    "text": "Delete team",
+    "y": 2424
+  },
+  {
+    "h": 0,
+    "text": "Confirm delete team",
+    "y": 0
+  },
+  {
+    "h": 0,
+    "text": "Cancel",
+    "y": 0
+  },
+  {
+    "h": 48,
+    "text": "Edit manager email",
+    "y": 2623
+  },
+  {
+    "h": 48,
+    "text": "Delete team",
+    "y": 2679
+  },
+  {
+    "h": 0,
+    "text": "Confirm delete team",
+    "y": 0
+  },
+  {
+    "h": 0,
+    "text": "Cancel",
+    "y": 0
+  },
+  {
+    "h": 48,
+    "text": "Edit manager email",
+    "y": 2877
+  },
+  {
+    "h": 48,
+    "text": "Delete team",
+    "y": 2933
+  },
+  {
+    "h": 0,
+    "text": "Confirm delete team",
+    "y": 0
+  },
+  {
+    "h": 0,
+    "text": "Cancel",
+    "y": 0
+  },
+  {
+    "h": 48,
+    "text": "Edit manager email",
+    "y": 3132
+  },
+  {
+    "h": 48,
+    "text": "Delete team",
+    "y": 3188
+  },
+  {
+    "h": 0,
+    "text": "Confirm delete team",
+    "y": 0
+  },
+  {
+    "h": 0,
+    "text": "Cancel",
+    "y": 0
+  },
+  {
+    "h": 48,
+    "text": "Edit manager email",
+    "y": 3387
+  },
+  {
+    "h": 48,
+    "text": "Delete team",
+    "y": 3443
+  },
+  {
+    "h": 0,
+    "text": "Confirm delete team",
+    "y": 0
+  },
+  {
+    "h": 0,
+    "text": "Cancel",
+    "y": 0
+  },
+  {
+    "h": 28,
+    "text": "Add a team",
+    "y": 3548
+  },
+  {
+    "h": 48,
+    "text": "Add team",
+    "y": 3783
+  },
+  {
+    "h": 28,
+    "text": "Import teams from CSV",
+    "y": 3867
+  },
+  {
+    "h": 48,
+    "text": "Import teams",
+    "y": 4184
+  },
+  {
+    "h": 48,
+    "text": "Clear file",
+    "y": 4184
+  }
+]

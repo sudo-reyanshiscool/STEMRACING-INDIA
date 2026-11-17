@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import {describe,expect,it,vi} from 'vitest';
-import {MemoryApi,ApiError} from '../../src/api';
+import { ApiError } from '../../src/api';
+import { MemoryApi } from '../../src/api/memory';
 import {eventsScreen} from '../../src/ui/events';
 import {makeCtx,text} from './helpers';
-const OWNER='reyanshg11111@gmail.com';
+const OWNER='owner@platform.invalid';
 describe('organiser access on Events',()=>{
  it('keeps the permanent owner visible without a revoke control and invites both organiser scopes',async()=>{
   const api=new MemoryApi();await api.signIn(OWNER);

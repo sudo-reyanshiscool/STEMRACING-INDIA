@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import {it,expect} from 'vitest';
-import {MemoryApi} from '../../src/api';
+import { MemoryApi } from '../../src/api/memory';
 import {organiserControls} from '../../src/ui/organisers';
 import {makeCtx} from './helpers';
 it('shows the organiser name when their email is hidden',()=>{

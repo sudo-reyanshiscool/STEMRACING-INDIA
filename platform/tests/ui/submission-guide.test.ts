@@ -2,7 +2,8 @@
 import {it,expect,vi,afterEach,beforeEach} from 'vitest';
 import {GuidePlayback,submissionGuide} from '../../src/ui/submission-guide';
 import {teamFilesScreen} from '../../src/ui/team-files';
-import {MemoryApi,SUBMISSION_GUIDE_DURATION} from '../../src/api';
+import { SUBMISSION_GUIDE_DURATION } from '../../src/api';
+import { MemoryApi } from '../../src/api/memory';
 import {makeCtx,world} from './helpers';
 import {watchGuide} from '../guide-helper';
 beforeEach(()=>{vi.spyOn(HTMLMediaElement.prototype,'pause').mockImplementation(()=>{});vi.spyOn(HTMLMediaElement.prototype,'load').mockImplementation(function(this:HTMLMediaElement){this.currentTime=0;});});
@@ -35,7 +36,7 @@ it('does not unlock via the Team files route, and reuses account completion afte
  first.leaves.forEach(f=>f());again.leaves.forEach(f=>f());
 });
 it('keeps two signed-in people’s progress separate and rejects untimed completion',async()=>{
- const api=new MemoryApi();await api.signIn('reyanshg11111@gmail.com');const e=await api.createEvent({name:'Guide test'});
+ const api=new MemoryApi();await api.signIn('owner@platform.invalid');const e=await api.createEvent({name:'Guide test'});
  await api.createTeam(e.id,{number:'1',name:'One',managerEmail:'first@x.test'});await api.createTeam(e.id,{number:'2',name:'Two',managerEmail:'second@x.test'});
  await api.signIn('first@x.test');await api.claimInvitations();
  expect((await api.recordSubmissionGuideProgress(e.id,SUBMISSION_GUIDE_DURATION)).complete).toBe(false);
@@ -69,7 +70,7 @@ it('unlocks guarded controls only after the complete normal-speed playback and s
 });
 
 it('hides the guide and unlocks uploads for the exempt account while other managers remain gated',async()=>{
- const api=new MemoryApi();await api.signIn('reyanshg11111@gmail.com');const event=await api.createEvent({name:'Exemption test'});
+ const api=new MemoryApi();await api.signIn('owner@platform.invalid');const event=await api.createEvent({name:'Exemption test'});
  await api.createTeam(event.id,{number:'001',name:'Supercharged',managerEmail:'supercharged@british-school.org'});
  await api.createTeam(event.id,{number:'002',name:'Other team',managerEmail:'other@x.test'});
  await api.signIn('supercharged@british-school.org');await api.claimInvitations();

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import {it,expect,vi,afterEach} from 'vitest';
-import {MemoryApi,PORTFOLIOS,submissionRow} from '../../src/api';
+import { PORTFOLIOS, submissionRow } from '../../src/api';
+import { MemoryApi } from '../../src/api/memory';
 import {submissionsScreen} from '../../src/ui/submissions';
 import {makeCtx} from './helpers';
 afterEach(()=>{vi.useRealTimers();document.body.replaceChildren();});
@@ -12,7 +13,7 @@ it('rounds only positive lateness up to started hours',()=>{
  expect(submissionRow('team',rule,null,at+3600001).points).toBe(10);
 });
 it('saves organiser deadlines, shows team penalties and prevents team rule changes',async()=>{
- const api=new MemoryApi();await api.signIn('reyanshg11111@gmail.com');const event=await api.createEvent({name:'Nationals'});const team=await api.createTeam(event.id,{number:'001',name:'Apex',managerEmail:'manager@x.test'});
+ const api=new MemoryApi();await api.signIn('owner@platform.invalid');const event=await api.createEvent({name:'Nationals'});const team=await api.createTeam(event.id,{number:'001',name:'Apex',managerEmail:'manager@x.test'});
  const {ctx}=makeCtx(api);const screen=await submissionsScreen(ctx,event.id);document.body.append(screen);
  expect(screen.textContent).toContain('Submission deadlines and penalties');
  expect(screen.querySelector<HTMLInputElement>('input[type=file]')?.accept).toBe('.pdf');

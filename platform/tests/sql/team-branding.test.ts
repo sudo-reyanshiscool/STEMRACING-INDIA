@@ -16,7 +16,7 @@ const file=async(key:string,version:string,who:Who|null='mgr1'):Promise<Branding
 const upload=()=>as(w.db,'mgr1',q=>q('select upload_compulsory_asset($1,$2,$3,$4::jsonb,0)',[w.eventId,w.team1,'team_logo',JSON.stringify({name:'logo.png',mime:'image/png',base64:png})]));
 const details=(key:string,value:unknown)=>as(w.db,'mgr1',q=>q('select save_team_media_details($1,$2,$3,$4::jsonb)',[w.eventId,w.team1,key,JSON.stringify(value)]));
 it('creates empty profiles automatically and updates from canonical assets and identity without regeneration',async()=>{
- const first=await profile();expect(first).toMatchObject({schemaVersion:1,assets:[],members:[],completedCount:0,totalCount:8});expect(first.missing).toHaveLength(8);
+ const first=await profile();expect(first).toMatchObject({schemaVersion:1,assets:[],members:[],completedCount:0,totalCount:10});expect(first.missing).toEqual(['team_logo','car_render_fl','car_render_fr','car_model_3d','model_materials','official_photo','team_colours','member_portraits','school_logo','school_name']);
  await upload();await details('team_colours',colours);await details('member_portraits',[{id:'m1',name:'../Sample member',role:'Engineer',fileName:'portrait.png',photoMime:'image/png',photoBase64:png}]);
  const p=await profile();expect(p).toMatchObject({colours,completedCount:3,members:[{name:'../Sample member',role:'Engineer',assetKey:'portrait:m1'}]});expect(p.version).not.toBe(first.version);expect(p.assets).toHaveLength(2);
  expect(JSON.stringify(p)).not.toContain('photoBase64');expect(JSON.stringify(p)).not.toContain(png);expect(JSON.stringify(p)).not.toContain('@');
@@ -54,4 +54,14 @@ it('offers a direct PDF from current images and preserves the same authorised so
 it('refuses a PDF when team assets change during rendering',async()=>{
  await upload();const p=await profile();
  await expect(buildTeamBrandingPdf({teamBrandingProfile:()=>profile(),downloadTeamBrandAsset:(_e,_t,k,v)=>file(k,v)},p,undefined,resources,async()=>{await details('team_colours',colours);return pdfBytes;})).rejects.toThrow(/changed/);
+});
+
+it('adds the school logo and school name to the profile and serves the logo bytes',async()=>{
+ await details('school_name',{name:'  The British School  '});
+ await as(w.db,'mgr1',q=>q('select upload_compulsory_asset($1,$2,$3,$4::jsonb,0)',[w.eventId,w.team1,'school_logo',JSON.stringify({name:'school.png',mime:'image/png',base64:png})]));
+ const p=await profile();expect(p.team.school).toBe('The British School');expect(p.completedCount).toBe(2);expect(p.missing).not.toContain('school_logo');expect(p.missing).not.toContain('school_name');
+ expect(p.assets).toEqual([expect.objectContaining({key:'school_logo',label:'School logo',name:'school.png',mime:'image/png',width:1,height:1})]);
+ expect((await file('school_logo',p.version)).base64).toBe(png);
+ const pack=unzipSync(await buildBrandingArchive({teamBrandingProfile:()=>profile(),downloadTeamBrandAsset:(_e,_t,k,v)=>file(k,v)},p,undefined,resources,renderPdf));
+ expect(Buffer.from(pack['identity/school-logo.png']).toString('base64')).toBe(png);expect(strFromU8(pack['README.txt'])).toContain('2/10 media categories submitted');
 });

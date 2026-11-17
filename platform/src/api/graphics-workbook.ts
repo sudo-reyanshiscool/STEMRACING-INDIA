@@ -1,5 +1,5 @@
 import {zipSync,strToU8} from 'fflate';
-export const GRAPHICS_TEAM_HEADERS=['Team ID','Team name','School/institution','City','Primary colour HEX','Secondary colour HEX','Accent colour HEX','Logo file path','Team photo file path','Approved team photo file path','Car render front-left file path','Car render front-right file path','3D model file path','Materials file path'];
+export const GRAPHICS_TEAM_HEADERS=['Team ID','Team name','School/institution','City','Primary colour HEX','Secondary colour HEX','Accent colour HEX','Logo file path','School logo file path','Team photo file path','Approved team photo file path','Car render front-left file path','Car render front-right file path','3D model file path','Materials file path'];
 export const GRAPHICS_MEMBER_HEADERS=['Team ID','Member name','Role','Portrait file path'];
 /** Literal inline strings preserve identifiers and names without evaluating formulas. */
 const xml=(value:string)=>value.replace(/_x([0-9a-f]{4})_/gi,'_x005F_x$1_').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\r]/g,c=>`_x${c.charCodeAt(0).toString(16).padStart(4,'0').toUpperCase()}_`).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]!));
@@ -25,7 +25,7 @@ export function graphicsWorkbook(teams:string[][],members:string[][]):Uint8Array
   'xl/workbook.xml':`<?xml version="1.0"?><workbook xmlns="${NS}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><bookViews><workbookView/></bookViews><sheets><sheet name="Teams" sheetId="1" r:id="rId1"/><sheet name="Members" sheetId="2" r:id="rId2"/></sheets></workbook>`,
   'xl/_rels/workbook.xml.rels':'<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>',
   'xl/styles.xml':styles,
-  'xl/worksheets/sheet1.xml':sheet(GRAPHICS_TEAM_HEADERS,teams,[14,34,34,22,25,25,25,68,68,68,68,68,68,68],true),
+  'xl/worksheets/sheet1.xml':sheet(GRAPHICS_TEAM_HEADERS,teams,[14,34,34,22,25,25,25,68,68,68,68,68,68,68,68],true),
   'xl/worksheets/sheet2.xml':sheet(GRAPHICS_MEMBER_HEADERS,members,[14,32,44,80]),
  };
  return new Uint8Array(zipSync(Object.fromEntries(Object.entries(parts).map(([k,v])=>[k,strToU8(v)])),{level:6}));

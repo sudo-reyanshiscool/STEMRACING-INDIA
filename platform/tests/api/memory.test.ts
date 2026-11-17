@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { ApiError, MemoryApi } from '../../src/api';
+import { ApiError } from '../../src/api';
+import { MemoryApi } from '../../src/api/memory';
 import { releaseResults } from '../ui/helpers';
 
 const ORG = 'org@x.test';

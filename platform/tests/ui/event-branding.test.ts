@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import {it,expect,vi,afterEach} from 'vitest';
-import {MemoryApi,type EventLogos} from '../../src/api';
+import { type EventLogos } from '../../src/api';
+import { MemoryApi } from '../../src/api/memory';
 import {eventsScreen} from '../../src/ui/events';
 import {mountShell} from '../../src/ui/shell';
 import {makeCtx} from './helpers';
 const logo={name:'logo.png',mime:'image/png' as const,base64:'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='};
 afterEach(()=>{document.body.replaceChildren();vi.restoreAllMocks();});
-async function setup(){const api=new MemoryApi();await api.signIn('reyanshg11111@gmail.com');return {api,...makeCtx(api)};}
+async function setup(){const api=new MemoryApi();await api.signIn('owner@platform.invalid');return {api,...makeCtx(api)};}
 it('previews regional branding by default and requires this event’s four national logos',async()=>{
  const {api,ctx}=await setup();const create=vi.spyOn(api,'createEvent');const root=await eventsScreen(ctx);document.body.append(root);
  const selector=root.querySelector<HTMLSelectElement>('[name=level]')!;expect(selector.value).toBe('regional');expect(root.querySelector('img[alt="Regional finals logo"]')).not.toBeNull();
@@ -28,6 +29,10 @@ it('selects light/dark nationals logos and clears identity when leaving an event
  shell.setBranding({level:'national',logos:{monoBlack:logo,monoWhite:logo,light:logo,dark:{...logo,base64:logo.base64+'different'}}});
  expect(root.querySelector<HTMLImageElement>('.brand-logo--light')!.src).toBe(`data:image/png;base64,${logo.base64}`);
  expect(root.querySelector<HTMLImageElement>('.brand-logo--dark')!.alt).toContain('National');
- shell.setBranding({level:'regional',logos:null});expect(root.querySelector('.brand-home')!.classList.contains('brand-home--regional')).toBe(true);
- shell.setBranding(null);expect(root.querySelector<HTMLImageElement>('.brand-logo--light')!.getAttribute('src')).toBe('/brand/logo-india-mono-black.png');expect(root.querySelector('.brand-home')!.classList.contains('brand-home--regional')).toBe(false);
+ shell.setBranding({level:'regional',logos:null});expect(root.querySelector<HTMLImageElement>('.brand-logo--light')!.getAttribute('src')).toBe('/brand/logo-regional-finals-black.png');expect(root.querySelector<HTMLImageElement>('.brand-logo--dark')!.getAttribute('src')).toBe('/brand/logo-regional-finals-white.png');
+ shell.setBranding(null);const light=root.querySelector<HTMLImageElement>('.brand-logo--light')!,dark=root.querySelector<HTMLImageElement>('.brand-logo--dark')!;
+ expect(light.getAttribute('src')).toBe('/brand/logo-india-colour-black.png');expect(dark.getAttribute('src')).toBe('/brand/logo-india-colour-white.png');
+ // Full colour first; the monochrome mark only if the full-colour file cannot be shown. No plate behind either.
+ light.dispatchEvent(new Event('error'));expect(light.getAttribute('src')).toBe('/brand/logo-india-mono-black.png');
+ expect(root.querySelector('.brand-home')!.className).toBe('brand-home');
 });

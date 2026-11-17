@@ -53,8 +53,12 @@ describe('permanent administrator and scoped organisers',()=>{
    await expect(as(db,actor,q=>q('select remove_organiser($1)',[ids.admin]))).rejects.toThrow(/permanent/);
    await expect(as(db,actor,q=>q("select invite_organiser($1,'competition')",[EMAIL.admin]))).rejects.toThrow(/permanent/);
    await expect(as(db,actor,q=>q('delete from platform_owner'))).rejects.toThrow(/permission denied/);
-   await expect(as(db,actor,q=>q("delete from event_roles where event_id=$1 and user_id=$2 and role='organiser'",[event.id,ids.admin]))).rejects.toThrow(/permanent/);
-   await expect(as(db,actor,q=>q("update event_roles set role='chair' where event_id=$1 and user_id=$2",[event.id,ids.admin]))).rejects.toThrow(/permanent/);
+   // The owner's role is invisible to everyone else, so their attempts match no row; the owner's own attempts are refused.
+   const remove=as(db,actor,q=>q("delete from event_roles where event_id=$1 and user_id=$2 and role='organiser'",[event.id,ids.admin]));
+   const demote=as(db,actor,q=>q("update event_roles set role='chair' where event_id=$1 and user_id=$2",[event.id,ids.admin]));
+   if(actor==='admin'){await expect(remove).rejects.toThrow(/permanent/);await expect(demote).rejects.toThrow(/permanent/);}
+   else{expect((await remove).affectedRows).toBe(0);expect((await demote).affectedRows).toBe(0);}
+   expect((await db.query("select role from event_roles where event_id=$1 and user_id=$2",[event.id,ids.admin])).rows).toEqual([{role:'organiser'}]);
   }
   await expect(db.exec('delete from platform_owner')).rejects.toThrow(/permanent/);
  });

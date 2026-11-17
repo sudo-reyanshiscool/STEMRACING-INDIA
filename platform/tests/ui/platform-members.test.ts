@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import {afterEach,describe,it,expect,vi} from 'vitest';
-import {MemoryApi} from '../../src/api';
+import { MemoryApi } from '../../src/api/memory';
 import {eventsScreen} from '../../src/ui/events';
 import {eventHomeScreen} from '../../src/ui/event-home';
 import {eventNav} from '../../src/ui/event-nav';
@@ -10,7 +10,7 @@ import {moderationScreen} from '../../src/ui/moderation';
 import {scoresScreen} from '../../src/ui/scores';
 import {makeCtx} from './helpers';
 let cleanup:Array<()=>void>=[];afterEach(()=>{cleanup.forEach(f=>f());cleanup=[];vi.restoreAllMocks();document.body.replaceChildren();});
-const OWNER='reyanshg11111@gmail.com',SPECTATOR='spectator@x.test',ORG='organiser@x.test';
+const OWNER='owner@platform.invalid',SPECTATOR='spectator@x.test',ORG='organiser@x.test';
 async function fixture(){const api=new MemoryApi();await api.signIn(OWNER);const ev=await api.createEvent({name:'Nationals'});await api.createTeam(ev.id,{number:'001',name:'Apex'});return {api,ev};}
 function context(api:MemoryApi){const c=makeCtx(api);cleanup.push(...c.leaves);return c.ctx;}
 describe('owner-only platform member controls',()=>{

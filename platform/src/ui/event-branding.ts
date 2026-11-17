@@ -1,9 +1,10 @@
 import {COMPETITION_LEVEL_LABEL,eventLogoSource,type EventBranding,type EventRow} from '../api';
 import {h} from './dom';
 export function eventIdentity(event:EventRow,branding:EventBranding){
- const src=eventLogoSource(branding,true);if(!event.competitionLevel||!src)return null;
+ const light=eventLogoSource(branding,false),dark=eventLogoSource(branding,true);if(!event.competitionLevel||!light||!dark)return null;
+ const alt=`STEM Racing India · ${COMPETITION_LEVEL_LABEL[event.competitionLevel]}`;
  return h('section',{class:'event-identity','aria-label':`${COMPETITION_LEVEL_LABEL[event.competitionLevel]} identity`},
-  h('img',{src,alt:`STEM Racing India · ${COMPETITION_LEVEL_LABEL[event.competitionLevel]}`,class:'event-identity__logo'}),
+  h('img',{src:light,alt,class:'event-identity__logo brand-logo--light'}),h('img',{src:dark,alt,class:'event-identity__logo brand-logo--dark'}),
   h('div',null,h('p',{class:'eyebrow'},COMPETITION_LEVEL_LABEL[event.competitionLevel]),h('p',{class:'event-identity__name'},event.name)));
 }
 export async function readEventLogo(file:File){

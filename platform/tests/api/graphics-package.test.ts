@@ -10,7 +10,7 @@ import {ApiError} from '../../src/api/types';
 const png=readFileSync(new URL('../fixtures/event-logo.png',import.meta.url));
 const cell=(xml:string,address:string)=>xml.match(new RegExp(`<c r="${address}"[^>]*>.*?<t[^>]*>(.*?)</t>.*?</c>`,'s'))?.[1]??'';
 async function fixture(){
- const api=new MemoryApi();await api.signIn('reyanshg11111@gmail.com');const event=await api.createEvent({name:'Graphics Event'});
+ const api=new MemoryApi();await api.signIn('owner@platform.invalid');const event=await api.createEvent({name:'Graphics Event'});
  const team=await api.createTeam(event.id,{number:'001',name:'Crimson FALCONS & Co',school:'School Exact'});await api.createTeam(event.id,{number:'002',name:'Athena'});
  await api.uploadCompulsoryAsset(event.id,team.id,'team_logo',{name:'Original Logo.png',mime:'image/png',base64:png.toString('base64')},0);
  await api.saveTeamMemberPortraits(event.id,team.id,[{id:'jane',name:'JanE',role:'Design ENGINEER',fileName:'Original Portrait.png',photoMime:'image/png',photoBase64:png.toString('base64')}]);
@@ -75,8 +75,8 @@ it('downloads at most three assets concurrently while preserving every included 
  expect(maximum).toBe(3);expect(Object.keys(files).filter(p=>p.endsWith('.png'))).toHaveLength(4);
 });
 it('preserves formula-looking names as literal Excel text and keeps CSV reports safe',()=>{
- const row=['001','=1+1','A & B','',...Array(10).fill('')];const file=unzipSync(graphicsWorkbook([row],[['001','<Name>','Role','']]));
+ const row=['001','=1+1','A & B','',...Array(11).fill('')];const file=unzipSync(graphicsWorkbook([row],[['001','<Name>','Role','']]));
  const xml=strFromU8(file['xl/worksheets/sheet1.xml']);expect(cell(xml,'B2')).toBe('=1+1');expect(xml).not.toContain('<f>');expect(cell(xml,'C2')).toBe('A &amp; B');
- expect(GRAPHICS_TEAM_HEADERS).toHaveLength(14);expect(GRAPHICS_MEMBER_HEADERS).toHaveLength(4);expect(graphicsCsv([['=1+1','a,b']])).toContain('"\'=1+1","a,b"');
+ expect(GRAPHICS_TEAM_HEADERS).toHaveLength(15);expect(GRAPHICS_TEAM_HEADERS[8]).toBe('School logo file path');expect(GRAPHICS_MEMBER_HEADERS).toHaveLength(4);expect(graphicsCsv([['=1+1','a,b']])).toContain('"\'=1+1","a,b"');
  expect(()=>graphicsTeamFolder({team:{number:'../1',name:'Name'}} as TeamBrandingProfile)).toThrow();
 });

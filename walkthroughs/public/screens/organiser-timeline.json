@@ -1,0 +1,277 @@
+[
+  {
+    "h": 44,
+    "text": "Toggle theme",
+    "y": 25
+  },
+  {
+    "h": 48,
+    "text": "Sign out",
+    "y": 23
+  },
+  {
+    "h": 46,
+    "text": "Scheduling & Streams",
+    "y": 347
+  },
+  {
+    "h": 48,
+    "text": "Save draft",
+    "y": 624
+  },
+  {
+    "h": 48,
+    "text": "Publish schedule",
+    "y": 624
+  },
+  {
+    "h": 48,
+    "text": "Streams",
+    "y": 729
+  },
+  {
+    "h": 48,
+    "text": "Master schedule",
+    "y": 729
+  },
+  {
+    "h": 48,
+    "text": "Event setup",
+    "y": 729
+  },
+  {
+    "h": 48,
+    "text": "Judging exemptions",
+    "y": 785
+  },
+  {
+    "h": 48,
+    "text": "Change history",
+    "y": 785
+  },
+  {
+    "h": 46,
+    "text": "Validation · 0 blocking errors · 0 warnings",
+    "y": 869
+  },
+  {
+    "h": 54,
+    "text": "Tue, 1 June 2027",
+    "y": 1271
+  },
+  {
+    "h": 29,
+    "text": "Opening Ceremony",
+    "y": 1399
+  },
+  {
+    "h": 48,
+    "text": "Edit appointment",
+    "y": 1515
+  },
+  {
+    "h": 48,
+    "text": "Remove appointment",
+    "y": 1575
+  },
+  {
+    "h": 29,
+    "text": "Racing — Team 001",
+    "y": 1723
+  },
+  {
+    "h": 48,
+    "text": "Edit appointment",
+    "y": 1874
+  },
+  {
+    "h": 48,
+    "text": "Remove appointment",
+    "y": 1934
+  },
+  {
+    "h": 29,
+    "text": "Racing — Team 002",
+    "y": 2082
+  },
+  {
+    "h": 48,
+    "text": "Edit appointment",
+    "y": 2233
+  },
+  {
+    "h": 48,
+    "text": "Remove appointment",
+    "y": 2293
+  },
+  {
+    "h": 29,
+    "text": "Racing — Team 003",
+    "y": 2440
+  },
+  {
+    "h": 48,
+    "text": "Edit appointment",
+    "y": 2592
+  },
+  {
+    "h": 48,
+    "text": "Remove appointment",
+    "y": 2652
+  },
+  {
+    "h": 29,
+    "text": "Racing — Team 004",
+    "y": 2799
+  },
+  {
+    "h": 48,
+    "text": "Edit appointment",
+    "y": 2950
+  },
+  {
+    "h": 48,
+    "text": "Remove appointment",
+    "y": 3010
+  },
+  {
+    "h": 29,
+    "text": "Racing — Team 005",
+    "y": 3158
+  },
+  {
+    "h": 48,
+    "text": "Edit appointment",
+    "y": 3309
+  },
+  {
+    "h": 48,
+    "text": "Remove appointment",
+    "y": 3369
+  },
+  {
+    "h": 29,
+    "text": "Racing — Team 006",
+    "y": 3517
+  },
+  {
+    "h": 48,
+    "text": "Edit appointment",
+    "y": 3668
+  },
+  {
+    "h": 48,
+    "text": "Remove appointment",
+    "y": 3728
+  },
+  {
+    "h": 29,
+    "text": "Racing — Team 007",
+    "y": 3876
+  },
+  {
+    "h": 48,
+    "text": "Edit appointment",
+    "y": 4027
+  },
+  {
+    "h": 48,
+    "text": "Remove appointment",
+    "y": 4087
+  },
+  {
+    "h": 29,
+    "text": "Racing — Team 008",
+    "y": 4235
+  },
+  {
+    "h": 48,
+    "text": "Edit appointment",
+    "y": 4386
+  },
+  {
+    "h": 48,
+    "text": "Remove appointment",
+    "y": 4446
+  },
+  {
+    "h": 29,
+    "text": "Racing — Team 009",
+    "y": 4593
+  },
+  {
+    "h": 48,
+    "text": "Edit appointment",
+    "y": 4745
+  },
+  {
+    "h": 48,
+    "text": "Remove appointment",
+    "y": 4805
+  },
+  {
+    "h": 29,
+    "text": "Racing — Team 010",
+    "y": 4952
+  },
+  {
+    "h": 48,
+    "text": "Edit appointment",
+    "y": 5104
+  },
+  {
+    "h": 48,
+    "text": "Remove appointment",
+    "y": 5164
+  },
+  {
+    "h": 29,
+    "text": "Racing — Team 011",
+    "y": 5311
+  },
+  {
+    "h": 48,
+    "text": "Edit appointment",
+    "y": 5462
+  },
+  {
+    "h": 48,
+    "text": "Remove appointment",
+    "y": 5522
+  },
+  {
+    "h": 29,
+    "text": "Racing — Team 012",
+    "y": 5670
+  },
+  {
+    "h": 48,
+    "text": "Edit appointment",
+    "y": 5821
+  },
+  {
+    "h": 48,
+    "text": "Remove appointment",
+    "y": 5881
+  },
+  {
+    "h": 46,
+    "text": "Generate team appointment slots",
+    "y": 5990
+  },
+  {
+    "h": 48,
+    "text": "Generate slot preview",
+    "y": 6634
+  },
+  {
+    "h": 28,
+    "text": "New activity",
+    "y": 6093
+  },
+  {
+    "h": 48,
+    "text": "Add to draft",
+    "y": 6783
+  }
+]

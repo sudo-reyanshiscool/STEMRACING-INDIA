@@ -6,7 +6,7 @@ import {brandingProfileHtml} from '../../src/api/team-branding';
 import {world,makeCtx,EMAILS} from './helpers';
 it('shows only managed profiles with missing assets, downloads and a submissions link',async()=>{
  const {api,ev,t1}=await world();const root=await teamBrandingScreen(makeCtx(api).ctx,ev.id);
- expect(root.querySelectorAll('option')).toHaveLength(1);expect(root.querySelector('option')!.value).toBe(t1.id);expect(root.textContent).toContain('0 of 8');expect(root.textContent).toContain('Download branding pack');expect(root.textContent).toContain('Download PDF');expect(root.querySelector('a[href$="/submissions"]')).not.toBeNull();
+ expect(root.querySelectorAll('option')).toHaveLength(1);expect(root.querySelector('option')!.value).toBe(t1.id);expect(root.textContent).toContain('0 of 10');expect(root.textContent).toContain('Download branding pack');expect(root.textContent).toContain('Download PDF');expect(root.querySelector('a[href$="/submissions"]')).not.toBeNull();
  expect(root.textContent).not.toContain('Two');
 });
 it('lets organisers choose all teams and refuses judges',async()=>{
@@ -17,7 +17,7 @@ it('escapes team content in downloadable HTML and keeps it offline',async()=>{
  const {api,ev,t1}=await world();const p=await api.teamBrandingProfile(ev.id,t1.id);p.team.name='<script>alert(1)</script>';const html=brandingProfileHtml(p);expect(html).toContain('&lt;script&gt;');expect(html).not.toContain('<script>');expect(html).toContain("default-src 'none'");expect(html).not.toContain('https://');
 });
 it('shows server errors without inventing an empty profile',async()=>{
- const {api,ev}=await world();vi.spyOn(api,'teamBrandingProfile').mockRejectedValue(Error('Offline'));const root=await teamBrandingScreen(makeCtx(api).ctx,ev.id);expect(root.querySelector('[role=status]')!.textContent).toContain('Something went wrong');expect(root.textContent).not.toContain('0 of 8');
+ const {api,ev}=await world();vi.spyOn(api,'teamBrandingProfile').mockRejectedValue(Error('Offline'));const root=await teamBrandingScreen(makeCtx(api).ctx,ev.id);expect(root.querySelector('[role=status]')!.textContent).toContain('Something went wrong');expect(root.textContent).not.toContain('0 of 10');
 });
 it('offers the all-team pack to event staff only',async()=>{
  const {api,ev}=await world();

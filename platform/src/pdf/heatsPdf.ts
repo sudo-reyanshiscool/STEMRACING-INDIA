@@ -2,6 +2,7 @@ import {drawNationalLogo,type ReportBranding} from '../../supabase/functions/_sh
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { RaceHeat, RaceLane } from '../racing';
+import { formatHeatNumber } from '../racing/heats-export';
 import type { TeamRow } from '../api';
 import { REGIONAL_FINALS_LOGO, BRAND_GRADIENT, MAGISTRAL_BOLD_ITALIC_FONT } from './heats-branding';
 
@@ -44,20 +45,7 @@ function formatLaneTeam(lane: RaceLane, teams: TeamRow[]): string {
   return `${teamLabel} (Car ${lane.car})`;
 }
 
-/** Formats heat numbering: RR-H01 for reaction; KR-H01 for knockout races */
-export function formatHeatNumber(heat: RaceHeat, fallbackIndex: number): string {
-  if (heat.phase === 'reaction') {
-    const m = heat.label.match(/RR-(?:H)?(\d+)/i);
-    if (m) return `RR-H${m[1].padStart(2, '0')}`;
-    return `RR-H${String(fallbackIndex + 1).padStart(2, '0')}`;
-  }
-  // Knockout heats start from KR-H01
-  const m = heat.label.match(/KR-(?:H)?(\d+)/i);
-  if (m) return `KR-H${m[1].padStart(2, '0')}`;
-  const slot = heat.bracket?.slot;
-  if (typeof slot === 'number' && slot >= 1) return `KR-H${String(slot).padStart(2, '0')}`;
-  return `KR-H${String(fallbackIndex + 1).padStart(2, '0')}`;
-}
+export { formatHeatNumber };
 
 function registerFonts(doc: jsPDF): void {
   doc.addFileToVFS('Magistral-BoldItalic.ttf', MAGISTRAL_BOLD_ITALIC_FONT);

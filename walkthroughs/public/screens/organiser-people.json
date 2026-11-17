@@ -1,0 +1,77 @@
+[
+  {
+    "h": 44,
+    "text": "Toggle theme",
+    "y": 25
+  },
+  {
+    "h": 48,
+    "text": "Sign out",
+    "y": 23
+  },
+  {
+    "h": 46,
+    "text": "People",
+    "y": 387
+  },
+  {
+    "h": 28,
+    "text": "Invite someone or add an assignment",
+    "y": 567
+  },
+  {
+    "h": 48,
+    "text": "Send invitation",
+    "y": 865
+  },
+  {
+    "h": 28,
+    "text": "Judge assignments",
+    "y": 949
+  },
+  {
+    "h": 48,
+    "text": "Save assignment",
+    "y": 1350
+  },
+  {
+    "h": 28,
+    "text": "Judge exemptions",
+    "y": 1434
+  },
+  {
+    "h": 48,
+    "text": "Exempt judge from team",
+    "y": 1809
+  },
+  {
+    "h": 28,
+    "text": "People",
+    "y": 1934
+  },
+  {
+    "h": 48,
+    "text": "Remove",
+    "y": 2152
+  },
+  {
+    "h": 48,
+    "text": "Remove assignment",
+    "y": 2342
+  },
+  {
+    "h": 48,
+    "text": "Remove assignment",
+    "y": 2533
+  },
+  {
+    "h": 48,
+    "text": "Remove",
+    "y": 2723
+  },
+  {
+    "h": 28,
+    "text": "Invitations waiting",
+    "y": 2828
+  }
+]

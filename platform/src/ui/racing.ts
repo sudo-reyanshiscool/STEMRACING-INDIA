@@ -1,3 +1,5 @@
+import { saveJson } from './json-downloads';
+import { heatsExport, heatMatchupsExport, heatsJsonFileName } from '../racing/heats-export';
 import { buttonBusy } from './button-busy';
 import { competitionPanel } from './racing-competition';
 import { defaultRacingSetup, adjustedTime, carCheck } from '../racing/competition';
@@ -12,9 +14,9 @@ export async function racingScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
   const [event, roles, teams] = await Promise.all([ctx.api.getEvent(eventId), ctx.api.myRoles(eventId), ctx.api.listTeams(eventId)]);
   if (!event || !roles.length || (roles.every(r => r.role === 'team_manager') && !event.resultsReleased)) return notFound('Race control is not available to this account.');
   const canEdit = !event.resultsReleased && roles.some(r => ['organiser','chair','race_official'].includes(r.role));
-  let races = await ctx.api.listRaces(eventId), selected: RaceHeat | null = null, dirty = false, alive = true;
   const staff = roles.some(r=>r.role!=='team_manager');
-  let [setup, inspections] = await Promise.all([staff?ctx.api.getRacingSetup(eventId):Promise.resolve(defaultRacingSetup()),staff?ctx.api.listInspections(eventId):Promise.resolve([])]);
+  let [races, setup, inspections] = await Promise.all([ctx.api.listRaces(eventId),staff?ctx.api.getRacingSetup(eventId):Promise.resolve(defaultRacingSetup()),staff?ctx.api.listInspections(eventId):Promise.resolve([])]);
+  let selected: RaceHeat | null = null, dirty = false, alive = true;
   let captureNeedsFinish = false;
   let source: RaceInput['source'] = 'manual', sourceRunId: string | null = null;
   let timing: TimingState | null = null, armed: { heat: string; connection: string; baseline: string } | null = null;
@@ -32,6 +34,17 @@ export async function racingScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
   const autoGenBtn = h('button', { class:'btn btn--primary', type:'button' }, 'Auto-generate heats');
   const downloadReactionPdfBtn = h('button', { class:'btn btn--ghost', type:'button' }, 'Download reaction heats PDF');
   const downloadKnockoutPdfBtn = h('button', { class:'btn btn--ghost', type:'button' }, 'Download knockout heats PDF');
+  const downloadHeatsJsonBtn = h('button', { class:'btn btn--ghost', type:'button', title:'Every heat with lanes, cars, statuses and times' }, 'Download heats JSON');
+  const downloadGraphicsJsonBtn = h('button', { class:'btn btn--ghost', type:'button', title:'One entry per pairing, team against team. Cars, lanes, lane swaps and reruns are merged.' }, 'Download graphics JSON');
+  for (const [button, kind] of [[downloadHeatsJsonBtn, 'heats'], [downloadGraphicsJsonBtn, 'graphics']] as const) button.addEventListener('click', () => {
+    if (!races.length) return;
+    error.hidden = true;
+    try {
+      const input = { event, teams, races };
+      saveJson(kind === 'heats' ? heatsExport(input) : heatMatchupsExport(input), heatsJsonFileName(event.name, kind));
+      status.textContent = kind === 'heats' ? 'Heats JSON downloaded.' : 'Graphics JSON downloaded: one entry per team pairing.';
+    } catch (e) { if (alive) reportActionError(ctx, error, e); }
+  });
   const teamName = (id: string) => { const t = teams.find(t => t.id === id); return t ? `#${t.number} ${t.name}` : 'Unavailable team'; };
   const table = (head: string[], rows: HTMLElement[]) => h('table', { class:'table' }, h('thead',null,h('tr',null,head.map(x => h('th',{scope:'col'},x)))),h('tbody',null,rows));
   const fail = (e: unknown) => reportActionError(ctx,error,e,{invalid:'Check the lane values and correction reason. Finished runs need total and reaction times; other statuses must have no times.',duplicate:'That track run has already been saved. Select its existing race record.'});
@@ -105,6 +118,7 @@ export async function racingScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
     autoGenBtn.hidden = !canEdit || hasReaction || teams.length < 1;
     downloadReactionPdfBtn.hidden = !hasReaction;
     downloadKnockoutPdfBtn.hidden = !hasKnockout;
+    downloadHeatsJsonBtn.hidden = downloadGraphicsJsonBtn.hidden = !races.length;
     counters.replaceChildren(...[['Recorded heats',races.filter(raceRecorded).length],['Queued heats',races.filter(r => !raceRecorded(r)).length],['Teams entered',teams.length]].map(([label,value]) => h('div',null,h('strong',null,value),h('span',null,label))));
     queue.replaceChildren(h('h2',null,'Race queue'),...(races.length ? races.map(r => h('button',{type:'button',class:'race-queue-item', 'aria-pressed':selected?.id===r.id, onclick:() => select(r)},
       h('span',{class:'eyebrow'},`HEAT ${String(r.number).padStart(2,'0')} · ${r.phase === 'reaction' ? 'Reaction' : 'Knockout'}`),h('strong',null,r.label),h('span',{class:'small'},`${teamName(r.lane1.teamId)} / ${teamName(r.lane2.teamId)}`),h('span',{class:'small muted'},r.phase==='knockout'?'Knockout · see bracket outcome':outcome(r)))) : [h('p',{class:'muted'},'No heats yet. Add your first pairing below.')]));
@@ -257,7 +271,7 @@ export async function racingScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
         h('p',{class:'eyebrow'},event.name),
         h('h1',null,'Race control'),
         h('p',{class:'lead'},'Two lanes. Every run recorded.')),
-      h('div',{class:'actions'},autoGenBtn,downloadReactionPdfBtn,downloadKnockoutPdfBtn,trackStatus)),
+      h('div',{class:'actions'},autoGenBtn,downloadReactionPdfBtn,downloadKnockoutPdfBtn,downloadHeatsJsonBtn,downloadGraphicsJsonBtn,trackStatus)),
     counters,
     event.resultsReleased?h('p',{class:'notice'},'Results are released. Race records are read-only.'):!canEdit?h('p',{class:'notice'},'Viewing race records. Only organisers, the Chair and race officials can enter results.'):null,
     error,status,h('div',{class:'race-workspace'},h('aside',{class:'stack'},queue,canEdit?addForm:null),editor),staff?competition.root:null,

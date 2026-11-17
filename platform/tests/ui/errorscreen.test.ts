@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
-import { ApiError, MemoryApi } from '../../src/api';
+import { ApiError } from '../../src/api';
+import { MemoryApi } from '../../src/api/memory';
 import { errorScreen } from '../../src/ui/errorscreen';
 import { makeCtx, text } from './helpers';
 

@@ -1,6 +1,5 @@
-import { MemoryApi } from './memory';
+import type { MemoryApi } from './memory';
 import { ApiError, type Api, type EventRow, type RoleRow } from './types';
-import { buildShowcaseExamples } from './showcase-examples';
 
 // This feature belongs to the existing synthetic Test Event only.
 export const SHOWCASE_EVENT_ID = '35af7519-5aa5-43f3-a89a-0f7efe01a57e';
@@ -26,7 +25,9 @@ export async function loadShowcase(source: Api, eventId: string, examples = fals
   if (mfa.nextLevel === 'aal2' && mfa.currentLevel !== 'aal2') throw new ApiError('unauthenticated', 'Complete two-factor sign-in before opening the showcase.');
   const [event, roles] = await Promise.all([source.getEvent(eventId), source.myRoles(eventId)]);
   if (!event || !canShowcase(event, roles)) throw new ApiError('forbidden', 'Only Test Event organisers and the Chair can open this showcase.');
-  if (examples) return MemoryApi.forShowcase(buildShowcaseExamples(event));
+  // The in-memory backend is large and only a presenter needs it, so it stays out of the everyday download.
+  const { MemoryApi } = await import('./memory');
+  if (examples) return MemoryApi.forShowcase((await import('./showcase-examples')).buildShowcaseExamples(event));
   const [teams, allRoles, invitations, cards, feedback, nominations, conflicts, exemptions, overrides, penalties,
     inspections, races, racingSetup, broadcasts, contacts, mail, snapshot] = await Promise.all([
     source.listTeams(eventId), source.listRoles(eventId), source.listInvitations(eventId), source.listCards(eventId),

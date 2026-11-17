@@ -14,6 +14,7 @@ import {
   type TeamCompulsoryAssets,
   validateTeamColours,
   validateMemberPortraits,
+  validateSchoolName,
   validateCompulsoryFile,
   computeCompulsoryAssetStatus,
 } from './compulsory-assets';
@@ -37,6 +38,8 @@ import type { Car, Inspection, InspectionStatus, Measurements } from '../technic
 let seq = 0;
 const nid = (prefix: string) => `${prefix}-${++seq}`;
 const copy = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
+/** A stand-in for the permanent owner in this in-memory copy. The real account is known only to the database. */
+export const OWNER_EMAIL = 'owner@platform.invalid';
 const JUDGE_ROLES: Role[] = ['judge', 'lead_judge'];
 const PANELS: Panel[] = ['scrutineering', 'design_engineering', 'project_management', 'enterprise', 'verbal'];
 const ROLES: Role[] = ['organiser', 'chair', 'lead_judge', 'judge', 'scrutineer', 'race_official', 'team_manager'];
@@ -328,6 +331,14 @@ export class MemoryApi implements Api {
           size: 1850000,
           updatedAt: new Date().toISOString(),
         },
+        schoolLogo: {
+          name: 'school_logo.png',
+          mime: 'image/png',
+          size: atob(DEFAULT_SAMPLE_CUTOUT).length,
+          base64: DEFAULT_SAMPLE_CUTOUT,
+          revision: 1,
+          updatedAt: new Date().toISOString(),
+        },
         officialPhoto: api.teamPhotos.find(p => p.teamId === t.id),
         teamColours: {
           primary: '#E6007E',
@@ -367,36 +378,38 @@ export class MemoryApi implements Api {
   private inspections: Inspection[] = [];
   private globalOrganisers: Array<{userId:string;email:string;scope:OrganiserScope;permanent:false;name?:string;identityRestricted?:boolean;contactRestricted?:boolean}>=[];
   private organiserInvites: PlatformAccess['invitations']=[];
-  private globalManager() { return this.me?.email==='reyanshg11111@gmail.com' || this.globalOrganisers.some(r=>r.userId===this.me?.userId && r.scope==='platform'); }
-  private visibleIdentity(userId:string,email?:string|null) {return this.me?.email==='reyanshg11111@gmail.com'||(!this.globalOrganisers.some(p=>p.identityRestricted&&(p.userId===userId||p.email===email))&&!this.organiserInvites.some(i=>i.identityRestricted&&i.email===email));}
+  private isOwner() { return this.me?.email===OWNER_EMAIL; }
+  private globalManager() { return this.me?.email===OWNER_EMAIL || this.globalOrganisers.some(r=>r.userId===this.me?.userId && r.scope==='platform'); }
+  private visibleIdentity(userId:string,email?:string|null) {return this.me?.email===OWNER_EMAIL||(!this.globalOrganisers.some(p=>p.identityRestricted&&(p.userId===userId||p.email===email))&&!this.organiserInvites.some(i=>i.identityRestricted&&i.email===email));}
   private requireGlobal() { if(!this.globalManager()) throw new ApiError('forbidden','Only Platform Organisers can manage organiser access'); }
   async platformAccess(): Promise<PlatformAccess> {
-    return copy({kind:this.me?.email==='reyanshg11111@gmail.com'?'admin':this.globalOrganisers.find(r=>r.userId===this.me?.userId)?.scope??null,
-      ownerEmail:'reyanshg11111@gmail.com',canManage:this.globalManager(),
-      viewerId:this.me?.userId??null,ownerId:'user:reyanshg11111@gmail.com',organisers:(this.globalManager()||this.globalOrganisers.some(p=>p.userId===this.me?.userId&&p.scope==='spectator'))?[{userId:'user:reyanshg11111@gmail.com',email:'reyanshg11111@gmail.com',scope:'admin',permanent:true},...this.globalOrganisers.filter(p=>!p.identityRestricted||this.me?.email==='reyanshg11111@gmail.com')]:[],
-      invitations:this.globalManager()?this.organiserInvites.filter(i=>this.me?.email==='reyanshg11111@gmail.com'||(!i.identityRestricted&&i.scope!=='spectator')):[]});
+    return copy({kind:this.me?.email===OWNER_EMAIL?'admin':this.globalOrganisers.find(r=>r.userId===this.me?.userId)?.scope??null,
+      // The permanent owner is never listed for anyone else, exactly as the database behaves.
+      ownerEmail:this.isOwner()?OWNER_EMAIL:'',canManage:this.globalManager(),
+      viewerId:this.me?.userId??null,...(this.isOwner()?{ownerId:`user:${OWNER_EMAIL}`}:{}),organisers:(this.globalManager()||this.globalOrganisers.some(p=>p.userId===this.me?.userId&&p.scope==='spectator'))?[...(this.isOwner()?[{userId:`user:${OWNER_EMAIL}`,email:OWNER_EMAIL,scope:'admin' as const,permanent:true}]:[]),...this.globalOrganisers.filter(p=>!p.identityRestricted||this.isOwner())]:[],
+      invitations:this.globalManager()?this.organiserInvites.filter(i=>this.me?.email===OWNER_EMAIL||(!i.identityRestricted&&i.scope!=='spectator')):[]});
   }
   async inviteOrganiser(email: string,scope: OrganiserScope,options?:{name?:string;hidden?:boolean}) {
     this.requireGlobal();email=email.trim().toLowerCase();
-    if((options?.hidden||scope==='spectator')&&this.me?.email!=='reyanshg11111@gmail.com')throw new ApiError('forbidden','Only Platform Admin');
+    if((options?.hidden||scope==='spectator')&&this.me?.email!==OWNER_EMAIL)throw new ApiError('forbidden','Only Platform Admin');
     if(options?.hidden&&!options.name?.trim())throw new ApiError('invalid','Name required for hidden account');
     if(!EMAIL.test(email)||!['competition','platform','spectator'].includes(scope))throw new ApiError('invalid','Choose a valid email and scope');
-    if(email==='reyanshg11111@gmail.com')throw new ApiError('forbidden','The permanent platform administrator cannot be changed');
+    if(email===OWNER_EMAIL)throw new ApiError('forbidden','The permanent platform administrator cannot be changed');
     if(this.organiserInvites.some(i=>i.email===email)||this.globalOrganisers.some(i=>i.email===email))throw new ApiError('duplicate','Organiser already invited or assigned');
     this.organiserInvites.push({id:nid('organiser-invite'),email,scope,emailStatus:'sent',name:options?.name?.trim()??'',identityRestricted:options?.hidden??false});
   }
   async setOrganiserVisibility(userId:string,name:string,hidden:boolean) {
-    if(this.me?.email!=='reyanshg11111@gmail.com')throw new ApiError('forbidden','Only Platform Admin');
+    if(this.me?.email!==OWNER_EMAIL)throw new ApiError('forbidden','Only Platform Admin');
     const person=this.globalOrganisers.find(p=>p.userId===userId);
     if(!person||name.trim().length>100||(hidden&&!name.trim()))throw new ApiError('invalid','Choose a valid organiser and name');
     person.name=name.trim();person.identityRestricted=hidden;person.contactRestricted=hidden;
   }
   async removeOrganiser(userId:string) {
-    this.requireGlobal();if(userId==='user:reyanshg11111@gmail.com')throw new ApiError('forbidden','The permanent platform administrator cannot be removed');
-    const person=this.globalOrganisers.find(r=>r.userId===userId);if((person?.identityRestricted||person?.scope==='spectator')&&this.me?.email!=='reyanshg11111@gmail.com')throw new ApiError('forbidden','Only Platform Admin');
+    this.requireGlobal();if(userId===`user:${OWNER_EMAIL}`)throw new ApiError('forbidden','The permanent platform administrator cannot be removed');
+    const person=this.globalOrganisers.find(r=>r.userId===userId);if((person?.identityRestricted||person?.scope==='spectator')&&this.me?.email!==OWNER_EMAIL)throw new ApiError('forbidden','Only Platform Admin');
     this.globalOrganisers=this.globalOrganisers.filter(r=>r.userId!==userId);
   }
-  async withdrawOrganiserInvitation(id:string) { this.requireGlobal();const invitation=this.organiserInvites.find(i=>i.id===id);if((invitation?.identityRestricted||invitation?.scope==='spectator')&&this.me?.email!=='reyanshg11111@gmail.com')throw new ApiError('forbidden','Only Platform Admin');this.organiserInvites=this.organiserInvites.filter(i=>i.id!==id); }
+  async withdrawOrganiserInvitation(id:string) { this.requireGlobal();const invitation=this.organiserInvites.find(i=>i.id===id);if((invitation?.identityRestricted||invitation?.scope==='spectator')&&this.me?.email!==OWNER_EMAIL)throw new ApiError('forbidden','Only Platform Admin');this.organiserInvites=this.organiserInvites.filter(i=>i.id!==id); }
   private contacts=new Map<string,TeamContact>();
   private awards:Array<EventAward & {eventId:string}>=[];
   private mailSettings=new Map<string,{confirmed:boolean;version:string}>();
@@ -571,7 +584,7 @@ export class MemoryApi implements Api {
     if (!this.me) return 0;
     const me = this.me;
     const globals=this.organiserInvites.filter(i=>i.email===me.email);
-    for(const i of globals) if(me.email!=='reyanshg11111@gmail.com') {
+    for(const i of globals) if(me.email!==OWNER_EMAIL) {
       const old=this.globalOrganisers.find(r=>r.userId===me.userId);
       if(old) {if(old.scope!=='platform')old.scope=i.scope;}
       else this.globalOrganisers.push({userId:me.userId,email:me.email,scope:i.scope,permanent:false,name:i.name,identityRestricted:i.identityRestricted,contactRestricted:i.identityRestricted});
@@ -808,7 +821,7 @@ export class MemoryApi implements Api {
     if (r.role === 'organiser') {
       this.require(r.eventId, 'organiser');
       const orgs = this.roles.filter((x) => x.eventId === r.eventId && x.role === 'organiser');
-      if(r.userId==='user:reyanshg11111@gmail.com')throw new ApiError('forbidden','The permanent platform administrator cannot be removed');
+      if(r.userId===`user:${OWNER_EMAIL}`)throw new ApiError('forbidden','The permanent platform administrator cannot be removed');
       if (orgs.length <= 1 && !this.globalManager()) throw new ApiError('locked', 'An event must have at least one organiser');
     } else {
       this.require(r.eventId, 'chair', 'organiser');
@@ -1791,6 +1804,8 @@ export class MemoryApi implements Api {
     const logo=this.teamFiles.find(f=>f.eventId===eventId&&f.teamId===teamId&&f.kind==='logo');
     raw.teamLogo=logo?{name:logo.name,mime:logo.mime,size:logo.size,revision:logo.revision,updatedAt:logo.updatedAt}:undefined;
     const photo=this.teamPhotos.find(p=>p.eventId===eventId&&p.teamId===teamId);raw.officialPhoto=photo?copy(photo):undefined;
+    if(raw.schoolLogo){const {base64:_bytes,...meta}=raw.schoolLogo;raw.schoolLogo=meta;}
+    raw.schoolName=this.teamOrThrow(eventId,teamId).school||undefined;
     return computeCompulsoryAssetStatus(eventId,teamId,raw);
   }
   private mediaRevision(current:Partial<TeamCompulsoryAssets>,revision?:number) {
@@ -1808,6 +1823,13 @@ export class MemoryApi implements Api {
     this.mediaRevision(current,revision);const valid=validateMemberPortraits(members);
     this.compulsoryAssets.set(key,{...current,memberPortraits:valid,revision:(current.revision??0)+1});this.version++;return copy(valid);
   }
+  async saveSchoolName(eventId:string,teamId:string,name:string,revision?:number) {
+    this.mediaAccess(eventId,teamId,true);await this.requireSubmissionGuide(eventId);
+    const key=`${eventId}:${teamId}`,current=this.compulsoryAssets.get(key)??{};
+    this.mediaRevision(current,revision);const valid=validateSchoolName(name);
+    this.teamOrThrow(eventId,teamId).school=valid;
+    this.compulsoryAssets.set(key,{...current,revision:(current.revision??0)+1});this.version++;return valid;
+  }
   async uploadCompulsoryAsset(eventId:string,teamId:string,assetKey:CompulsoryAssetKey,file:{name:string;mime:string;base64:string},revision?:number):Promise<StoredCompulsoryFile> {
     this.mediaAccess(eventId,teamId,true);await this.requireSubmissionGuide(eventId);
     const checked=validateCompulsoryFile(assetKey,file);
@@ -1816,7 +1838,7 @@ export class MemoryApi implements Api {
       await this.uploadTeamFile(eventId,teamId,revision??old?.revision??0,{...file,kind:'logo'});return this.downloadCompulsoryAsset(eventId,teamId,assetKey);
     }
     const key=`${eventId}:${teamId}`,current=this.compulsoryAssets.get(key)??{};
-    const field=({car_render_fl:'carRenderFL',car_render_fr:'carRenderFR',car_model_3d:'carModel3D',model_materials:'modelMaterials'} as const)[assetKey as 'car_render_fl'];
+    const field=({car_render_fl:'carRenderFL',car_render_fr:'carRenderFR',car_model_3d:'carModel3D',model_materials:'modelMaterials',school_logo:'schoolLogo'} as const)[assetKey as 'car_render_fl'];
     const old=current[field];if(revision!==undefined&&revision!==(old?.revision??0))throw new ApiError('conflict','File changed. Reload before saving.');
     const stored={...file,...checked,revision:(old?.revision??0)+1,updatedAt:new Date().toISOString()};
     this.compulsoryAssets.set(key,{...current,[field]:stored});this.version++;return copy(stored);
@@ -1827,7 +1849,7 @@ export class MemoryApi implements Api {
       const f=this.teamFiles.find(f=>f.eventId===eventId&&f.teamId===teamId&&f.kind==='logo');
       if(f)return copy({name:f.name,mime:f.mime,size:f.size,revision:f.revision,updatedAt:f.updatedAt,base64:f.base64});
     }
-    const field=({car_render_fl:'carRenderFL',car_render_fr:'carRenderFR',car_model_3d:'carModel3D',model_materials:'modelMaterials'} as const)[assetKey as 'car_render_fl'];
+    const field=({car_render_fl:'carRenderFL',car_render_fr:'carRenderFR',car_model_3d:'carModel3D',model_materials:'modelMaterials',school_logo:'schoolLogo'} as const)[assetKey as 'car_render_fl'];
     const f=field?this.compulsoryAssets.get(`${eventId}:${teamId}`)?.[field]:undefined;
     if(!f)throw new ApiError('not-found','Media file unavailable');return copy(f);
   }
@@ -1835,8 +1857,9 @@ export class MemoryApi implements Api {
     this.mediaAccess(eventId,teamId,true);
     if(assetKey==='team_logo')this.teamFiles=this.teamFiles.filter(f=>!(f.eventId===eventId&&f.teamId===teamId&&f.kind==='logo'));
     else if(assetKey==='official_photo')await this.deleteTeamPhoto(eventId,teamId);
+    else if(assetKey==='school_name'){this.teamOrThrow(eventId,teamId).school='';const key=`${eventId}:${teamId}`,current=this.compulsoryAssets.get(key)??{};this.compulsoryAssets.set(key,{...current,revision:(current.revision??0)+1});}
     else {
-      const field=({car_render_fl:'carRenderFL',car_render_fr:'carRenderFR',car_model_3d:'carModel3D',model_materials:'modelMaterials',team_colours:'teamColours',member_portraits:'memberPortraits'} as const)[assetKey as 'car_render_fl'];
+      const field=({car_render_fl:'carRenderFL',car_render_fr:'carRenderFR',car_model_3d:'carModel3D',model_materials:'modelMaterials',school_logo:'schoolLogo',team_colours:'teamColours',member_portraits:'memberPortraits'} as const)[assetKey as 'car_render_fl'];
       if(!field)throw new ApiError('invalid','Invalid media category');
       const key=`${eventId}:${teamId}`,current=this.compulsoryAssets.get(key)??{};delete current[field];
       if(assetKey==='team_colours'||assetKey==='member_portraits')current.revision=(current.revision??0)+1;

@@ -20,6 +20,7 @@ import {
   validateTeamColours,
   validateCompulsoryFile,
   validateMemberPortraits,
+  validateSchoolName,
   computeCompulsoryAssetStatus,
 } from './compulsory-assets';
 import { localStorageKV, memoryKV } from './queue';
@@ -346,8 +347,11 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
     async myRoles(eventId) {
       const s = await session();
       if (!s) return [];
-      const roles=(await pages<never>((a, b) => sb.rpc('effective_event_roles', {p_event: eventId}).order('id').range(a, b))).map(toRoleRow);
-      const access=ok(await guard(()=>sb.rpc('platform_access'))) as PlatformAccess;
+      // Two independent questions, asked together rather than one after the other.
+      const [roles,access]=await Promise.all([
+        pages<never>((a, b) => sb.rpc('effective_event_roles', {p_event: eventId}).order('id').range(a, b)).then(rows=>rows.map(toRoleRow)),
+        guard(()=>sb.rpc('platform_access')).then(ok) as Promise<PlatformAccess>,
+      ]);
       if(access.kind==='spectator')return [{id:`spectator:${eventId}`,eventId,userId:s.userId,email:s.email,role:'spectator',panel:null,teamId:null}];
       return roles;
     },
@@ -744,11 +748,16 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
       ok(await guard(()=>sb.rpc('save_team_media_details',{p_event:eventId,p_team:teamId,p_key:'member_portraits',p_value:valid,p_revision:revision??null})));
       return valid;
     },
+    async saveSchoolName(eventId, teamId, name, revision) {
+      const valid=validateSchoolName(name);
+      ok(await guard(()=>sb.rpc('save_team_media_details',{p_event:eventId,p_team:teamId,p_key:'school_name',p_value:{name:valid},p_revision:revision??null})));
+      return valid;
+    },
     async uploadCompulsoryAsset(eventId, teamId, assetKey, file, revision) {
       validateCompulsoryFile(assetKey,file);
       await uploadRpc('upload_compulsory_asset',{p_event:eventId,p_team:teamId,p_kind:assetKey,p_input:file,p_revision:revision??null});
       const state=ok(await guard(()=>sb.rpc('get_compulsory_assets',{p_event:eventId,p_team:teamId}))) as TeamCompulsoryAssets;
-      const field=({team_logo:'teamLogo',car_render_fl:'carRenderFL',car_render_fr:'carRenderFR',car_model_3d:'carModel3D',model_materials:'modelMaterials'} as const)[assetKey as 'team_logo'];
+      const field=({team_logo:'teamLogo',car_render_fl:'carRenderFL',car_render_fr:'carRenderFR',car_model_3d:'carModel3D',model_materials:'modelMaterials',school_logo:'schoolLogo'} as const)[assetKey as 'team_logo'];
       return state[field]!;
     },
     async downloadCompulsoryAsset(eventId,teamId,assetKey) {

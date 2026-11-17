@@ -1,3 +1,4 @@
+import { clearRequestCache } from '../api/cached';
 import type { CardRow, Panel } from '../api';
 import { reportActionError } from './actions';
 import { notFound, tag } from './common';
@@ -160,6 +161,7 @@ export async function scoringScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
   const assignmentFingerprint = JSON.stringify([roles, exemptionList]);
   const refreshAssignments = async () => {
     await ctx.api.claimInvitations();
+    clearRequestCache(ctx.api); // a refresh must show an assignment made seconds ago on another device
     const fresh = await Promise.all([ctx.api.myRoles(eventId), ctx.api.listJudgeExemptions(eventId)]);
     if (alive && JSON.stringify(fresh) !== assignmentFingerprint) ctx.rerender();
   };

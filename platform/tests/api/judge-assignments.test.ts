@@ -1,5 +1,6 @@
 import {describe,expect,it} from 'vitest';
-import {MemoryApi,blankReview} from '../../src/api';
+import { blankReview } from '../../src/api';
+import { MemoryApi } from '../../src/api/memory';
 const setup=async()=>{
  const api=new MemoryApi();api.setCreatorAllowlist(['org@x.test']);await api.signIn('org@x.test');const event=await api.createEvent({name:'Assignment event'});const team1=await api.createTeam(event.id,{number:'1',name:'One'});const team2=await api.createTeam(event.id,{number:'2',name:'Two'});
  for(const [email,role,panel] of [['v@x.test','judge','verbal'],['d@x.test','judge','design_engineering'],['race@x.test','race_official',undefined],['manager@x.test','team_manager',undefined]] as const)await api.invite(event.id,{email,name:email,role,panel,...(role==='team_manager'?{teamId:team1.id}:{})});

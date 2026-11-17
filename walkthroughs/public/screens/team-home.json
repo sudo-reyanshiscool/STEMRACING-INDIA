@@ -1,0 +1,52 @@
+[
+  {
+    "h": 44,
+    "text": "Toggle theme",
+    "y": 25
+  },
+  {
+    "h": 48,
+    "text": "Sign out",
+    "y": 23
+  },
+  {
+    "h": 42,
+    "text": "Apex Racing",
+    "y": 392
+  },
+  {
+    "h": 28,
+    "text": "My Schedule",
+    "y": 1341
+  },
+  {
+    "h": 28,
+    "text": "Your competition toolkit",
+    "y": 1484
+  },
+  {
+    "h": 26,
+    "text": "My Schedule",
+    "y": 1623
+  },
+  {
+    "h": 26,
+    "text": "Submissions",
+    "y": 1874
+  },
+  {
+    "h": 26,
+    "text": "Team files",
+    "y": 2126
+  },
+  {
+    "h": 26,
+    "text": "Team feedback",
+    "y": 2378
+  },
+  {
+    "h": 26,
+    "text": "Results",
+    "y": 2629
+  }
+]

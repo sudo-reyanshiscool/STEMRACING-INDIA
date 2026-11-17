@@ -1,0 +1,317 @@
+[
+  {
+    "h": 44,
+    "text": "Toggle theme",
+    "y": 25
+  },
+  {
+    "h": 48,
+    "text": "Sign out",
+    "y": 23
+  },
+  {
+    "h": 46,
+    "text": "Submissions",
+    "y": 347
+  },
+  {
+    "h": 46,
+    "text": "Submission deadlines and penalties",
+    "y": 715
+  },
+  {
+    "h": 48,
+    "text": "Save submission deadlines",
+    "y": 1466
+  },
+  {
+    "h": 28,
+    "text": "Upload and download portfolios",
+    "y": 1550
+  },
+  {
+    "h": 48,
+    "text": "Upload file",
+    "y": 2101
+  },
+  {
+    "h": 28,
+    "text": "Available files",
+    "y": 2185
+  },
+  {
+    "h": 25,
+    "text": "001 · Apex Racing · Design & Engineering portfolio",
+    "y": 2380
+  },
+  {
+    "h": 48,
+    "text": "Download",
+    "y": 2492
+  },
+  {
+    "h": 28,
+    "text": "Official Team Photograph",
+    "y": 2597
+  },
+  {
+    "h": 48,
+    "text": "Upload photograph",
+    "y": 3046
+  },
+  {
+    "h": 28,
+    "text": "Compulsory Digital Media Submissions",
+    "y": 3164
+  },
+  {
+    "h": 48,
+    "text": "Manage",
+    "y": 3672
+  },
+  {
+    "h": 48,
+    "text": "Submit",
+    "y": 3776
+  },
+  {
+    "h": 48,
+    "text": "Submit",
+    "y": 3872
+  },
+  {
+    "h": 48,
+    "text": "Submit",
+    "y": 3966
+  },
+  {
+    "h": 48,
+    "text": "Submit",
+    "y": 4071
+  },
+  {
+    "h": 48,
+    "text": "Submit",
+    "y": 4178
+  },
+  {
+    "h": 48,
+    "text": "Submit",
+    "y": 4272
+  },
+  {
+    "h": 48,
+    "text": "Submit",
+    "y": 4395
+  },
+  {
+    "h": 25,
+    "text": "Team Colours (HEX)",
+    "y": 4572
+  },
+  {
+    "h": 48,
+    "text": "Save Team Colours",
+    "y": 4745
+  },
+  {
+    "h": 25,
+    "text": "Individual Team Member Portraits",
+    "y": 4885
+  },
+  {
+    "h": 48,
+    "text": "Add Member Portrait",
+    "y": 5118
+  },
+  {
+    "h": 28,
+    "text": "Submission status",
+    "y": 5227
+  },
+  {
+    "h": 25,
+    "text": "001 · Apex Racing · Design & Engineering portfolio",
+    "y": 5429
+  },
+  {
+    "h": 25,
+    "text": "001 · Apex Racing · Enterprise portfolio",
+    "y": 5662
+  },
+  {
+    "h": 25,
+    "text": "001 · Apex Racing · Project Management portfolio",
+    "y": 5858
+  },
+  {
+    "h": 25,
+    "text": "002 · Velocity Works · Design & Engineering portfolio",
+    "y": 6053
+  },
+  {
+    "h": 25,
+    "text": "002 · Velocity Works · Enterprise portfolio",
+    "y": 6249
+  },
+  {
+    "h": 25,
+    "text": "002 · Velocity Works · Project Management portfolio",
+    "y": 6445
+  },
+  {
+    "h": 25,
+    "text": "003 · Aurora Motorsport · Design & Engineering portfolio",
+    "y": 6641
+  },
+  {
+    "h": 25,
+    "text": "003 · Aurora Motorsport · Enterprise portfolio",
+    "y": 6837
+  },
+  {
+    "h": 25,
+    "text": "003 · Aurora Motorsport · Project Management portfolio",
+    "y": 7032
+  },
+  {
+    "h": 25,
+    "text": "004 · Ignition Racing · Design & Engineering portfolio",
+    "y": 7228
+  },
+  {
+    "h": 25,
+    "text": "004 · Ignition Racing · Enterprise portfolio",
+    "y": 7424
+  },
+  {
+    "h": 25,
+    "text": "004 · Ignition Racing · Project Management portfolio",
+    "y": 7620
+  },
+  {
+    "h": 25,
+    "text": "005 · Nova Engineering · Design & Engineering portfolio",
+    "y": 7815
+  },
+  {
+    "h": 25,
+    "text": "005 · Nova Engineering · Enterprise portfolio",
+    "y": 8011
+  },
+  {
+    "h": 25,
+    "text": "005 · Nova Engineering · Project Management portfolio",
+    "y": 8207
+  },
+  {
+    "h": 25,
+    "text": "006 · Falcon Motorsport · Design & Engineering portfolio",
+    "y": 8403
+  },
+  {
+    "h": 25,
+    "text": "006 · Falcon Motorsport · Enterprise portfolio",
+    "y": 8599
+  },
+  {
+    "h": 25,
+    "text": "006 · Falcon Motorsport · Project Management portfolio",
+    "y": 8794
+  },
+  {
+    "h": 25,
+    "text": "007 · Vertex Racing · Design & Engineering portfolio",
+    "y": 8990
+  },
+  {
+    "h": 25,
+    "text": "007 · Vertex Racing · Enterprise portfolio",
+    "y": 9186
+  },
+  {
+    "h": 25,
+    "text": "007 · Vertex Racing · Project Management portfolio",
+    "y": 9382
+  },
+  {
+    "h": 25,
+    "text": "008 · Pulse Motorsport · Design & Engineering portfolio",
+    "y": 9578
+  },
+  {
+    "h": 25,
+    "text": "008 · Pulse Motorsport · Enterprise portfolio",
+    "y": 9773
+  },
+  {
+    "h": 25,
+    "text": "008 · Pulse Motorsport · Project Management portfolio",
+    "y": 9969
+  },
+  {
+    "h": 25,
+    "text": "009 · Stratos Racing · Design & Engineering portfolio",
+    "y": 10165
+  },
+  {
+    "h": 25,
+    "text": "009 · Stratos Racing · Enterprise portfolio",
+    "y": 10361
+  },
+  {
+    "h": 25,
+    "text": "009 · Stratos Racing · Project Management portfolio",
+    "y": 10556
+  },
+  {
+    "h": 25,
+    "text": "010 · Momentum · Design & Engineering portfolio",
+    "y": 10752
+  },
+  {
+    "h": 25,
+    "text": "010 · Momentum · Enterprise portfolio",
+    "y": 10948
+  },
+  {
+    "h": 25,
+    "text": "010 · Momentum · Project Management portfolio",
+    "y": 11144
+  },
+  {
+    "h": 25,
+    "text": "011 · Eclipse Motorsport · Design & Engineering portfolio",
+    "y": 11340
+  },
+  {
+    "h": 25,
+    "text": "011 · Eclipse Motorsport · Enterprise portfolio",
+    "y": 11535
+  },
+  {
+    "h": 25,
+    "text": "011 · Eclipse Motorsport · Project Management portfolio",
+    "y": 11731
+  },
+  {
+    "h": 25,
+    "text": "012 · Vortex Racing · Design & Engineering portfolio",
+    "y": 11927
+  },
+  {
+    "h": 25,
+    "text": "012 · Vortex Racing · Enterprise portfolio",
+    "y": 12123
+  },
+  {
+    "h": 25,
+    "text": "012 · Vortex Racing · Project Management portfolio",
+    "y": 12318
+  },
+  {
+    "h": 48,
+    "text": "Refresh submission status",
+    "y": 12513
+  }
+]

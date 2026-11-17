@@ -1,0 +1,726 @@
+[
+  {
+    "id": "Teams",
+    "audience": "TEAM MANAGERS",
+    "title": "Your team.\nReady to race.",
+    "accent": "#ed258d",
+    "number": "01",
+    "scenes": [
+      {
+        "title": "Your team.\nReady to race.",
+        "lines": [
+          "A guide to your Team Garage",
+          "Portfolios \u00b7 Media \u00b7 Schedule \u00b7 Results"
+        ],
+        "screen": null,
+        "y": 0,
+        "h": 680,
+        "cue": "",
+        "seconds": 7,
+        "tag": "intro",
+        "focus": null
+      },
+      {
+        "title": "Start in\nyour garage.",
+        "lines": [
+          "Sign in with the email linked to your team.",
+          "Check your team name, number and event.",
+          "The dashboard brings your deadlines and progress together."
+        ],
+        "screen": "team-home",
+        "y": 160,
+        "h": 680,
+        "cue": "Event \u2192 Team Garage",
+        "seconds": 12,
+        "tag": "",
+        "focus": null,
+        "image": "crops/teams-01.png",
+        "imageWidth": 685,
+        "imageHeight": 680
+      },
+      {
+        "title": "Upload your\nportfolios.",
+        "lines": [
+          "Open Submissions and choose a category.",
+          "Design & Engineering, Enterprise and Project Management each need a PDF.",
+          "Choose the file, then select Upload file."
+        ],
+        "screen": "team-submissions",
+        "y": 875,
+        "h": 680,
+        "cue": "Submissions \u2192 Upload and download portfolios",
+        "seconds": 15,
+        "tag": "",
+        "focus": [
+          13.5,
+          76,
+          20,
+          9
+        ],
+        "image": "crops/teams-02.png",
+        "imageWidth": 685,
+        "imageHeight": 680
+      },
+      {
+        "title": "Check the\nreceipt.",
+        "lines": [
+          "Each portfolio can be up to 12 MB.",
+          "Check Submission status after uploading.",
+          "Email confirmation status is separate from upload success."
+        ],
+        "screen": "team-submissions",
+        "y": 4375,
+        "h": 680,
+        "cue": "Submissions \u2192 Submission status",
+        "seconds": 13,
+        "tag": "",
+        "focus": null,
+        "image": "crops/teams-03.png",
+        "imageWidth": 685,
+        "imageHeight": 680
+      },
+      {
+        "title": "Know the\ndeadline.",
+        "lines": [
+          "Portfolio deadlines are shown in IST.",
+          "At 5 points per started hour, 61 minutes late means 10 points.",
+          "Your first successful upload stops the clock; replacements keep that receipt."
+        ],
+        "screen": null,
+        "y": 0,
+        "h": 680,
+        "cue": "Check the deadline and rate shown for your event.",
+        "seconds": 16,
+        "tag": "penalty",
+        "focus": null
+      },
+      {
+        "title": "Prepare your\nmedia pack.",
+        "lines": [
+          "Use the eight-item compulsory media checklist.",
+          "Submit the logo, both car renders, 3D model and materials.",
+          "Also complete the team photo, colours and member portraits."
+        ],
+        "screen": "team-submissions",
+        "y": 2370,
+        "h": 680,
+        "cue": "Submissions \u2192 Compulsory Digital Media Submissions",
+        "seconds": 15,
+        "tag": "",
+        "focus": null,
+        "image": "crops/teams-05.png",
+        "imageWidth": 685,
+        "imageHeight": 680
+      },
+      {
+        "title": "Add your\nofficial photo.",
+        "lines": [
+          "Upload a clear JPG or PNG, up to 25 MB.",
+          "4K or higher is recommended.",
+          "Confirm the required team and parent/guardian consent before uploading."
+        ],
+        "screen": "team-submissions",
+        "y": 1890,
+        "h": 490,
+        "cue": "Submissions \u2192 Official Team Photograph",
+        "seconds": 13,
+        "tag": "",
+        "focus": null,
+        "image": "crops/teams-06.png",
+        "imageWidth": 685,
+        "imageHeight": 490
+      },
+      {
+        "title": "Follow your\nteam schedule.",
+        "lines": [
+          "Open My Schedule for your allocated stream.",
+          "Read the exact appointment time and location.",
+          "Only the published schedule is visible here; refresh for updates."
+        ],
+        "screen": "team-schedule",
+        "y": 235,
+        "h": 680,
+        "cue": "Event \u2192 My Schedule",
+        "seconds": 13,
+        "tag": "",
+        "focus": null,
+        "image": "crops/teams-07.png",
+        "imageWidth": 685,
+        "imageHeight": 680
+      },
+      {
+        "title": "Raise concerns.\nFollow replies.",
+        "lines": [
+          "Open Team feedback and select the relevant panel.",
+          "Describe what happened clearly.",
+          "Your team managers can follow the organiser\u2019s response."
+        ],
+        "screen": "team-feedback",
+        "y": 255,
+        "h": 680,
+        "cue": "Event \u2192 Team feedback",
+        "seconds": 12,
+        "tag": "",
+        "focus": null,
+        "image": "crops/teams-08.png",
+        "imageWidth": 685,
+        "imageHeight": 680
+      },
+      {
+        "title": "Results arrive\nafter release.",
+        "lines": [
+          "Open Results when the event team announces release.",
+          "Your scores and judging feedback appear there.",
+          "Until then, the page explains that results are not yet available."
+        ],
+        "screen": "team-results",
+        "y": 255,
+        "h": 550,
+        "cue": "Event \u2192 Results",
+        "seconds": 12,
+        "tag": "",
+        "focus": null,
+        "image": "crops/teams-09.png",
+        "imageWidth": 685,
+        "imageHeight": 550
+      },
+      {
+        "title": "Ready for\ncompetition.",
+        "lines": [
+          "Three portfolio receipts checked.",
+          "Eight media deliverables completed.",
+          "Published schedule checked."
+        ],
+        "screen": null,
+        "y": 0,
+        "h": 680,
+        "cue": "Keep your team details and submissions up to date.",
+        "seconds": 8,
+        "tag": "outro",
+        "focus": null
+      }
+    ],
+    "duration": 136
+  },
+  {
+    "id": "Judges",
+    "audience": "JUDGES & PANEL LEADS",
+    "title": "Judge with\nconfidence.",
+    "accent": "#f8bd17",
+    "number": "02",
+    "scenes": [
+      {
+        "title": "Judge with\nconfidence.",
+        "lines": [
+          "Assigned teams \u00b7 Rubrics \u00b7 Feedback",
+          "Submission \u00b7 Scores \u00b7 Lead moderation"
+        ],
+        "screen": null,
+        "y": 0,
+        "h": 680,
+        "cue": "",
+        "seconds": 7,
+        "tag": "intro",
+        "focus": null
+      },
+      {
+        "title": "Open your\nassignments.",
+        "lines": [
+          "Go to My scorecards after signing in.",
+          "You can score only the teams explicitly assigned to your panel.",
+          "If a team is missing, ask an organiser to update your assignment."
+        ],
+        "screen": "judge-list",
+        "y": 235,
+        "h": 680,
+        "cue": "Event \u2192 My scorecards",
+        "seconds": 14,
+        "tag": "",
+        "focus": null,
+        "image": "crops/judges-01.png",
+        "imageWidth": 685,
+        "imageHeight": 680
+      },
+      {
+        "title": "Declare any\nconflict first.",
+        "lines": [
+          "Use \u201cI have a conflict with this team\u201d when needed.",
+          "Confirm the declaration before scoring.",
+          "A conflict blocks judging for that team; ask the Chair if it was a mistake."
+        ],
+        "screen": "judge-list",
+        "y": 610,
+        "h": 680,
+        "cue": "My scorecards \u2192 Team \u2192 Declare conflict",
+        "seconds": 13,
+        "tag": "",
+        "focus": null,
+        "image": "crops/judges-02.png",
+        "imageWidth": 685,
+        "imageHeight": 680
+      },
+      {
+        "title": "Use the rubric\nfor every mark.",
+        "lines": [
+          "Open the correct team and scorecard area.",
+          "Read the band descriptions before choosing a score.",
+          "Use the score buttons or enter a whole number within the allowed range."
+        ],
+        "screen": "judge-card",
+        "y": 640,
+        "h": 680,
+        "cue": "My scorecards \u2192 Team \u2192 Scorecard area",
+        "seconds": 14,
+        "tag": "",
+        "focus": null,
+        "image": "crops/judges-03.png",
+        "imageWidth": 685,
+        "imageHeight": 680
+      },
+      {
+        "title": "Give useful\nteam feedback.",
+        "lines": [
+          "Complete the Overall Comment.",
+          "Add specific strengths and improvements.",
+          "Team feedback is shared after results are released."
+        ],
+        "screen": "judge-card",
+        "y": 2495,
+        "h": 680,
+        "cue": "Scorecard \u2192 Team Feedback",
+        "seconds": 12,
+        "tag": "",
+        "focus": null,
+        "image": "crops/judges-04.png",
+        "imageWidth": 685,
+        "imageHeight": 680
+      },
+      {
+        "title": "Keep private\nnotes separate.",
+        "lines": [
+          "Internal notes are for the permitted judging and moderation views.",
+          "Use team-facing feedback for advice you want the team to receive.",
+          "Star Quality nominations inform a shortlist; they do not select winners."
+        ],
+        "screen": "judge-card",
+        "y": 3170,
+        "h": 680,
+        "cue": "Scorecard \u2192 Internal Notes and nominations",
+        "seconds": 14,
+        "tag": "",
+        "focus": null,
+        "image": "crops/judges-05.png",
+        "imageWidth": 685,
+        "imageHeight": 680
+      },
+      {
+        "title": "Check. Then\nsubmit.",
+        "lines": [
+          "Wait until scores, notes and feedback are saved.",
+          "Choose Check card and review every mark and the total.",
+          "Select Submit scorecard only when the card is ready."
+        ],
+        "screen": null,
+        "y": 4180,
+        "h": 600,
+        "cue": "Scorecard \u2192 Check card \u2192 Submit scorecard",
+        "seconds": 14,
+        "tag": "submit",
+        "focus": null,
+        "imageWidth": 685,
+        "imageHeight": 600
+      },
+      {
+        "title": "Drafts do\nnot count.",
+        "lines": [
+          "Use Scores to check saved and submitted status.",
+          "A saved draft is still unfinished.",
+          "Only submitted cards contribute to Rankings."
+        ],
+        "screen": "judge-scores",
+        "y": 490,
+        "h": 680,
+        "cue": "Event \u2192 Scores",
+        "seconds": 12,
+        "tag": "",
+        "focus": null,
+        "image": "crops/judges-07.png",
+        "imageWidth": 685,
+        "imageHeight": 680
+      },
+      {
+        "title": "Lead judges:\nreopen a card.",
+        "lines": [
+          "In Moderation, select the area in your own panel.",
+          "Enter a reason beside the submitted scorecard.",
+          "Select Reopen so its judge can edit and submit again."
+        ],
+        "screen": "lead-reopen",
+        "y": 720,
+        "h": 680,
+        "cue": "Lead Judge \u2192 Moderation \u2192 Reason \u2192 Reopen",
+        "seconds": 15,
+        "tag": "",
+        "focus": null,
+        "image": "crops/judges-08.png",
+        "imageWidth": 685,
+        "imageHeight": 680
+      },
+      {
+        "title": "Reopened means\nreview again.",
+        "lines": [
+          "The card returns to draft and stops counting until resubmitted.",
+          "Lead Judges reopen only within their assigned panel.",
+          "Released results must be withdrawn before reopening is allowed."
+        ],
+        "screen": "lead-reopened",
+        "y": 350,
+        "h": 680,
+        "cue": "Reopen \u2192 Judge edits \u2192 Judge resubmits",
+        "seconds": 13,
+        "tag": "",
+        "focus": null,
+        "image": "crops/judges-09.png",
+        "imageWidth": 685,
+        "imageHeight": 680
+      },
+      {
+        "title": "Before you\nfinish judging.",
+        "lines": [
+          "Check every assigned scorecard is submitted.",
+          "Confirm feedback has saved.",
+          "Use Results for the officially released outcome."
+        ],
+        "screen": null,
+        "y": 0,
+        "h": 680,
+        "cue": "If an assignment or score needs attention, contact your panel lead.",
+        "seconds": 9,
+        "tag": "outro",
+        "focus": null
+      }
+    ],
+    "duration": 137
+  },
+  {
+    "id": "Organisers",
+    "audience": "ORGANISERS & CHAIRS",
+    "title": "Run the event.\nOne workspace.",
+    "accent": "#a7a0ff",
+    "number": "03",
+    "scenes": [
+      {
+        "title": "Run the event.\nOne workspace.",
+        "lines": [
+          "People \u00b7 Submissions \u00b7 Streams",
+          "Scheduling \u00b7 Racing \u00b7 Results"
+        ],
+        "screen": null,
+        "y": 0,
+        "h": 680,
+        "cue": "",
+        "seconds": 7,
+        "tag": "intro",
+        "focus": null
+      },
+      {
+        "title": "Confirm teams\nand access.",
+        "lines": [
+          "Review team numbers, names and manager details in Teams.",
+          "Use People to invite officials, judges and managers.",
+          "Invitees verify the same email to receive their role."
+        ],
+        "screen": "organiser-people",
+        "y": 375,
+        "h": 600,
+        "cue": "Event \u2192 Teams / People",
+        "seconds": 14,
+        "tag": "",
+        "focus": null,
+        "image": "crops/organisers-01.png",
+        "imageWidth": 685,
+        "imageHeight": 600
+      },
+      {
+        "title": "Assign judges\nto actual teams.",
+        "lines": [
+          "In People \u2192 Judge assignments, choose the person and panel.",
+          "Select the team scope and save it.",
+          "\u201cAll current teams\u201d does not automatically include later registrations."
+        ],
+        "screen": "organiser-people",
+        "y": 940,
+        "h": 510,
+        "cue": "People \u2192 Judge assignments",
+        "seconds": 15,
+        "tag": "",
+        "focus": [
+          4.5,
+          76.5,
+          91,
+          10
+        ],
+        "image": "crops/organisers-02.png",
+        "imageWidth": 685,
+        "imageHeight": 510
+      },
+      {
+        "title": "Keep roles\nclear.",
+        "lines": [
+          "Organisers manage event operations. Chairs control adjudication and release.",
+          "Only the platform owner manages hidden accounts and Platform Spectators.",
+          "Spectators can view organiser information but cannot change it."
+        ],
+        "screen": null,
+        "y": 0,
+        "h": 680,
+        "cue": "Hidden account identities are visible only to the platform owner.",
+        "seconds": 15,
+        "tag": "roles",
+        "focus": null
+      },
+      {
+        "title": "Set portfolio\ndeadlines.",
+        "lines": [
+          "Open Submissions \u2192 Submission deadlines and penalties.",
+          "Set each deadline in IST and save the hourly rate.",
+          "At 5 points per started hour, missing or late portfolios accrue automatically."
+        ],
+        "screen": "organiser-deadlines",
+        "y": 710,
+        "h": 680,
+        "cue": "Submissions \u2192 Submission deadlines and penalties",
+        "seconds": 15,
+        "tag": "",
+        "focus": null,
+        "image": "crops/organisers-04.png",
+        "imageWidth": 685,
+        "imageHeight": 680
+      },
+      {
+        "title": "Review the\nmedia assets.",
+        "lines": [
+          "Track the eight compulsory deliverables in Submissions.",
+          "Use Media Assets to process and review team-photo cutouts.",
+          "Approve suitable cutouts for broadcast use; review failed jobs."
+        ],
+        "screen": "organiser-media",
+        "y": 680,
+        "h": 680,
+        "cue": "Submissions \u2192 Media checklist / Media Assets",
+        "seconds": 14,
+        "tag": "",
+        "focus": null,
+        "image": "crops/organisers-05.png",
+        "imageWidth": 685,
+        "imageHeight": 680
+      },
+      {
+        "title": "Set up the\nevent day.",
+        "lines": [
+          "Open Scheduling & Streams \u2192 Event setup.",
+          "Set the timezone, event dates and operating hours.",
+          "Add the rooms, judging panels and tracks used by your schedule."
+        ],
+        "screen": "organiser-setup",
+        "y": 930,
+        "h": 680,
+        "cue": "Scheduling & Streams \u2192 Event setup",
+        "seconds": 14,
+        "tag": "",
+        "focus": null,
+        "image": "crops/organisers-06.png",
+        "imageWidth": 685,
+        "imageHeight": 680
+      },
+      {
+        "title": "Allocate your\nstreams.",
+        "lines": [
+          "Generate and inspect the random stream allocation preview.",
+          "Each stream holds a maximum of 10 teams.",
+          "Use Transfer team for adjustments; save the draft when ready."
+        ],
+        "screen": "organiser-streams",
+        "y": 940,
+        "h": 680,
+        "cue": "Scheduling & Streams \u2192 Streams",
+        "seconds": 14,
+        "tag": "",
+        "focus": [
+          12,
+          1,
+          39,
+          9
+        ],
+        "image": "crops/organisers-07.png",
+        "imageWidth": 685,
+        "imageHeight": 680
+      },
+      {
+        "title": "Build the\nmaster timeline.",
+        "lines": [
+          "Add ceremonies, activities, judging and racing.",
+          "Use All Streams for a shared ceremony.",
+          "Use individual team appointments for required judging and racing times."
+        ],
+        "screen": "organiser-timeline",
+        "y": 1260,
+        "h": 680,
+        "cue": "Scheduling & Streams \u2192 Master schedule",
+        "seconds": 14,
+        "tag": "",
+        "focus": null,
+        "image": "crops/organisers-08.png",
+        "imageWidth": 685,
+        "imageHeight": 680
+      },
+      {
+        "title": "Generate exact\nappointments.",
+        "lines": [
+          "Expand Generate team appointment slots.",
+          "Set the start, duration, gap, order and appointments per team.",
+          "Choose the room or track, then generate and review the preview."
+        ],
+        "screen": "organiser-generator",
+        "y": 5980,
+        "h": 740,
+        "cue": "Master schedule \u2192 Generate team appointment slots",
+        "seconds": 15,
+        "tag": "",
+        "focus": null,
+        "image": "crops/organisers-09.png",
+        "imageWidth": 685,
+        "imageHeight": 740
+      },
+      {
+        "title": "Resolve checks.\nPublish deliberately.",
+        "lines": [
+          "Review blocking conflicts and resource warnings.",
+          "Judging exemptions can cover one category or all judging.",
+          "Save draft first. Publish schedule makes the version visible to teams."
+        ],
+        "screen": "organiser-streams",
+        "y": 480,
+        "h": 500,
+        "cue": "Save draft \u2192 Check validation \u2192 Publish schedule",
+        "seconds": 15,
+        "tag": "",
+        "focus": [
+          25,
+          26,
+          35,
+          12
+        ],
+        "image": "crops/organisers-10.png",
+        "imageWidth": 685,
+        "imageHeight": 500
+      },
+      {
+        "title": "Run and record\nthe racing.",
+        "lines": [
+          "Use Race control to queue pairings and record lane results.",
+          "Check team, car, status and timings before saving.",
+          "Lane swaps and reruns stay linked to their source race."
+        ],
+        "screen": "organiser-racing",
+        "y": 1200,
+        "h": 680,
+        "cue": "Event \u2192 Race control",
+        "seconds": 14,
+        "tag": "",
+        "focus": null,
+        "image": "crops/organisers-11.png",
+        "imageWidth": 685,
+        "imageHeight": 680
+      },
+      {
+        "title": "Follow scores\nand concerns.",
+        "lines": [
+          "Use Scores to find missing or draft cards.",
+          "Panel leads reopen their panel\u2019s cards; the Chair handles score overrides.",
+          "Resolve reported concerns through Team feedback."
+        ],
+        "screen": "lead-moderation",
+        "y": 380,
+        "h": 680,
+        "cue": "Scores / Moderation / Team feedback",
+        "seconds": 14,
+        "tag": "",
+        "focus": null,
+        "image": "crops/organisers-12.png",
+        "imageWidth": 685,
+        "imageHeight": 680
+      },
+      {
+        "title": "Send clear\nannouncements.",
+        "lines": [
+          "Open Communications and choose the intended audience.",
+          "Write the subject and message, then review the preview.",
+          "Check recipients before selecting Send announcement."
+        ],
+        "screen": "organiser-communications",
+        "y": 325,
+        "h": 680,
+        "cue": "Event \u2192 Communications",
+        "seconds": 13,
+        "tag": "",
+        "focus": null,
+        "image": "crops/organisers-13.png",
+        "imageWidth": 685,
+        "imageHeight": 680
+      },
+      {
+        "title": "Review rankings\nbefore release.",
+        "lines": [
+          "Check submitted cards, inspections, racing and penalties.",
+          "Resolve outstanding drafts, ties and event-completion checks.",
+          "A provisional ranking can still change."
+        ],
+        "screen": "organiser-rankings",
+        "y": 380,
+        "h": 680,
+        "cue": "Event \u2192 Rankings",
+        "seconds": 14,
+        "tag": "",
+        "focus": null,
+        "image": "crops/organisers-14.png",
+        "imageWidth": 685,
+        "imageHeight": 680
+      },
+      {
+        "title": "Publish, then\nrelease results.",
+        "lines": [
+          "The Chair publishes the current ranking snapshot.",
+          "Release results makes the official outcome visible to teams and the public.",
+          "Released results lock scoring and submission changes."
+        ],
+        "screen": "organiser-rankings",
+        "y": 2410,
+        "h": 580,
+        "cue": "Rankings \u2192 Publish ranking \u2192 Release results",
+        "seconds": 15,
+        "tag": "",
+        "focus": null,
+        "image": "crops/organisers-15.png",
+        "imageWidth": 685,
+        "imageHeight": 580
+      },
+      {
+        "title": "Ready to run\nrace day.",
+        "lines": [
+          "People assigned. Submissions checked.",
+          "Schedule published. Racing recorded.",
+          "Scores reviewed. Results released."
+        ],
+        "screen": null,
+        "y": 0,
+        "h": 680,
+        "cue": "Keep teams informed when official information changes.",
+        "seconds": 9,
+        "tag": "outro",
+        "focus": null
+      }
+    ],
+    "duration": 231
+  }
+]

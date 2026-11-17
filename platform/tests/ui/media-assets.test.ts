@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { it, expect, vi, afterEach } from 'vitest';
-import { MemoryApi } from '../../src/api';
+import { MemoryApi } from '../../src/api/memory';
 import { mediaAssetsScreen } from '../../src/ui/media-assets';
 import { makeCtx } from './helpers';
 

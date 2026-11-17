@@ -10,7 +10,6 @@ import { PANEL_LABEL } from './labels';
 import { liveRefresh } from './live-refresh';
 import { routeHref } from './router';
 import { INDIA_TECHNICAL, summarise, type Inspection } from '../technical';
-import { downloadSheet } from '../pdf/resultSheet';
 
 export async function scoresScreen(ctx: Ctx, eventId: string): Promise<HTMLElement> {
   const [event, roles, session] = await Promise.all([ctx.api.getEvent(eventId), ctx.api.myRoles(eventId), ctx.api.getSession()]);
@@ -130,7 +129,7 @@ export async function scoresScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
                 btn.textContent = 'Generating PDF…';
                 try {
                   const t = data.teams.find((x) => x.id === insp.teamId);
-                  await downloadSheet({
+                  await (await import('../pdf/resultSheet')).downloadSheet({
                     eventName: event.name,
                     teamNumber: t?.number ?? '',
                     teamName: t?.name ?? '',

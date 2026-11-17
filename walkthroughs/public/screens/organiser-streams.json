@@ -1,0 +1,82 @@
+[
+  {
+    "h": 44,
+    "text": "Toggle theme",
+    "y": 25
+  },
+  {
+    "h": 48,
+    "text": "Sign out",
+    "y": 23
+  },
+  {
+    "h": 46,
+    "text": "Scheduling & Streams",
+    "y": 347
+  },
+  {
+    "h": 48,
+    "text": "Save draft",
+    "y": 624
+  },
+  {
+    "h": 48,
+    "text": "Publish schedule",
+    "y": 624
+  },
+  {
+    "h": 48,
+    "text": "Streams",
+    "y": 729
+  },
+  {
+    "h": 48,
+    "text": "Master schedule",
+    "y": 729
+  },
+  {
+    "h": 48,
+    "text": "Event setup",
+    "y": 729
+  },
+  {
+    "h": 48,
+    "text": "Judging exemptions",
+    "y": 785
+  },
+  {
+    "h": 48,
+    "text": "Change history",
+    "y": 785
+  },
+  {
+    "h": 46,
+    "text": "Validation · 0 blocking errors · 0 warnings",
+    "y": 869
+  },
+  {
+    "h": 48,
+    "text": "Generate Stream Allocation",
+    "y": 950
+  },
+  {
+    "h": 48,
+    "text": "Add stream",
+    "y": 950
+  },
+  {
+    "h": 25,
+    "text": "Stream A",
+    "y": 1042
+  },
+  {
+    "h": 25,
+    "text": "Stream B",
+    "y": 1042
+  },
+  {
+    "h": 48,
+    "text": "Transfer team",
+    "y": 1687
+  }
+]

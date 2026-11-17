@@ -1,6 +1,7 @@
 import { vi } from 'vitest';
 import type { RankRow } from '../../src/engine';
-import { MemoryApi, ScoreQueue, memoryKV, type Api } from '../../src/api';
+import { ScoreQueue, memoryKV, type Api } from '../../src/api';
+import { MemoryApi } from '../../src/api/memory';
 import type { Ctx } from '../../src/ui/ctx';
 
 export const EMAILS = { org: 'org@x.test', chair: 'chair@x.test', judge: 'judge@x.test', lead: 'lead@x.test', mgr: 'mgr@x.test' } as const;

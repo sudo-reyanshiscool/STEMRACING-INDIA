@@ -12,8 +12,7 @@ const PANELS = Object.keys(PANEL_LABEL) as Panel[];
 const isJudgeRole = (r: string) => r === 'judge' || r === 'lead_judge';
 
 export async function peopleScreen(ctx: Ctx, eventId: string): Promise<HTMLElement> {
-  const platformAccess = await ctx.api.platformAccess();
-  const [event, roles, session] = await Promise.all([ctx.api.getEvent(eventId), ctx.api.myRoles(eventId), ctx.api.getSession()]);
+  const [platformAccess, event, roles, session] = await Promise.all([ctx.api.platformAccess(), ctx.api.getEvent(eventId), ctx.api.myRoles(eventId), ctx.api.getSession()]);
   if (!event) return notFound('That event was not found.', '#/', 'All events');
   if (!roles.some((r) => r.role === 'organiser' || r.role === 'chair')) {
     return notFound('Only the organiser or chair can manage people.', `#/event/${encodeURIComponent(eventId)}`, event.name);

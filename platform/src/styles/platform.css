@@ -473,10 +473,13 @@ html[data-magicui-theme-vt="active"] * { transition: none !important; }
 .event-logo-preview img { max-width: 100%; max-height: 140px; object-fit: contain; }
 .event-logo-set { grid-column: 1 / -1; min-width: 0; }
 .event-logo-set__slots { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; }
-.event-identity { display: flex; align-items: center; gap: 28px; padding: 28px; border-radius: var(--radius-card); background: var(--carbon-950, #05000b); color: var(--fg-on-dark, #fff); border-bottom: 4px solid var(--pitlane-pink, #e6007e); }
+/* Logos are drawn straight onto the page: no plate behind them. Each surface gets the version made for it. */
+.event-identity { display: flex; align-items: center; gap: 28px; padding: 0 0 24px; color: var(--fg-strong); border-bottom: 4px solid var(--pitlane-pink, #e6007e); }
+.event-identity .brand-logo--dark { display: none; }
+:root[data-theme="dark"] .event-identity .brand-logo--light { display: none; }
+:root[data-theme="dark"] .event-identity .brand-logo--dark { display: block; }
 .event-identity__logo { width: 220px; max-height: 110px; object-fit: contain; }
 .event-identity__name { margin: 0; font-family: var(--font-display); font-size: 24px; }
-.brand-home--regional { padding: 8px 12px; border-radius: 8px; background: var(--carbon-950, #05000b); }
 @media(max-width:600px) { .event-logo-set__slots { grid-template-columns:1fr; } .event-identity { flex-direction: column; align-items:flex-start; gap:16px; } .event-identity__logo { max-width:100%; } }
 
 /* Automatic team branding profiles: supplied track artwork on Carbon Shadow. */

@@ -69,3 +69,30 @@ it('blocks unauthorised photo completion and stale jobs after replacement, using
  const current=(await db.query('select original_width,original_height,processing_status,processed_content from team_photos where event_id=$1',[w.eventId])).rows[0];expect(current).toMatchObject({original_width:1,original_height:1,processing_status:'pending',processed_content:null});
  await expect(as(db,'outsider',q=>q('select get_broadcast_team_photo($1,$2)',[w.eventId,w.team1]))).rejects.toMatchObject({code:'42501'});
 });
+
+it('stores a school logo and school name for the team, with the same guards as other media',async()=>{
+ const logo={name:'school.png',mime:'image/png',base64:png};
+ const svg={name:'school.svg',mime:'image/svg+xml',base64:Buffer.from('<svg viewBox="0 0 1 1"><rect width="1" height="1"/></svg>').toString('base64')};
+ expect((await get()).schoolName).toBeNull();expect((await get()).schoolLogo).toBeUndefined();
+ await save('mgr1','school_name',{name:'  The British School  '});
+ await upload('mgr1','school_logo',logo,0);
+ const s=await get('organiser');expect(s).toMatchObject({revision:1,schoolName:'The British School',schoolLogo:{name:'school.png',mime:'image/png',width:1,height:1,revision:1}});expect(s.schoolLogo.base64).toBeUndefined();
+ expect((await db.query<{school:string}>('select school from teams where id=$1',[w.team1])).rows[0].school).toBe('The British School');
+ expect((await as(db,'organiser',q=>q('select download_compulsory_asset($1,$2,$3) as f',[w.eventId,w.team1,'school_logo']))).rows[0].f.base64).toBe(png);
+ await upload('mgr1','school_logo',svg,1);expect((await get()).schoolLogo).toMatchObject({name:'school.svg',mime:'image/svg+xml',revision:2,width:null});
+ await expect(upload('mgr1','school_logo',logo,1)).rejects.toMatchObject({code:'40001'});
+ await expect(save('mgr1','school_name',{name:'Stale'},0)).rejects.toMatchObject({code:'40001'});
+ for(const bad of [{name:'   '},{name:'x'.repeat(121)},{name:7},'School',null])await expect(save('mgr1','school_name',bad)).rejects.toMatchObject({code:'22023'});
+ await expect(upload('mgr1','school_logo',{name:'school.jpg',mime:'image/jpeg',base64:png},2)).rejects.toMatchObject({code:'22023'});
+ await expect(upload('mgr1','school_logo',{name:'bad.svg',mime:'image/svg+xml',base64:Buffer.from('<svg><script>alert(1)</script></svg>').toString('base64')},2)).rejects.toMatchObject({code:'22023'});
+ for(const who of ['mgr2','judgeV','outsider'] as const){await expect(save(who,'school_name',{name:'Other'})).rejects.toMatchObject({code:'42501'});await expect(upload(who,'school_logo',logo,2)).rejects.toMatchObject({code:'42501'});}
+ expect((await db.query<{school:string}>('select school from teams where id=$1',[w.team2])).rows[0].school).toBe('');
+ await as(db,'mgr1',q=>q('select delete_compulsory_asset($1,$2,$3)',[w.eventId,w.team1,'school_logo']));await as(db,'mgr1',q=>q('select delete_compulsory_asset($1,$2,$3)',[w.eventId,w.team1,'school_name']));
+ const cleared=await get();expect(cleared.schoolLogo).toBeUndefined();expect(cleared.schoolName).toBeNull();
+ await db.query('update events set results_released=true where id=$1',[w.eventId]);
+ await expect(save('mgr1','school_name',{name:'Late change'})).rejects.toMatchObject({code:'55000'});await expect(upload('mgr1','school_logo',logo,0)).rejects.toMatchObject({code:'55000'});
+});
+it('keeps bounded timeouts on the replaced media functions',async()=>{
+ const rows=(await db.query("select proname,proconfig::text c from pg_proc where proname in ('team_branding_profile','upload_compulsory_asset','save_team_media_details')")).rows as Array<{proname:string;c:string}>;
+ expect(rows).toHaveLength(3);for(const r of rows)expect(r.c).toContain('statement_timeout=30s');
+});

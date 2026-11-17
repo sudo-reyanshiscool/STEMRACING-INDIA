@@ -1,5 +1,3 @@
-import {schedulingScreen,myScheduleScreen} from './ui/scheduling';
-import {submissionsScreen} from './ui/submissions';
 import {spectatorOnly,spectatorReadScreen} from './ui/spectator';
 import { judgePageAllowed } from './ui/judge-access';
 import './styles/tokens.css';
@@ -7,41 +5,71 @@ import './styles/fonts.css';
 import './styles/base.css';
 import './styles/components.css';
 import './styles/platform.css';
-import { createSupabaseApi, localStorageKV, memoryKV, type Api } from './api';
+import { localStorageKV, memoryKV } from './api/queue';
+import type { Api } from './api/types';
+import { createSupabaseApi } from './api/supabase';
+import { withRequestCache } from './api/cached';
 import { loadShowcase, exitShowcaseHref } from './api/showcase';
 import { mountShowcaseBar } from './ui/showcase';
 import { notFound, codeText, errorText } from './ui/common';
 import type { Ctx } from './ui/ctx';
 import { h } from './ui/dom';
 import { errorScreen } from './ui/errorscreen';
-import { eventHomeScreen } from './ui/event-home';
-import { eventsScreen } from './ui/events';
 import { readEmailCallback, clearEmailCallback } from './ui/email-callback';
 import { emailConfirmScreen } from './ui/email-confirm';
 import { loginScreen } from './ui/login';
-import { moderationScreen } from './ui/moderation';
-import { peopleScreen } from './ui/people';
-import {teamBrandingScreen} from './ui/team-branding';
-import { teamFilesScreen } from './ui/team-files';
-import { mediaAssetsScreen } from './ui/media-assets';
-import { teamFeedbackScreen } from './ui/team-feedback';
-import { communicationsScreen } from './ui/communications';
-import { rankingsScreen } from './ui/rankings';
-import { resultsScreen } from './ui/results';
-import { scorecardScreen } from './ui/scorecard';
-import { inspectionScreen } from './ui/inspection';
-import { scoringScreen } from './ui/scoring';
 import { mfaChallengeScreen } from './ui/mfa-challenge';
-import { securityScreen } from './ui/security';
-import {drawLotsScreen} from './ui/draw-lots';
-import { parseHash, startRouter, type Route } from './ui/router';
+import { startRouter, type Route } from './ui/router';
 import { QueueHost } from './ui/queuehost';
 import { mountShell } from './ui/shell';
 import { mountSyncBar } from './ui/syncbar';
-import { teamsScreen } from './ui/teams';
-import { scoresScreen } from './ui/scores';
-import { racingScreen } from './ui/racing';
 import { eventNav } from './ui/event-nav';
+
+/**
+ * Each screen is its own file on the network, fetched when first opened. The sign-in page no longer waits for
+ * every organiser tool, and the PDF and zip libraries only load when something is exported.
+ */
+const SCREENS = {
+  events: () => import('./ui/events'),
+  security: () => import('./ui/security'),
+  eventHome: () => import('./ui/event-home'),
+  teams: () => import('./ui/teams'),
+  people: () => import('./ui/people'),
+  scheduling: () => import('./ui/scheduling'),
+  submissions: () => import('./ui/submissions'),
+  teamBranding: () => import('./ui/team-branding'),
+  teamFiles: () => import('./ui/team-files'),
+  mediaAssets: () => import('./ui/media-assets'),
+  teamFeedback: () => import('./ui/team-feedback'),
+  communications: () => import('./ui/communications'),
+  scoring: () => import('./ui/scoring'),
+  drawLots: () => import('./ui/draw-lots'),
+  scorecard: () => import('./ui/scorecard'),
+  inspection: () => import('./ui/inspection'),
+  racing: () => import('./ui/racing'),
+  scores: () => import('./ui/scores'),
+  moderation: () => import('./ui/moderation'),
+  rankings: () => import('./ui/rankings'),
+  results: () => import('./ui/results'),
+};
+
+/** Once the first page is up, fetch the rest quietly so later pages open instantly, including on a dropped connection. */
+function warmScreens(): void {
+  const run = () => { for (const load of Object.values(SCREENS)) void load().catch(() => undefined); };
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(run, { timeout: 4000 });
+  else setTimeout(run, 1500);
+}
+
+// A page left open across a deployment asks for files that no longer exist. Reload once to pick up the new ones.
+window.addEventListener('vite:preloadError', (event) => {
+  const KEY = 'stem-racing-india-reloaded-at';
+  try {
+    if (!navigator.onLine || Date.now() - Number(sessionStorage.getItem(KEY) ?? 0) < 60_000) return;
+    sessionStorage.setItem(KEY, String(Date.now()));
+  } catch { return; }
+  event.preventDefault();
+  location.reload();
+});
 
 const url = import.meta.env.VITE_SUPABASE_URL;
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -57,7 +85,7 @@ async function boot(): Promise<void> {
   let authError = callback?.kind === 'invalid' ? codeText('invalid-auth') : undefined;
   if (callback && callback.kind !== 'legacy') clearEmailCallback();
   const shell = mountShell(document.getElementById('app')!);
-  const sharedApi: Api = createSupabaseApi(url, key, undefined, { schema: import.meta.env.VITE_SUPABASE_DB_SCHEMA ?? 'public' });
+  const sharedApi: Api = withRequestCache(createSupabaseApi(url, key, undefined, { schema: import.meta.env.VITE_SUPABASE_DB_SCHEMA ?? 'public' }));
   let api: Api = sharedApi;
   const showcaseId = new URLSearchParams(location.search).get('showcase');
   const showcase = showcaseId !== null;
@@ -104,6 +132,7 @@ async function boot(): Promise<void> {
   };
 
   let changingSession = false;
+  let claimedFor: string | null = null, claimedAt = 0;
   const finishScreen = async () => {
     const outgoing = leaves; leaves = [];
     await Promise.allSettled(outgoing.map((fn) => Promise.resolve().then(fn)));
@@ -137,9 +166,22 @@ async function boot(): Promise<void> {
       const mfa = session ? await api.getMfaStatus().catch(() => null) : null;
       const requiresMfa = session && mfa && mfa.nextLevel === 'aal2' && mfa.currentLevel !== 'aal2';
       if (session && !requiresMfa) {
-        await api.claimInvitations().catch(() => 0);
+        if (claimedFor !== session.userId) {
+          // The first page after sign-in waits: what this account may open depends on its invitations.
+          try { await api.claimInvitations(); claimedFor = session.userId; claimedAt = Date.now(); } catch { /* Tried again on the next page. */ }
+        } else if (Date.now() - claimedAt > 30_000) {
+          // Later pages do not wait. A new invitation shows from the next page onwards.
+          claimedAt = Date.now();
+          void api.claimInvitations().catch(() => 0);
+        }
         void host.flush(); // a fresh sign-in releases anything that waited for a session
       }
+      // Asked for alongside the screen, which needs the same event and roles; the two share one request each.
+      const meta = 'eventId' in route
+        ? Promise.all([api.getEvent(route.eventId), api.myRoles(route.eventId)]).then(async ([event, roles]) =>
+          ({ event, roles, branding: event?.competitionLevel ? await api.eventBranding(event.id) : null }))
+        : null;
+      meta?.catch(() => undefined);
       let node: HTMLElement;
       if (emailToken) node = emailConfirmScreen(ctx, emailToken, () => {
         emailToken = null; authError = undefined; void render({ name: 'home' });
@@ -158,10 +200,13 @@ async function boot(): Promise<void> {
       }
       else node = await screenFor(route, ctx);
       if (mine !== token) return;
-      if ('eventId' in route) {
-        const [event, roles] = await Promise.all([api.getEvent(route.eventId), api.myRoles(route.eventId)]);
+      if (meta) {
+        const { event, roles, branding } = await meta;
         if (mine !== token) return;
-        if (event){if(event.competitionLevel){const branding=await api.eventBranding(event.id);if(mine!==token)return;shell.setBranding(branding);}if(session)node.prepend(eventNav(event, roles, route.name));}
+        if (event) {
+          if (event.competitionLevel) shell.setBranding(branding);
+          if (session) node.prepend(eventNav(event, roles, route.name));
+        }
       }
       shell.main.replaceChildren(node);
       window.scrollTo(0, 0);
@@ -179,38 +224,41 @@ async function boot(): Promise<void> {
     if (!changingSession) void render(current);
   });
   startRouter((route) => void render(route));
+  warmScreens();
 }
 
-/** Later tasks add one case per screen. */
 async function screenFor(route: Route, ctx: Ctx): Promise<HTMLElement> {
-  if('eventId' in route && spectatorOnly(await ctx.api.myRoles(route.eventId))) {
-    if(['teams','people','draw','communications','team-feedback'].includes(route.name))return spectatorReadScreen(ctx,route.eventId,route.name);
-    if(['score','scorecard'].includes(route.name))return notFound('Platform Spectators can view scorecards under Scores, but cannot judge or edit them.',`#/event/${encodeURIComponent(route.eventId)}/scores`,'View scores');
+  if ('eventId' in route) {
+    const roles = await ctx.api.myRoles(route.eventId);
+    if (spectatorOnly(roles)) {
+      if(['teams','people','draw','communications','team-feedback'].includes(route.name))return spectatorReadScreen(ctx,route.eventId,route.name);
+      if(['score','scorecard'].includes(route.name))return notFound('Platform Spectators can view scorecards under Scores, but cannot judge or edit them.',`#/event/${encodeURIComponent(route.eventId)}/scores`,'View scores');
+    }
+    if (!judgePageAllowed(roles,route.name)) return notFound('Your judge workspace includes Event, My scorecards, Scores and Results.',`#/event/${encodeURIComponent(route.eventId)}`,'Back to event');
   }
-  if('eventId' in route && !judgePageAllowed(await ctx.api.myRoles(route.eventId),route.name)) return notFound('Your judge workspace includes Event, My scorecards, Scores and Results.',`#/event/${encodeURIComponent(route.eventId)}`,'Back to event');
   switch (route.name) {
-    case 'home': return eventsScreen(ctx);
-    case 'security': return securityScreen(ctx);
-    case 'event': return eventHomeScreen(ctx, route.eventId);
-    case 'teams': return teamsScreen(ctx, route.eventId);
-    case 'people': return peopleScreen(ctx, route.eventId);
-    case 'schedule': return schedulingScreen(ctx,route.eventId);
-    case 'my-schedule': return myScheduleScreen(ctx,route.eventId);
-    case 'submissions': return submissionsScreen(ctx,route.eventId);
-    case 'branding': return teamBrandingScreen(ctx,route.eventId);
-    case 'team-files': return teamFilesScreen(ctx,route.eventId);
-    case 'media': return mediaAssetsScreen(ctx, route.eventId);
-    case 'team-feedback': return teamFeedbackScreen(ctx, route.eventId);
-    case 'communications': return communicationsScreen(ctx, route.eventId);
-    case 'score': return scoringScreen(ctx, route.eventId);
-    case 'draw': return drawLotsScreen(ctx,route.eventId);
-    case 'scorecard': return scorecardScreen(ctx, route.eventId, route.teamId, route.areaId);
-    case 'inspection': return inspectionScreen(ctx, route.eventId, route.teamId, route.car);
-    case 'racing': return racingScreen(ctx, route.eventId);
-    case 'scores': return scoresScreen(ctx, route.eventId);
-    case 'moderate': return moderationScreen(ctx, route.eventId);
-    case 'rankings': return rankingsScreen(ctx, route.eventId);
-    case 'results': return resultsScreen(ctx, route.eventId);
+    case 'home': return (await SCREENS.events()).eventsScreen(ctx);
+    case 'security': return (await SCREENS.security()).securityScreen(ctx);
+    case 'event': return (await SCREENS.eventHome()).eventHomeScreen(ctx, route.eventId);
+    case 'teams': return (await SCREENS.teams()).teamsScreen(ctx, route.eventId);
+    case 'people': return (await SCREENS.people()).peopleScreen(ctx, route.eventId);
+    case 'schedule': return (await SCREENS.scheduling()).schedulingScreen(ctx,route.eventId);
+    case 'my-schedule': return (await SCREENS.scheduling()).myScheduleScreen(ctx,route.eventId);
+    case 'submissions': return (await SCREENS.submissions()).submissionsScreen(ctx,route.eventId);
+    case 'branding': return (await SCREENS.teamBranding()).teamBrandingScreen(ctx,route.eventId);
+    case 'team-files': return (await SCREENS.teamFiles()).teamFilesScreen(ctx,route.eventId);
+    case 'media': return (await SCREENS.mediaAssets()).mediaAssetsScreen(ctx, route.eventId);
+    case 'team-feedback': return (await SCREENS.teamFeedback()).teamFeedbackScreen(ctx, route.eventId);
+    case 'communications': return (await SCREENS.communications()).communicationsScreen(ctx, route.eventId);
+    case 'score': return (await SCREENS.scoring()).scoringScreen(ctx, route.eventId);
+    case 'draw': return (await SCREENS.drawLots()).drawLotsScreen(ctx,route.eventId);
+    case 'scorecard': return (await SCREENS.scorecard()).scorecardScreen(ctx, route.eventId, route.teamId, route.areaId);
+    case 'inspection': return (await SCREENS.inspection()).inspectionScreen(ctx, route.eventId, route.teamId, route.car);
+    case 'racing': return (await SCREENS.racing()).racingScreen(ctx, route.eventId);
+    case 'scores': return (await SCREENS.scores()).scoresScreen(ctx, route.eventId);
+    case 'moderate': return (await SCREENS.moderation()).moderationScreen(ctx, route.eventId);
+    case 'rankings': return (await SCREENS.rankings()).rankingsScreen(ctx, route.eventId);
+    case 'results': return (await SCREENS.results()).resultsScreen(ctx, route.eventId);
     default: return notFound('This screen is not built yet.', '#/', 'Back to events');
   }
 }

@@ -1,4 +1,4 @@
-import {eventLogoSource,type EventBranding} from '../api';
+import {eventLogoSource,PLATFORM_LOGO,type EventBranding} from '../api';
 import type { Session } from '../api';
 import { h } from './dom';
 import { themeSwitcher } from './theme';
@@ -13,6 +13,9 @@ export interface Shell {
   setUser(session: Session | null, onSignOut: () => void, showcase?: boolean): void;
 }
 
+/** If a full-colour logo cannot be shown, fall back once to the monochrome mark for the same surface. */
+const monoFallback=(mono:string)=>(e:Event)=>{const img=e.currentTarget as HTMLImageElement;if(!img.src.endsWith(mono))img.src=mono;};
+
 export function mountShell(root: HTMLElement): Shell {
   const main = h('main', { id: 'main', tabindex: '-1' });
   const who = h('div', { class: 'who' });
@@ -24,8 +27,8 @@ export function mountShell(root: HTMLElement): Shell {
     h('header', { class: 'site-header' },
       h('div', { class: 'site-header__in' },
         h('a', { class: 'brand-home', href: '#/', 'aria-label': 'STEM Racing India event platform home' },
-          h('img', { class: 'brand-logo--light', src: '/brand/logo-india-mono-black.png', alt: 'STEM Racing India', width: 1200, height: 492 }),
-          h('img', { class: 'brand-logo--dark', src: '/brand/logo-india-mono-white.png', alt: 'STEM Racing India', width: 1200, height: 492 })),
+          h('img', { class: 'brand-logo--light', src: PLATFORM_LOGO.light.colour, alt: 'STEM Racing India', width: 1400, height: 573, onerror: monoFallback(PLATFORM_LOGO.light.mono) }),
+          h('img', { class: 'brand-logo--dark', src: PLATFORM_LOGO.dark.colour, alt: 'STEM Racing India', width: 1400, height: 573, onerror: monoFallback(PLATFORM_LOGO.dark.mono) })),
         h('div', { class: 'header-tools' }, themeSwitcher(), who),
       ),
     ),
@@ -37,9 +40,9 @@ export function mountShell(root: HTMLElement): Shell {
   return {
     main,
     setBranding(branding){
-      const home=root.querySelector<HTMLElement>('.brand-home')!;home.classList.toggle('brand-home--regional',branding?.level==='regional');
+      const home=root.querySelector<HTMLElement>('.brand-home')!;
       const light=home.querySelector<HTMLImageElement>('.brand-logo--light')!,dark=home.querySelector<HTMLImageElement>('.brand-logo--dark')!;
-      light.src=eventLogoSource(branding,false,true)??'/brand/logo-india-mono-black.png';dark.src=eventLogoSource(branding,true,true)??'/brand/logo-india-mono-white.png';
+      light.src=eventLogoSource(branding,false)??PLATFORM_LOGO.light.colour;dark.src=eventLogoSource(branding,true)??PLATFORM_LOGO.dark.colour;
       light.alt=dark.alt=branding?.level?`STEM Racing India · ${branding.level==='national'?'National':'Regional'} finals`:'STEM Racing India';
     },
     syncBar,

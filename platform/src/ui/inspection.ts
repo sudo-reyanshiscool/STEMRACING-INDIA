@@ -2,7 +2,6 @@ import { selectedRules } from '../technical';
 import { buttonBusy } from './button-busy';
 import type { Car, Inspection, Measurements, Value } from '../technical';
 import { INDIA_TECHNICAL, SECTIONS, summarise } from '../technical';
-import { downloadSheet } from '../pdf/resultSheet';
 import { reportActionError } from './actions';
 import { notFound, tag } from './common';
 import type { Ctx } from './ctx';
@@ -93,7 +92,7 @@ export async function inspectionScreen(ctx: Ctx, eventId: string, teamId: string
       try {
         const s = summarise(selectedRules(INDIA_TECHNICAL.rules, insp), measurements);
         const inspector = roles.find((r) => r.userId === insp.inspectorId)?.email || session?.email || '';
-        await downloadSheet({
+        await (await import('../pdf/resultSheet')).downloadSheet({
           eventName: event.name,branding:event.competitionLevel?await ctx.api.eventBranding(event.id):undefined,
           teamNumber: team.number,
           teamName: team.name,

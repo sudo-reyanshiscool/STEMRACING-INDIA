@@ -1,0 +1,92 @@
+[
+  {
+    "h": 44,
+    "text": "Toggle theme",
+    "y": 25
+  },
+  {
+    "h": 48,
+    "text": "Sign out",
+    "y": 23
+  },
+  {
+    "h": 46,
+    "text": "Scheduling & Streams",
+    "y": 347
+  },
+  {
+    "h": 48,
+    "text": "Save draft",
+    "y": 624
+  },
+  {
+    "h": 48,
+    "text": "Publish schedule",
+    "y": 624
+  },
+  {
+    "h": 48,
+    "text": "Streams",
+    "y": 729
+  },
+  {
+    "h": 48,
+    "text": "Master schedule",
+    "y": 729
+  },
+  {
+    "h": 48,
+    "text": "Event setup",
+    "y": 729
+  },
+  {
+    "h": 48,
+    "text": "Judging exemptions",
+    "y": 785
+  },
+  {
+    "h": 48,
+    "text": "Change history",
+    "y": 785
+  },
+  {
+    "h": 46,
+    "text": "Validation · 0 blocking errors · 0 warnings",
+    "y": 869
+  },
+  {
+    "h": 48,
+    "text": "Set timezone",
+    "y": 976
+  },
+  {
+    "h": 28,
+    "text": "Event days and operating hours",
+    "y": 1040
+  },
+  {
+    "h": 48,
+    "text": "Remove day",
+    "y": 1143
+  },
+  {
+    "h": 48,
+    "text": "Add or update event day",
+    "y": 1347
+  },
+  {
+    "h": 28,
+    "text": "Rooms, judging panels and tracks",
+    "y": 1411
+  },
+  {
+    "h": 48,
+    "text": "Remove resource",
+    "y": 1514
+  },
+  {
+    "h": 48,
+    "text": "Add resource",
+    "y": 1692
+  }
+]

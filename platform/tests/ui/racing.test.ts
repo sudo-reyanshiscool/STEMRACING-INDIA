@@ -46,4 +46,23 @@ describe('qualification setup',()=>{
   await vi.waitFor(()=>expect(text(el)).toContain('Awaiting submitted Car A and B inspections'));
   expect([...el.querySelectorAll('button')].some(b=>text(b)==='Queue match')).toBe(false);
  });
+ it('downloads heats as JSON and a graphics JSON with one entry per team pairing',async()=>{
+  const {ctx,ev,t1,t2}=await seed();
+  let blob:Blob|null=null;const names:string[]=[];
+  const create=vi.fn((b:Blob)=>{blob=b;return 'blob:x';});
+  Object.assign(URL,{createObjectURL:create,revokeObjectURL:vi.fn()});
+  const click=vi.spyOn(HTMLAnchorElement.prototype,'click').mockImplementation(function(this:HTMLAnchorElement){names.push(this.download);});
+  cleanups.push(()=>click.mockRestore());
+  const el=await racingScreen(ctx,ev.id);
+  const button=(label:string)=>[...el.querySelectorAll('button')].find(b=>text(b)===label)!;
+  expect(button('Download heats JSON').hidden).toBe(false);
+  button('Download heats JSON').click();
+  const heats=JSON.parse(await blob!.text());
+  expect(heats).toMatchObject({kind:'heats',event:{id:ev.id,name:ev.name},heats:[{code:'RR-H01',lanes:[{lane:1,car:'A',team:{id:t1.id}},{lane:2,team:{id:t2.id}}]}]});
+  button('Download graphics JSON').click();
+  const graphics=JSON.parse(await blob!.text());
+  expect(graphics).toMatchObject({kind:'heat-matchups',matchups:[{order:1,teamA:{id:t1.id,name:'One'},teamB:{id:t2.id,name:'Two'},heatNumbers:[1]}]});
+  expect(JSON.stringify(graphics)).not.toContain('"car"');
+  expect(names).toEqual(['STEM-Racing_Nationals_Heats.json','STEM-Racing_Nationals_Heats-Graphics.json']);
+ });
 });

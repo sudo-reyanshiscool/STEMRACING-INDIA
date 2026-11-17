@@ -1,18 +1,14 @@
 import {readFileSync} from 'node:fs';
 const portrait={fileName:'portrait.png',photoMime:'image/png',photoBase64:'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='};
 import { describe, expect, it } from 'vitest';
-import {
-  COMPULSORY_ASSET_SPECS,
-  normalizeHexColor,
-  validateTeamColours,
-  computeCompulsoryAssetStatus,
-  extractPngDimensionsFromBase64,
-  MemoryApi,
-} from '../../src/api';
+import { COMPULSORY_ASSET_SPECS, normalizeHexColor, validateTeamColours, computeCompulsoryAssetStatus, extractPngDimensionsFromBase64 } from '../../src/api';
+import { MemoryApi } from '../../src/api/memory';
+import { watchGuide } from '../guide-helper';
 
 describe('Compulsory Submission Assets', () => {
-  it('defines all 8 compulsory assets with required specifications', () => {
-    expect(COMPULSORY_ASSET_SPECS).toHaveLength(8);
+  it('defines all 10 compulsory assets with required specifications', () => {
+    expect(COMPULSORY_ASSET_SPECS).toHaveLength(10);
+    expect(COMPULSORY_ASSET_SPECS.slice(8).map((s) => s.key)).toEqual(['school_logo', 'school_name']);
     const keys = COMPULSORY_ASSET_SPECS.map((s) => s.key);
     expect(keys).toEqual([
       'team_logo',
@@ -23,6 +19,8 @@ describe('Compulsory Submission Assets', () => {
       'official_photo',
       'team_colours',
       'member_portraits',
+      'school_logo',
+      'school_name',
     ]);
 
     for (const spec of COMPULSORY_ASSET_SPECS) {
@@ -62,12 +60,12 @@ describe('Compulsory Submission Assets', () => {
     });
   });
 
-  it('computes completion status across all 8 compulsory assets', () => {
+  it('computes completion status across all 10 compulsory assets', () => {
     const emptyStatus = computeCompulsoryAssetStatus('event-1', 'team-1', {});
     expect(emptyStatus.completedCount).toBe(0);
-    expect(emptyStatus.totalCount).toBe(8);
+    expect(emptyStatus.totalCount).toBe(10);
     expect(emptyStatus.isAllCompleted).toBe(false);
-    expect(emptyStatus.missingKeys).toHaveLength(8);
+    expect(emptyStatus.missingKeys).toHaveLength(10);
 
     const fullStatus = computeCompulsoryAssetStatus('event-1', 'team-1', {
       teamLogo: { name: 'logo.svg', mime: 'image/svg+xml', size: 1000, updatedAt: '' },
@@ -78,15 +76,18 @@ describe('Compulsory Submission Assets', () => {
       officialPhoto: { id: 'p1' } as any,
       teamColours: { primary: '#E6007E', secondary: '#312783', accent: '#FCBC00' },
       memberPortraits: [{ id: 'm1', name: 'Aarav', role: 'Driver',...portrait }],
+      schoolLogo: { name: 'school.png', mime: 'image/png', size: 900, updatedAt: '' },
+      schoolName: 'The British School',
     });
-    expect(fullStatus.completedCount).toBe(8);
+    expect(computeCompulsoryAssetStatus('event-1', 'team-1', { schoolName: '   ' }).missingKeys).toContain('school_name');
+    expect(fullStatus.completedCount).toBe(10);
     expect(fullStatus.isAllCompleted).toBe(true);
     expect(fullStatus.missingKeys).toHaveLength(0);
   });
 
   it('allows saving colours, portraits, and uploading renders in MemoryApi', async () => {
     const api = new MemoryApi();
-    await api.signIn('reyanshg11111@gmail.com');
+    await api.signIn('owner@platform.invalid');
     const event = await api.createEvent({ name: 'Nationals 2026' });
     const team = await api.createTeam(event.id, { number: '101', name: 'Apex Velocity' });
 
@@ -118,5 +119,45 @@ describe('Compulsory Submission Assets', () => {
     expect(status.carRenderFL).toBeDefined();
     expect(status.teamColours?.primary).toBe('#E6007E');
     expect(status.memberPortraits).toHaveLength(2);
+  });
+
+  it('collects a school logo and school name from the team, and feeds both into the branding profile', async () => {
+    const api = new MemoryApi();
+    api.setCreatorAllowlist(['org@x.test']);
+    await api.signIn('org@x.test');
+    const event = await api.createEvent({ name: 'Nationals' });
+    const team = await api.createTeam(event.id, { number: '7', name: 'Apex' });
+    await api.invite(event.id, { email: 'mgr@x.test', role: 'team_manager', teamId: team.id });
+    const other = await api.createTeam(event.id, { number: '8', name: 'Rival' });
+    await api.signIn('mgr@x.test'); await api.claimInvitations(); await watchGuide(api, event.id);
+
+    const before = await api.getCompulsoryAssets(event.id, team.id);
+    expect(before.missingKeys).toEqual(expect.arrayContaining(['school_logo', 'school_name']));
+
+    await expect(api.saveSchoolName(event.id, team.id, '   ', before.revision)).rejects.toMatchObject({ code: 'invalid' });
+    await expect(api.saveSchoolName(event.id, team.id, 'x'.repeat(121), before.revision)).rejects.toMatchObject({ code: 'invalid' });
+    expect(await api.saveSchoolName(event.id, team.id, '  The British School  ', before.revision)).toBe('The British School');
+    await expect(api.saveSchoolName(event.id, team.id, 'Stale', before.revision)).rejects.toMatchObject({ code: 'conflict' });
+    await expect(api.saveSchoolName(event.id, other.id, 'Not mine')).rejects.toMatchObject({ code: 'forbidden' });
+
+    await expect(api.uploadCompulsoryAsset(event.id, team.id, 'school_logo', { name: 'school.jpg', mime: 'image/jpeg', base64: portrait.photoBase64 }, 0)).rejects.toMatchObject({ code: 'invalid' });
+    await api.uploadCompulsoryAsset(event.id, team.id, 'school_logo', { name: 'school.png', mime: 'image/png', base64: portrait.photoBase64 }, 0);
+
+    const after = await api.getCompulsoryAssets(event.id, team.id);
+    expect(after.schoolName).toBe('The British School');
+    expect(after.schoolLogo).toMatchObject({ name: 'school.png', mime: 'image/png', revision: 1 });
+    expect(after.schoolLogo?.base64).toBeUndefined();
+    expect(after.missingKeys).not.toEqual(expect.arrayContaining(['school_logo', 'school_name']));
+    expect((await api.listTeams(event.id)).find((t) => t.id === team.id)?.school).toBe('The British School');
+
+    const profile = await api.teamBrandingProfile(event.id, team.id);
+    expect(profile.totalCount).toBe(10);
+    expect(profile.team.school).toBe('The British School');
+    expect(profile.assets.map((a) => a.key)).toContain('school_logo');
+    expect((await api.downloadTeamBrandAsset(event.id, team.id, 'school_logo', profile.version)).base64).toBe(portrait.photoBase64);
+
+    await api.deleteCompulsoryAsset(event.id, team.id, 'school_logo');
+    await api.deleteCompulsoryAsset(event.id, team.id, 'school_name');
+    expect((await api.getCompulsoryAssets(event.id, team.id)).missingKeys).toEqual(expect.arrayContaining(['school_logo', 'school_name']));
   });
 });

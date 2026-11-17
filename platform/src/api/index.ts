@@ -1,6 +1,7 @@
 export * from './types';
 export * from './review';
-export { MemoryApi } from './memory';
+// MemoryApi is deliberately not re-exported: it backs the showcase and tests only, and listing it here
+// made every visitor download it. Import it from './memory'.
 export { createSupabaseApi } from './supabase';
 export {
   ScoreQueue, memoryKV, localStorageKV, MAX_ATTEMPTS,

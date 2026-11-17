@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { RankRow } from '../../src/engine';
 import { resultsScreen } from '../../src/ui/results';
 import { EMAILS, makeCtx, releaseResults, text, world } from './helpers';
@@ -202,5 +202,37 @@ describe('resultsScreen', () => {
     expect(text(el)).not.toContain('xyz');
     expect(text(el)).toContain('Something went wrong');
     expect(el.querySelector('table')).not.toBeNull();
+  });
+
+  it('lets staff download results, awards, nominations and heats as JSON, and offers none of it to a team manager', async () => {
+    const { api, ev, t1, t2 } = await world();
+    await api.signIn(EMAILS.chair);
+    await api.publishSnapshot(ev.id, { rulesetId: 'india-national-finals-2026', inputHash: HASH, inputs: {}, rows: [row({ teamId: t1.id }), row({ rank: 2, teamId: t2.id, number: '2', name: 'Two', total: 20 })] });
+    await api.signIn(EMAILS.org);
+    await api.saveAward(ev.id, 'Fastest Car', t2.id);
+    let blob: Blob | null = null; const names: string[] = [];
+    Object.assign(URL, { createObjectURL: vi.fn((b: Blob) => { blob = b; return 'blob:x'; }), revokeObjectURL: vi.fn() });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) { names.push(this.download); });
+    try {
+      const el = await resultsScreen(makeCtx(api).ctx, ev.id);
+      const press = async (label: string) => {
+        blob = null;
+        const button = [...el.querySelectorAll('button')].find((b) => text(b) === label)!;
+        button.click();
+        await vi.waitFor(() => expect(button.disabled).toBe(false));
+        return blob ? JSON.parse(await (blob as Blob).text()) : null;
+      };
+      const results = await press('Results JSON');
+      expect(results).toMatchObject({ kind: 'results', event: { id: ev.id }, released: false, standings: [{ rank: 1, team: { id: t1.id, name: 'One' }, total: 26 }, { rank: 2, team: { id: t2.id } }] });
+      expect(JSON.stringify(results)).not.toContain(HASH);
+      expect(await press('Awards JSON')).toMatchObject({ kind: 'awards', confirmed: false, awards: [{ title: 'Fastest Car', team: { id: t2.id, number: '2', name: 'Two' } }] });
+      expect(await press('Nominations JSON')).toBeNull();
+      expect(text(el)).toContain('No award nominations on submitted cards yet.');
+      expect(await press('Heats JSON')).toBeNull();
+      expect(text(el)).toContain('No race heats have been created yet.');
+      expect(names).toEqual(['STEM-Racing_Nationals_Results.json', 'STEM-Racing_Nationals_Awards.json']);
+      await api.signIn(EMAILS.mgr);
+      expect(text(await resultsScreen(makeCtx(api).ctx, ev.id))).not.toContain('JSON');
+    } finally { click.mockRestore(); }
   });
 });
