@@ -29,6 +29,11 @@ iframe{position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:
 const APP='sri-show', A=document.getElementById('awards'), RS=[document.getElementById('race'),document.getElementById('race2')], AN=document.getElementById('ana');
 const boss=window.opener||(window.parent!==window?window.parent:null);
 const q=new URLSearchParams(location.search);
+// the control page is also heard on a channel of this name, so a control page that was reloaded or reopened still reaches this window
+const NS=(q.get('event')||'').replace(/[^\w-]/g,''), TOP=window.parent===window; let bc=null; try{if(!window.SRI_PARTS&&window.BroadcastChannel)bc=new BroadcastChannel(NS?APP+':'+NS:APP);}catch(x){}
+const bossUp=()=>{try{return !!boss&&!boss.closed;}catch(x){return false;}};
+// to the control page: straight to the window that opened this one while it is there, otherwise over the channel
+const tell=m=>{try{if(bossUp())boss.postMessage(m,'*'); else if(bc)bc.postMessage(Object.assign({top:TOP},m));}catch(x){}};
 // what is on screen. Until a control window says otherwise: the holding screen.
 let state={n:0,src:'hold',awards:{i:0,r:1,winners:{},nominees:{}},race:null};
 let sentA='', sentK=null, lastN=0, timer=0, timer2=0, cur=0, raceReady=0, awardsReady=false;
@@ -57,13 +62,15 @@ const P=document.getElementById('pit'); let pitReady=false, sentP='';
 function toPit(force){const p=state.pit, on=!!(p&&p.show); P.classList.toggle('on',on&&pitReady); if(!pitReady)return;
   const key=JSON.stringify(p||null); if(!force&&key===sentP)return; sentP=key;
   P.contentWindow.postMessage({app:'sri-pit',type:'state',state:p||{show:false}},'*');}
+function take(d){if(!d.state||d.state.n<=state.n)return; state=d.state; toAwards(); toRace(); toAna(); toPit();}
+if(bc)bc.onmessage=e=>{const d=e.data; if(TOP&&d&&d.app===APP&&d.type==='state')take(d);};
 window.addEventListener('message',e=>{const d=e.data; if(!d)return;
-  if(d.app===APP&&d.type==='state'){if(boss&&e.source!==boss)return; if(!d.state||d.state.n<=state.n)return; state=d.state; toAwards(); toRace(); toAna(); toPit(); return;}
+  if(d.app===APP&&d.type==='state'){if(boss&&e.source!==boss)return; take(d); return;}
   if(d.app==='sri-pit'&&d.type==='hello'&&e.source===P.contentWindow){pitReady=true; toPit(true);}
   if(d.app==='sri-ana'&&d.type==='hello'&&e.source===AN.contentWindow){anaReady=true; toAna(true);}
   if(d.app==='sri-awards'&&e.source===A.contentWindow){
     if(d.type==='hello'){awardsReady=true; toAwards(true);}
-    if(d.type==='heart'){try{boss&&boss.postMessage({app:APP,type:'heart',on:!!d.on},'*');}catch(x){}}}
+    if(d.type==='heart')tell({app:APP,type:'heart',on:!!d.on});}
   if(d.app==='sri-intro'&&d.type==='hello'&&RS.some(f=>e.source===f.contentWindow)){raceReady++; if(raceReady===2)toRace(true);}});
 // the two pages: side by side as files, or handed in as text when everything is packed into one file
 const wrap=h=>'<!doctype html><html lang="en"><head><meta charset="utf-8"><style>html,body{margin:0;height:100%;background:#05000B}</style></head><body>'+h+'</body></html>';
@@ -71,7 +78,7 @@ if(window.SRI_PARTS){A.srcdoc=wrap(window.SRI_PARTS.awards); RS.forEach(f=>f.src
 else{A.src='awards/output.html'; RS.forEach(f=>f.src='team-intro/output.html'); AN.src='analysis/output.html';}
 if(window.SRI_PARTS)P.srcdoc=window.SRI_PARTS.pit; else P.src='pit/output.html';
 // tell the control window we are here, and keep saying so: if the control page is reloaded it finds this window again by itself
-const hello=()=>{try{boss&&boss.postMessage({app:APP,type:'hello',n:state.n},'*');}catch(x){}};
+const hello=()=>{const m={app:APP,type:'hello',n:state.n}; try{bossUp()&&boss.postMessage(m,'*');}catch(x){} try{bc&&TOP&&bc.postMessage(Object.assign({top:true},m));}catch(x){}};
 hello(); setInterval(hello,2000);
 // for checking a screen without the control window: screen.html?i=12  or  screen.html?scene=both&t1=001&t2=002
 if(q.get('i')) state.awards.i=+q.get('i'), state.src='awards';
@@ -85,7 +92,7 @@ if(!framed){hint.classList.remove('gone'); setTimeout(()=>hint.classList.add('go
 document.addEventListener('fullscreenchange',()=>{document.body.classList.toggle('fs',!!document.fullscreenElement); if(document.fullscreenElement)hint.classList.add('gone');});
 document.addEventListener('keydown',e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;
   if(!framed&&(e.key==='f'||e.key==='F'))return full();
-  if(boss&&/^( |ArrowRight|ArrowLeft|PageDown|PageUp|[0-9]|h|H|r|R)$/.test(e.key)){e.preventDefault(); try{boss.postMessage({app:APP,type:'key',key:e.key},'*');}catch(x){}}});
+  if((boss||bc)&&/^( |ArrowRight|ArrowLeft|PageDown|PageUp|[0-9]|h|H|r|R)$/.test(e.key)){e.preventDefault(); tell({app:APP,type:'key',key:e.key});}});
 })();
 </script>
 </body></html>

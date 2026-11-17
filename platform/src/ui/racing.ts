@@ -271,7 +271,7 @@ export async function racingScreen(ctx: Ctx, eventId: string): Promise<HTMLEleme
         h('p',{class:'eyebrow'},event.name),
         h('h1',null,'Race control'),
         h('p',{class:'lead'},'Two lanes. Every run recorded.')),
-      h('div',{class:'actions'},autoGenBtn,downloadReactionPdfBtn,downloadKnockoutPdfBtn,downloadHeatsJsonBtn,downloadGraphicsJsonBtn,trackStatus)),
+      h('div',{class:'actions'},autoGenBtn,downloadReactionPdfBtn,downloadKnockoutPdfBtn,downloadHeatsJsonBtn,downloadGraphicsJsonBtn,roles.some(r=>r.role==='organiser'||r.role==='chair')?h('a',{class:'btn btn--ghost',href:`#/event/${encodeURIComponent(eventId)}/graphics`,title:'Results recorded here reach the big-screen graphics by themselves'},'Graphics'):null,trackStatus)),
     counters,
     event.resultsReleased?h('p',{class:'notice'},'Results are released. Race records are read-only.'):!canEdit?h('p',{class:'notice'},'Viewing race records. Only organisers, the Chair and race officials can enter results.'):null,
     error,status,h('div',{class:'race-workspace'},h('aside',{class:'stack'},queue,canEdit?addForm:null),editor),staff?competition.root:null,

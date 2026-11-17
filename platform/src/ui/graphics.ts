@@ -16,12 +16,14 @@ export async function graphicsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
   if (!event || !roles.some((r) => r.role === 'organiser' || r.role === 'chair')) {
     return notFound('Graphics control is for organisers and the Chair.', `#/event/${encodeURIComponent(eventId)}`, 'Back to event');
   }
-  const src = `${import.meta.env.BASE_URL}graphics/control.html?platform=1`;
+  const page = `${import.meta.env.BASE_URL}graphics/control.html`;
+  // The event id keeps each event's place in the show, its picks and its pit timer apart in this browser.
+  const src = `${page}?platform=1&event=${encodeURIComponent(eventId)}`;
   const frame = h('iframe', { class: 'graphics-frame', src, title: 'Graphics control', allow: 'fullscreen' });
   const status = h('p', { class: 'small muted', role: 'status' }, 'Connecting the graphics to this event…');
   const error = h('p', { class: 'alert', role: 'alert', hidden: true });
 
-  let alive = true, ready = false, lastChange = 0, picturesFor = 0, pictureTotal = 0, skipped: string[] = [];
+  let alive = true, ready = false, lastChange = 0, picturesFor = 0, pictureTotal = 0, rounds = 0, skipped: string[] = [];
   const sent = new Map<string, GraphicsFile>();
   const pictures: Record<string, TeamPictures> = {};
   const seenTeams = new Set<string>();
@@ -52,9 +54,10 @@ export async function graphicsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
         seenTeams.add(team.id);
         try {
           const got = await teamPictures(ctx.api, eventId, team, makeUrl);
-          if (Object.keys(got).length) { pictures[team.number] = got; if (ready) post({ type: 'pictures', pictures: { [team.number]: got } }); }
+          // Only a change is handed over: a picture approved or replaced during the day arrives by itself.
+          if (JSON.stringify(got) !== JSON.stringify(pictures[team.number] ?? {})) { pictures[team.number] = got; if (ready) post({ type: 'pictures', pictures: { [team.number]: got } }); }
         } catch (e) { console.error(e); }   // a team without media, or one this account cannot read, just has no pictures
-        picturesFor++; say();
+        picturesFor = Math.min(pictureTotal, picturesFor + 1); say();
       }
     };
     await Promise.all([worker(), worker(), worker()]);
@@ -70,6 +73,8 @@ export async function graphicsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
     const out = all ? [...sent.values()] : changed;
     if (ready && out.length) { post({ type: 'data', eventName: event.name, files: out.map(({ name, text }) => ({ name, text })) }); lastChange = Date.now(); }
     error.hidden = true; say();
+    // Every couple of minutes each team's media is looked at again; pictures already fetched are not downloaded twice.
+    if (++rounds % 12 === 0 && !fetching) { seenTeams.clear(); picturesFor = 0; }
     void fetchPictures(built.teams);
   };
   const failed = (e: unknown) => { error.textContent = `The graphics could not be updated: ${errorText(e)}`; error.hidden = false; };
@@ -94,7 +99,7 @@ export async function graphicsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
         h('h1', null, 'Graphics'),
         h('p', { class: 'lead' }, 'The big screen, driven from here. Teams, races, results and pictures come straight from this event.')),
       h('div', { class: 'actions' },
-        h('a', { class: 'btn btn--ghost', href: src.replace('?platform=1', ''), target: '_blank', rel: 'noopener' }, 'Open without the platform'))),
+        h('a', { class: 'btn btn--ghost', href: page, target: '_blank', rel: 'noopener' }, 'Open without the platform'))),
     event.resultsReleased ? null : h('p', { class: 'notice' }, 'Results are not released. Winners and standings shown here are visible only on this page and on the big screen you open from it.'),
     error, status, frame);
 }

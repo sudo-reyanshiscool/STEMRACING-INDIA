@@ -218,7 +218,9 @@ body.drag::after{content:"Drop the file to load it";position:fixed;inset:12px;z-
 <script src="analysis.js"></script>
 <script>
 (function(){
-const APP='sri-show', KEY='sri-awards-setup', LIVE='sri-show-live', EVENT='sri-event';
+// inside the events platform each event keeps its own place, picks and timer: ?event=<id> goes on the end of every saved name
+const NS=(new URLSearchParams(location.search).get('event')||'').replace(/[^\w-]/g,''), ns=k=>NS?k+':'+NS:k;
+const APP='sri-show', KEY=ns('sri-awards-setup'), LIVE=ns('sri-show-live'), EVENT=ns('sri-event');
 const HOSTED=typeof window.OUT_HTML==='string';   // packed into one file for publishing: the big screen lives inside this page
 const PLATFORM=window.parent!==window&&/[?&]platform\b/.test(location.search);   // opened inside the events platform, which hands over the data itself
 const STEPS=buildSteps(), BUILT=window.TEAMS||[], E=window.SRIEvent;
@@ -251,7 +253,7 @@ const noms=a=>(setup.nominees[a.id]||[]).filter(Boolean);
 const ready=s=>s.kind==='winner'?!!setup.winners[s.award.id]:s.kind==='nominees'?noms(s.award).length>=2:true;
 while(setup.i>0&&!ready(STEPS[setup.i])) setup.i--;
 // the pit build timer: `end` is the clock time it runs out at while running, `left` is what remains while stopped
-const PIT='sri-pit', HOUR=3600000;
+const PIT=ns('sri-pit'), HOUR=3600000;
 let pit={end:0,left:HOUR,show:false,mode:'timer'};   // mode 'seats' puts up "Please take your seats" in place of the clock
 const seatsOn=()=>pit.show&&pit.mode==='seats';
 try{const s=JSON.parse(localStorage.getItem(PIT)||'null'); if(s&&typeof s.left==='number'){pit.end=+s.end||0; pit.left=Math.max(0,Math.min(HOUR,s.left)); pit.show=!!s.show; pit.mode=s.mode==='seats'?'seats':'timer';}}catch(e){}
@@ -283,19 +285,22 @@ function message(){lastN=Math.max(Date.now(),lastN+1);
   st.pit={show:pit.show,mode:pit.mode,end:pit.end,left:pit.left,full:HOUR};
   st.teams=outTeams();   // null puts the screens back on their built-in list
   return {app:APP,type:'state',state:st};}
-function send(){const msg=message(); [out,frame.contentWindow].forEach(w=>{try{if(w&&!w.closed)w.postMessage(msg,'*');}catch(e){}});}
+// A second line to the big screen that does not depend on which window opened it: it carries on working when this page is
+// reloaded, or closed and opened again (as happens moving between tabs of the events platform).
+let bc=null, seenScreen=0; try{if(!HOSTED&&window.BroadcastChannel)bc=new BroadcastChannel(ns(APP));}catch(e){}
+function send(){const msg=message(); [out,frame.contentWindow].forEach(w=>{try{if(w&&!w.closed)w.postMessage(msg,'*');}catch(e){}}); try{bc&&bc.postMessage(msg);}catch(e){}}
 
 /* ---- racing ---- */
 const t1=$('t1'),t2=$('t2'),slogan=$('slogan'),round=$('round');
 slogans.forEach(s=>$('slogans').append(new Option('',s))); rounds.forEach(r=>$('rounds').append(new Option('',r)));
-let rs={}; try{rs=JSON.parse(localStorage.getItem('sri-intro-setup'))||{};}catch(e){}
+let rs={}; try{rs=JSON.parse(localStorage.getItem(ns('sri-intro-setup')))||{};}catch(e){}
 function raceSelects(a,b){for(const sel of [t1,t2]) sel.replaceChildren(...ALL.map(t=>new Option(label(t),t.id)));
   t1.value=known.has(a)?a:(ALL[0]||{}).id; t2.value=known.has(b)&&b!==t1.value?b:(ALL.find(t=>t.id!==t1.value)||ALL[0]||{}).id; prev={t1:t1.value,t2:t2.value};}
 let prev={};
 raceSelects(rs.t1,rs.t2);
 slogan.value=typeof rs.slogan==='string'&&rs.slogan?rs.slogan:(slogans[0]||'');
 round.value=typeof rs.round==='string'&&rs.round?rs.round:rounds[0];
-const saveRace=()=>{try{localStorage.setItem('sri-intro-setup',JSON.stringify({t1:t1.value,t2:t2.value,slogan:slogan.value,round:round.value}));}catch(e){}};
+const saveRace=()=>{try{localStorage.setItem(ns('sri-intro-setup'),JSON.stringify({t1:t1.value,t2:t2.value,slogan:slogan.value,round:round.value}));}catch(e){}};
 function labels(){[1,4,6,8].forEach(k=>$('who-'+k).textContent=tname(t1.value)); [2,5,7,9].forEach(k=>$('who-'+k).textContent=tname(t2.value));
   $('who-3').textContent=tname(t1.value)+' and '+tname(t2.value);
   document.querySelectorAll('.round-label').forEach(n=>n.textContent=round.value.trim()||rounds[0]); paint();}
@@ -468,8 +473,8 @@ if(window.claude&&window.claude.use){$('sync').textContent='Connecting to shared
         clearTimeout(slow); $('sync').textContent='Results are shared live with everyone who has this page.';}
       refresh();},()=>{clearTimeout(slow); $('sync').textContent='Shared results stopped updating. Reload the page.';});});}
 // hide results from the person running the show
-let hidden=false; try{hidden=localStorage.getItem('sri-awards-hide')==='1';}catch(e){}
-function setHidden(v){hidden=v; document.body.classList.toggle('hr',v); $('hide').setAttribute('aria-pressed',v); $('hide').textContent=v?'Results hidden':'Hide results'; try{localStorage.setItem('sri-awards-hide',v?'1':'0');}catch(e){}}
+let hidden=false; try{hidden=localStorage.getItem(ns('sri-awards-hide'))==='1';}catch(e){}
+function setHidden(v){hidden=v; document.body.classList.toggle('hr',v); $('hide').setAttribute('aria-pressed',v); $('hide').textContent=v?'Results hidden':'Hide results'; try{localStorage.setItem(ns('sri-awards-hide'),v?'1':'0');}catch(e){}}
 $('hide').addEventListener('click',()=>setHidden(!hidden));
 const count=s=>s.kind==='nominees'?Math.max(1,noms(s.award).length):1;
 // off the awards (or the opening), the first press of Next or Back brings that ceremony back where it was left
@@ -642,9 +647,9 @@ document.addEventListener('keydown',e=>{if(e.metaKey||e.ctrlKey||e.altKey)return
 /* ---- the big screen window ---- */
 if(HOSTED){$('open').textContent='Fullscreen'; $('win').hidden=true; $('k-f').hidden=true;
   $('open').addEventListener('click',()=>{const p=frame.requestFullscreen&&frame.requestFullscreen(); if(p&&p.catch)p.catch(()=>warn('Fullscreen is not available here.'));});}
-else $('open').addEventListener('click',()=>{out=window.open('screen.html','sri-show-screen','popup,width=1280,height=720');
+else $('open').addEventListener('click',()=>{out=window.open('screen.html'+(NS?'?event='+NS:''),ns('sri-show-screen'),'popup,width=1280,height=720');
   if(!out)warn('The browser blocked the big-screen window. Allow pop-ups for this page and press the button again.'); setTimeout(send,600); status();});
-function status(){const ok=!!out&&!out.closed; $('win').querySelector('.dot').classList.toggle('ok',ok); $('win-text').textContent=ok?'Big screen open':'Big screen not open'; if(!HOSTED)$('open').textContent=ok?'Reopen big screen':'Open big screen';}
+function status(){const ok=(!!out&&!out.closed)||Date.now()-seenScreen<5000; $('win').querySelector('.dot').classList.toggle('ok',ok); $('win-text').textContent=ok?'Big screen open':'Big screen not open'; if(!HOSTED)$('open').textContent=ok?'Reopen big screen':'Open big screen';}
 setInterval(status,1000);
 window.addEventListener('message',e=>{const d=e.data; if(!d||d.app!==APP)return;
   const mine=e.source===frame.contentWindow||(out&&e.source===out);
@@ -655,6 +660,10 @@ window.addEventListener('message',e=>{const d=e.data; if(!d||d.app!==APP)return;
   if(d.type==='key')key(d.key);
   // the heartbeat sound plays here, because this is the window the operator is pressing keys in
   if(d.type==='heart'&&window.SRHeart){const main=out&&!out.closed?out:frame.contentWindow; if(e.source!==main)return; d.on?SRHeart.start(2):SRHeart.stop();}});
+if(bc)bc.onmessage=e=>{const d=e.data; if(!d||d.app!==APP||!d.top)return;   // only a big screen in a window of its own; the preview here is not one
+  if(d.type==='hello'){seenScreen=Date.now(); if(!(d.n>=lastN))send(); return;}
+  if(d.type==='key')key(d.key);
+  if(d.type==='heart'&&window.SRHeart)d.on?SRHeart.start(2):SRHeart.stop();};
 buildOpening(); analyse(); setHidden(hidden); refresh(); chips(); labels(); paintRaces(); fileNote(); setTab(live.tab); status(); scanAssets();
 if(HOSTED) frame.srcdoc=window.OUT_HTML; else frame.src='screen.html';
 frame.addEventListener('load',send);

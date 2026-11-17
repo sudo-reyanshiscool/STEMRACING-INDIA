@@ -59,8 +59,11 @@
   // or a list [{"award": "Fastest Car Award", "winner": ..., "nominees": [...]}]. Awards go by id or name; teams by number, platform id or name.
   // Returns only what the file says: {winners, nominees, loaded, problems, what}. Awards it does not mention are left alone.
   function results(json, awards, teams) {
-    const awardKey = s => plain(s).replace(/award$/, "");
-    const findAward = k => awards.find(a => a.id === k) || awards.find(a => awardKey(a.id) === awardKey(k) || awardKey(a.name) === awardKey(k));
+    // "Knockout Champion", "Best Engineered Car Award" and "The Sustainability Awards" all find their award; the overall places go by any usual name
+    const awardKey = s => plain(s).replace(/^the/, "").replace(/awards?$/, "").replace(/^best/, "").replace(/s$/, "");
+    const PLACE = [[1, /^(overall|national|regional|event)?(champions?|winners?)$|^(first|1st)(place)?$|^overallfirst/], [2, /^(second|2nd)(place)?$|^runners?up$|^firstrunners?up$/], [3, /^(third|3rd)(place)?$|^secondrunners?up$/]];
+    const placeOf = k => { const p = plain(k).replace(/^the/, ""), hit = PLACE.find(x => x[1].test(p)); return hit ? awards.find(a => a.place === hit[0]) : null; };
+    const findAward = k => awards.find(a => a.id === k) || awards.find(a => awardKey(a.id) === awardKey(k) || awardKey(a.name) === awardKey(k)) || placeOf(k);
     const findTeam = v => { if (v && typeof v === "object") v = v.number || v.name || v.id; if (v == null || v === "") return null;
       const s = String(v), n = s.replace(/^team-/i, "");
       return teams.find(t => t.id === s || t.id === n) || teams.find(t => /^\d+$/.test(n) && +t.id === +n && /^\d+$/.test(t.id)) || teams.find(t => plain(t.name) === plain(s)) || false; };

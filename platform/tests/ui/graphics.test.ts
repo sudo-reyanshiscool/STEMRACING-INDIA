@@ -22,7 +22,7 @@ describe('graphics tab', () => {
     const made = makeCtx(api);
     const screen = await graphicsScreen(made.ctx, ev.id);
     const frame = screen.querySelector('iframe')!;
-    expect(frame.getAttribute('src')).toMatch(/graphics\/control\.html\?platform=1$/);
+    expect(frame.getAttribute('src')).toBe(`/graphics/control.html?platform=1&event=${encodeURIComponent(ev.id)}`);
     expect(screen.querySelector('h1')!.textContent).toBe('Graphics');
     await api.signIn(EMAILS.mgr);
     const refused = await graphicsScreen(makeCtx(api).ctx, ev.id);
