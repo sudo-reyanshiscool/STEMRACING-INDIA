@@ -63,9 +63,15 @@ function toPit(force){const p=state.pit, on=!!(p&&p.show); P.classList.toggle('o
   const key=JSON.stringify(p||null); if(!force&&key===sentP)return; sentP=key;
   P.contentWindow.postMessage({app:'sri-pit',type:'state',state:p||{show:false}},'*');}
 function take(d){if(!d.state||d.state.n<=state.n)return; state=d.state; toAwards(); toRace(); toAna(); toPit();}
-if(bc)bc.onmessage=e=>{const d=e.data; if(TOP&&d&&d.app===APP&&d.type==='state')take(d);};
+// On another device there is no control page to hear. With the event's screen key in the address (the link copied from the
+// Graphics tab of the events platform), remote.js reads what is showing from the platform instead and puts it up here.
+// A control page in this browser always comes first: once one has spoken, remote.js stays quiet.
+const KEY=(q.get('key')||'').replace(/\W/g,''); let local=false;
+if(KEY&&NS&&TOP&&!window.SRI_PARTS){window.SRI_SCREEN={event:NS,key:KEY,local:()=>local,show:s=>{state=s; toAwards(); toRace(); toAna(); toPit();}};
+  const s=document.createElement('script'); s.src='remote.js'; document.head.append(s);}
+if(bc)bc.onmessage=e=>{const d=e.data; if(TOP&&d&&d.app===APP&&d.type==='state'){local=true; take(d);}};
 window.addEventListener('message',e=>{const d=e.data; if(!d)return;
-  if(d.app===APP&&d.type==='state'){if(boss&&e.source!==boss)return; take(d); return;}
+  if(d.app===APP&&d.type==='state'){if(boss&&e.source!==boss)return; local=true; take(d); return;}
   if(d.app==='sri-pit'&&d.type==='hello'&&e.source===P.contentWindow){pitReady=true; toPit(true);}
   if(d.app==='sri-ana'&&d.type==='hello'&&e.source===AN.contentWindow){anaReady=true; toAna(true);}
   if(d.app==='sri-awards'&&e.source===A.contentWindow){
@@ -88,7 +94,7 @@ if(q.get('scene')){state.src='race'; state.race={k:1,scene:q.get('scene'),side:+
 // fullscreen, and keys pressed while this window is in front still reach the control window
 const hint=document.getElementById('hint'), framed=window.parent!==window;
 const full=()=>{try{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen().catch(()=>{});}catch(x){}};
-if(!framed){hint.classList.remove('gone'); setTimeout(()=>hint.classList.add('gone'),8000); document.addEventListener('dblclick',full);}
+if(!framed&&!(window.SRI_SCREEN&&!boss)){hint.classList.remove('gone'); setTimeout(()=>hint.classList.add('gone'),8000); document.addEventListener('dblclick',full);}
 document.addEventListener('fullscreenchange',()=>{document.body.classList.toggle('fs',!!document.fullscreenElement); if(document.fullscreenElement)hint.classList.add('gone');});
 document.addEventListener('keydown',e=>{if(e.metaKey||e.ctrlKey||e.altKey)return;
   if(!framed&&(e.key==='f'||e.key==='F'))return full();

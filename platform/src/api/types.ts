@@ -318,6 +318,13 @@ export interface Api {
   listTeamPhotoHistory(eventId: string, teamId: string): Promise<TeamPhotoHistoryItem[]>;
   deleteTeamPhoto(eventId: string, teamId: string): Promise<void>;
   getBroadcastTeamPhoto(eventId: string, teamId: string): Promise<BroadcastPhoto>;
+  /**
+   * The key that opens this event's big screen on another device, and the number of the last screen state published
+   * (0 when none has been). Organisers and the Chair only. Null where there is no shared backend to carry it.
+   */
+  showScreenLink(eventId: string): Promise<{ key: string; n: number } | null>;
+  /** Hands what is on the big screen to the devices following the screen link. */
+  publishShowScreen(eventId: string, n: number, state: Record<string, unknown>): Promise<void>;
   teamBrandingProfile(eventId:string,teamId:string):Promise<TeamBrandingProfile>;
   downloadTeamBrandAsset(eventId:string,teamId:string,key:string,version:string):Promise<BrandingAssetFile>;
   getCompulsoryAssets(eventId: string, teamId: string): Promise<TeamCompulsoryAssets>;

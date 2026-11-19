@@ -1785,6 +1785,9 @@ export class MemoryApi implements Api {
     if(!this.has(eventId,'organiser','chair','spectator')&&!this.rolesOf(eventId).some(r=>r.role==='team_manager'&&r.teamId===teamId))throw new ApiError('forbidden','Only your own team');
     if(write)this.frozen(eventId,'team media');
   }
+  /** Nothing here leaves this browser, so there is no link for another device to follow. */
+  async showScreenLink(eventId: string): Promise<{ key: string; n: number } | null> { this.require(eventId, 'organiser', 'chair'); return null; }
+  async publishShowScreen(eventId: string, _n: number, _state: Record<string, unknown>): Promise<void> { this.require(eventId, 'organiser', 'chair'); }
   async teamBrandingProfile(eventId:string,teamId:string){
     const state=await this.getCompulsoryAssets(eventId,teamId);const event=await this.getEvent(eventId);
     return assembleTeamBrandingProfile(event!,this.teamOrThrow(eventId,teamId),state);

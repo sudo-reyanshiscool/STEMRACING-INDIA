@@ -8,8 +8,11 @@ import type { Api } from './types';
  */
 const TTL_MS: Record<string, number> = { myRoles: 30_000, getEvent: 5_000, eventBranding: 60_000, getMfaStatus: 60_000 };
 
-/** Never shared or reused, and never treated as a write: the live session, subscriptions and large file bodies. */
-const PASSTHROUGH = /^(getSession|onAuthChange|download[A-Z].*)$/;
+/**
+ * Never shared or reused, and never treated as a write: the live session, subscriptions, large file bodies, and the
+ * big-screen relay, which is sent on every step of a show and changes nothing another read returns.
+ */
+const PASSTHROUGH = /^(getSession|onAuthChange|download[A-Z].*|showScreenLink|publishShowScreen)$/;
 
 const READ_NAMES = new Set([
   'submissionGuideState', 'schedulingState', 'mySchedule', 'submissionState', 'canCreateEvent', 'platformAccess',

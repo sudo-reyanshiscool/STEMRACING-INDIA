@@ -61,6 +61,13 @@ const HEX = /^#[0-9a-f]{6}$/i;
 /** Kept for the life of the page: opening the Graphics tab again does not download the same picture twice. */
 const pictureCache = new Map<string, string>();
 
+/**
+ * For each address made here, what another device asks the server for instead: `sri-pic:<team id>:<asset>:<revision>`.
+ * The revision changes when the picture does, so a device that has already fetched one never fetches it twice.
+ */
+const pictureRefs = new Map<string, string>();
+export const pictureRef = (url: string): string | undefined => pictureRefs.get(url);
+
 type PictureApi = Pick<Api, 'teamBrandingProfile' | 'downloadTeamBrandAsset'>;
 
 /** A team's logo, school logo, front-left car render and approved photograph, plus its three colours. Missing ones are simply absent. */
@@ -79,6 +86,7 @@ export async function teamPictures(api: PictureApi, eventId: string, team: TeamR
       url = makeUrl(Uint8Array.from(atob(got.base64), (c) => c.charCodeAt(0)), got.mime);
       pictureCache.set(cacheKey, url);
     }
+    pictureRefs.set(url, `sri-pic:${team.id}:${key}:${`${asset.revision}-${asset.size}-${String(asset.updatedAt).replace(/\D/g, '')}`.replace(/[^\w-]/g, '')}`);
     out[field] = url;
   }
   return out;

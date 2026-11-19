@@ -1,5 +1,6 @@
 import type { TeamRow } from '../api';
 import { graphicsFiles, teamPictures, type GraphicsFile, type TeamPictures } from '../api/graphics-feed';
+import { showRelay, type ShowState } from '../api/show-relay';
 import { errorText, notFound } from './common';
 import type { Ctx } from './ctx';
 import { h } from './dom';
@@ -79,16 +80,36 @@ export async function graphicsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
   };
   const failed = (e: unknown) => { error.textContent = `The graphics could not be updated: ${errorText(e)}`; error.hidden = false; };
 
+  // The big screen on other devices: this page publishes what is showing, and the screen link reads it from anywhere.
+  let screenKey = '';
+  const relayError = h('p', { class: 'alert', role: 'alert', hidden: true });
+  const relay = showRelay(
+    (n, state) => ctx.api.publishShowScreen(eventId, n, state).then(() => { relayError.hidden = true; }),
+    (e) => { relayError.textContent = `Screens on other devices are not being updated: ${errorText(e)}`; relayError.hidden = false; });
+  const screenLink = () => `${new URL(`${import.meta.env.BASE_URL}graphics/screen.html`, location.href).href}?event=${encodeURIComponent(eventId)}&key=${screenKey}`;
+  const copy = h('button', { class: 'btn btn--ghost', type: 'button', hidden: true, title: 'A link to this event\'s big screen that works on any device, for a second screen or a browser source in streaming software' }, 'Copy screen link');
+  copy.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(screenLink()); copy.textContent = 'Link copied'; setTimeout(() => { copy.textContent = 'Copy screen link'; }, 2000); }
+    catch { window.prompt('Copy this link to open the big screen on another device', screenLink()); }
+  });
+  const sendKey = () => { if (ready && screenKey) post({ type: 'link', key: screenKey }); };
+  void ctx.api.showScreenLink(eventId).then((link) => {
+    if (!alive || !link) return;
+    screenKey = link.key; copy.hidden = false; relay.ready(link.n); sendKey();
+  }).catch((e) => { console.error(e); });   // without it the big screen still works in this browser
+
   // The graphics page says when it is listening (again after it is reloaded); it then gets everything.
   const onMessage = (e: MessageEvent) => {
-    if (e.source !== frame.contentWindow || e.origin !== location.origin || e.data?.app !== APP || e.data?.type !== 'ready') return;
-    ready = true;
+    if (e.source !== frame.contentWindow || e.origin !== location.origin || e.data?.app !== APP) return;
+    if (e.data.type === 'show' && typeof e.data.state?.n === 'number') { relay.offer(e.data.state as ShowState); return; }
+    if (e.data.type !== 'ready') return;
+    ready = true; sendKey();
     post({ type: 'data', eventName: event.name, files: [...sent.values()].map(({ name, text }) => ({ name, text })) });
     if (Object.keys(pictures).length) post({ type: 'pictures', pictures });
     lastChange = Date.now(); say();
   };
   window.addEventListener('message', onMessage);
-  ctx.onLeave(() => { alive = false; window.removeEventListener('message', onMessage); });
+  ctx.onLeave(() => { alive = false; relay.stop(); window.removeEventListener('message', onMessage); });
   liveRefresh(ctx, () => refresh(), failed);
   void refresh().catch(failed);
 
@@ -99,7 +120,8 @@ export async function graphicsScreen(ctx: Ctx, eventId: string): Promise<HTMLEle
         h('h1', null, 'Graphics'),
         h('p', { class: 'lead' }, 'The big screen, driven from here. Teams, races, results and pictures come straight from this event.')),
       h('div', { class: 'actions' },
+        copy,
         h('a', { class: 'btn btn--ghost', href: page, target: '_blank', rel: 'noopener' }, 'Open without the platform'))),
-    event.resultsReleased ? null : h('p', { class: 'notice' }, 'Results are not released. Winners and standings shown here are visible only on this page and on the big screen you open from it.'),
-    error, status, frame);
+    event.resultsReleased ? null : h('p', { class: 'notice' }, 'Results are not released. Winners and standings shown here are visible only on this page, on the big screen you open from it, and to anyone you give the screen link to.'),
+    error, relayError, status, frame);
 }
