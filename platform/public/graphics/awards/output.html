@@ -313,7 +313,7 @@ const q=new URLSearchParams(location.search);
 const DEMO=!!window.SRI_DEMO||location.hash==='#demo', STAR='001';
 // in the demo, team 001 wins these two awards
 const starred=a=>!!byId[STAR]&&/^(Research & Development Award|Regional Champions)$/.test(a.name);
-let shown=null;
+let shown=null, shownSig='';
 let state={r:1,n:0,i:Math.max(0,Math.min(STEPS.length-1,+(q.get('i')||0))),winners:{},nominees:{}}, controlled=false, first=true;
 try{const s=JSON.parse(localStorage.getItem('sri-awards-setup')||'null'); if(s&&s.winners&&!DEMO){state.winners=s.winners; state.nominees=s.nominees||{};}}catch(e){}
 const el=(tag,cls,text)=>{const n=document.createElement(tag); if(cls)n.className=cls; if(text!=null)n.textContent=text; return n;};
@@ -429,7 +429,11 @@ function show(){
   const s=state.custom||STEPS[state.i]; if(!s)return; const key=state.custom?JSON.stringify(state.custom):state.i;
   if(shown===key&&s.kind==='nominees'&&content.querySelector('.cards')){const r=Math.max(1,state.r||1);
     content.querySelectorAll('.cards .card').forEach((c,k)=>c.classList.toggle('hid',k>=r)); label(); return;}
-  shown=key;
+  // The same screen sent again (team pictures still arriving, a screen reconnecting) is left exactly as it is, so its
+  // entrance never plays twice. It is only drawn again when the team it shows has changed: a new winner, or its picture.
+  const aw=!state.custom&&s.award, sig=JSON.stringify(aw?[winnerOf(aw),nomineesOf(aw)]:0);
+  if(shown===key&&sig===shownSig)return;
+  shown=key; shownSig=sig;
   const apply=()=>{const [nodes,fits]=build(s); screen.className='k-'+s.kind; content.replaceChildren(...nodes); setBg(s.bg,s.dark);
     const heart=s.kind==='award'&&s.award.place===1&&!quietMotion;
     if(controlled){try{boss&&boss.postMessage({app:'sri-awards',type:'heart',on:heart},'*');}catch(e){}} else if(window.SRHeart){heart?SRHeart.start(2):SRHeart.stop();}
