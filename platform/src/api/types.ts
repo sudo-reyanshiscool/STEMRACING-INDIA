@@ -97,7 +97,8 @@ export interface PlatformAccess {
 }
 export type Role = 'organiser' | 'chair' | 'lead_judge' | 'judge' | 'scrutineer' | 'race_official' | 'team_manager' | 'spectator';
 export type Panel = PanelId;
-export interface Session { userId: string; email: string }
+/** createdAt is when the account was created, when the backend reports it. */
+export interface Session { userId: string; email: string; createdAt?: string }
 export interface EventRow { competitionLevel?:CompetitionLevel; id: string; name: string; startsOn: string | null; ruleset: Ruleset; resultsReleased: boolean;
   /** Naming parts. customName is true for names typed by hand, including every event created before automatic names. */
   city?: string | null; season?: string | null; regionalNumber?: number | null; customName?: boolean }

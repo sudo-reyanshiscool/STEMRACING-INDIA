@@ -1,10 +1,9 @@
 import {spectatorOnly,spectatorReadScreen} from './ui/spectator';
 import { judgePageAllowed } from './ui/judge-access';
-import './styles/tokens.css';
 import './styles/fonts.css';
-import './styles/base.css';
-import './styles/components.css';
-import './styles/platform.css';
+import './styles/look.css';
+import { applyLookStyles, currentLook, offerClassicLook } from './ui/look';
+import { applyTheme } from './ui/theme';
 import { localStorageKV, memoryKV } from './api/queue';
 import type { Api } from './api/types';
 import { createSupabaseApi } from './api/supabase';
@@ -72,6 +71,11 @@ window.addEventListener('vite:preloadError', (event) => {
   location.reload();
 });
 
+// Each device keeps its own choice of look; see src/ui/look.ts.
+const look = currentLook();
+applyLookStyles(look);
+applyTheme(document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light'); // the browser bar colour depends on the look
+
 const url = import.meta.env.VITE_SUPABASE_URL;
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
@@ -96,7 +100,7 @@ async function boot(): Promise<void> {
   let emailToken = callback?.kind === 'confirm' ? callback.tokenHash : null;
   let authError = callback?.kind === 'invalid' ? codeText('invalid-auth') : undefined;
   if (callback && callback.kind !== 'legacy') clearEmailCallback();
-  const shell = mountShell(document.getElementById('app')!);
+  const shell = mountShell(document.getElementById('app')!, look);
   // In the demo nothing below ever holds a connection to the shared backend.
   const sharedApi: Api | null = preview === null && url && key
     ? withRequestCache(createSupabaseApi(url, key, undefined, { schema: import.meta.env.VITE_SUPABASE_DB_SCHEMA ?? 'public' })) : null;
@@ -224,12 +228,16 @@ async function boot(): Promise<void> {
         if (mine !== token) return;
         if (event) {
           if (event.competitionLevel) shell.setBranding(branding);
-          if (session) nav = { event, nav: eventNav(event, roles, route.name), focus: FOCUS_SCREENS.includes(route.name) };
+          // The classic look keeps the event's tabs at the top of the page instead of in a side menu.
+          if (session && look === 'classic') node.prepend(eventNav(event, roles, route.name, { classic: true }));
+          else if (session) nav = { event, nav: eventNav(event, roles, route.name), focus: FOCUS_SCREENS.includes(route.name) };
         }
       }
       shell.setNav(nav);
       shell.main.replaceChildren(node);
       window.scrollTo(0, 0);
+      // Someone who used the platform before the refresh is asked once whether to keep the new look.
+      if (session && !requiresMfa && !emailToken && !showcase) offerClassicLook(session, look);
     } catch (e) {
       if (mine !== token) return;
       shell.setNav(null);

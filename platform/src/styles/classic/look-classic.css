@@ -1,0 +1,8 @@
+/* The look before the carbon-frame refresh of 23 November 2026, kept so people can switch back to it.
+   tokens, base, components and platform are the stylesheets as they were then; compat.css styles the few
+   elements added by the refresh so they still read well in the classic look. */
+@import './tokens.css';
+@import './base.css';
+@import './components.css';
+@import './platform.css';
+@import './compat.css';

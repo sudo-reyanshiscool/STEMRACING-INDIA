@@ -2,6 +2,7 @@ import {eventLogoSource,PLATFORM_LOGO,type EventBranding} from '../api';
 import type { EventRow, Session } from '../api';
 import { h } from './dom';
 import { themeSwitcher } from './theme';
+import { lookSwitcher, type Look } from './look';
 
 export interface Shell {
   main: HTMLElement;
@@ -26,7 +27,8 @@ export function eventDate(iso: string): string {
   return month ? `${Number(m[3])} ${month} ${m[1]}` : iso;
 }
 
-export function mountShell(root: HTMLElement): Shell {
+export function mountShell(root: HTMLElement, look: Look = 'new'): Shell {
+  const classic = look === 'classic';
   const main = h('main', { id: 'main', tabindex: '-1' });
   const who = h('div', { class: 'who' });
   const syncBar = h('div', { class: 'sync-bar' });
@@ -42,13 +44,14 @@ export function mountShell(root: HTMLElement): Shell {
         h('a', { class: 'brand-home', href: '#/', 'aria-label': 'STEM Racing India event platform home' },
           h('img', { class: 'brand-logo--light', src: PLATFORM_LOGO.light.colour, alt: 'STEM Racing India', width: 1400, height: 573, onerror: monoFallback(PLATFORM_LOGO.light.mono) }),
           h('img', { class: 'brand-logo--dark', src: PLATFORM_LOGO.dark.colour, alt: 'STEM Racing India', width: 1400, height: 573, onerror: monoFallback(PLATFORM_LOGO.dark.mono) })),
-        syncBar,
-        h('div', { class: 'header-tools' }, themeSwitcher(), who),
+        // The classic look keeps the save status in its own bar under the header, and the page without a side menu.
+        classic ? null : syncBar,
+        h('div', { class: 'header-tools' }, lookSwitcher(look), themeSwitcher(), who),
       ),
     ),
     loading,
     showcaseBar,
-    workspace,
+    ...(classic ? [syncBar, main] : [workspace]),
   );
   return {
     main,
@@ -61,6 +64,7 @@ export function mountShell(root: HTMLElement): Shell {
     syncBar,
     showcaseBar,
     setNav(next) {
+      if (classic) return;
       workspace.classList.toggle('workspace--event', !!next);
       workspace.classList.toggle('workspace--focus', !!next?.focus);
       rail.hidden = !next;
