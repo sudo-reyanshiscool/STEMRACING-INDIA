@@ -1,4 +1,4 @@
-import {ApiError,EVENT_LOGO_SLOTS,EVENT_NAME_PREFIX,MAX_BATCH_EVENTS,previewBatchNames,validateEventLogos,validateNamedEvent,type CompetitionLevel,type EventLogos,type EventRow,type NamedEventInput} from '../api';
+import {ApiError,EVENT_LOGO_SLOTS,EVENT_NAME_PREFIX,SEASON_HINT,normaliseCity,MAX_BATCH_EVENTS,previewBatchNames,validateEventLogos,validateNamedEvent,type CompetitionLevel,type EventLogos,type EventRow,type NamedEventInput} from '../api';
 import {readEventLogo} from './event-branding';
 import {buttonBusy} from './button-busy';
 import {reportActionError} from './actions';
@@ -10,8 +10,8 @@ const today=()=>new Date().toISOString().slice(0,10);
 interface Row {city:HTMLInputElement;cityField:HTMLElement;date:HTMLInputElement;title:HTMLElement;preview:HTMLElement;el:HTMLElement}
 
 /**
- * Creates one or more events named "STEM Racing India <City> Regionals <n> <Year>" or "... <City> Nationals <Year>".
- * Regional numbers count per city and year; the server assigns the final numbers, so the preview is a guide.
+ * Creates one or more events named "STEM Racing India <City> Regionals <n> <Season>" or "... <City> Nationals <Season>",
+ * where the season is a year (2027) or consecutive years (2026-27). Regional numbers count per city and season; the server assigns the final numbers, so the preview is a guide.
  * A custom name is still available for one-off events such as a test event.
  */
 export function newEventsForm(ctx:Ctx,events:readonly EventRow[],isAlive:()=>boolean):HTMLElement{
@@ -19,7 +19,7 @@ export function newEventsForm(ctx:Ctx,events:readonly EventRow[],isAlive:()=>boo
   const status=h('p',{class:'notice',role:'status',hidden:true});
   const submitBtn=h('button',{class:'btn btn--primary',type:'submit'},'Create event');
   const level=h('select',{name:'level','aria-label':'Competition level'},h('option',{value:'regional'},'Regionals'),h('option',{value:'national'},'Nationals'));
-  const year=h('input',{name:'year',type:'number',min:2000,max:2100,step:1,inputmode:'numeric',value:new Date().getFullYear(),'aria-label':'Year',class:'input--short'});
+  const year=h('input',{name:'year',type:'text',inputmode:'numeric',maxlength:9,autocomplete:'off',placeholder:'2027 or 2026-27',value:new Date().getFullYear(),'aria-label':'Year or season'});
   const count=h('select',{name:'count','aria-label':'How many regionals'},Array.from({length:MAX_BATCH_EVENTS},(_,i)=>h('option',{value:i+1},String(i+1))));
   const countField=h('label',{class:'field'},h('span',{class:'field__label'},'How many regionals?'),count);
   const custom=h('input',{type:'checkbox',name:'custom'});
@@ -47,14 +47,14 @@ export function newEventsForm(ctx:Ctx,events:readonly EventRow[],isAlive:()=>boo
     while(rows.length<wanted())rows.push(makeRow());
     rowList.replaceChildren(...rows.slice(0,wanted()).map((r,i)=>{const label=custom.checked?'Date':level.value==='regional'&&wanted()>1?`Regional ${i+1}`:level.value==='regional'?'Regional':'Nationals';r.el.setAttribute('aria-label',label);r.title.textContent=label;return r.el;}));
   }
-  function drafts():NamedEventInput[]{return rows.slice(0,wanted()).map(r=>({level:level.value as CompetitionLevel,city:r.city.value,year:Number(year.value),...(r.date.value?{startsOn:r.date.value}:{})}));}
+  function drafts():NamedEventInput[]{return rows.slice(0,wanted()).map(r=>({level:level.value as CompetitionLevel,city:r.city.value,season:year.value,...(r.date.value?{startsOn:r.date.value}:{})}));}
   function refresh(){
     const isCustom=custom.checked,national=level.value==='national';
     countField.hidden=national||isCustom;customField.hidden=!isCustom;
     nationals.hidden=!national;regionalPreview.hidden=national;
     syncRows();
     const names=previewBatchNames(events,drafts());
-    rows.slice(0,wanted()).forEach((r,i)=>{r.cityField.hidden=isCustom;r.preview.hidden=isCustom;r.preview.textContent=names[i]??`${EVENT_NAME_PREFIX} … enter the city to see the name`;});
+    rows.slice(0,wanted()).forEach((r,i)=>{r.cityField.hidden=isCustom;r.preview.hidden=isCustom;r.preview.textContent=names[i]??(normaliseCity(r.city.value)?SEASON_HINT:`${EVENT_NAME_PREFIX} … enter the city to see the name`);});
     submitBtn.textContent=wanted()>1?`Create ${wanted()} events`:'Create event';
   }
   level.addEventListener('change',refresh);count.addEventListener('change',refresh);year.addEventListener('input',refresh);custom.addEventListener('change',refresh);
@@ -62,10 +62,10 @@ export function newEventsForm(ctx:Ctx,events:readonly EventRow[],isAlive:()=>boo
   const form=h('form',{class:'form',novalidate:true},
     h('p',{class:'field'},h('span',{class:'field__label'},'Name starts with'),h('strong',null,EVENT_NAME_PREFIX)),
     h('label',{class:'field'},h('span',{class:'field__label'},'Competition level'),level),
-    h('label',{class:'field'},h('span',{class:'field__label'},'Year'),year),
+    h('label',{class:'field'},h('span',{class:'field__label'},'Year or season'),year),
     countField,rowList,
     h('label',{class:'checkbox form__wide'},custom,' Use a custom name instead'),customField,
-    h('p',{class:'small muted form__wide'},'Regional numbers count separately for each city and year, so a second Delhi regional becomes Delhi Regionals 2. The final number is confirmed when the event is created.'),
+    h('p',{class:'small muted form__wide'},'Use a single year (2027) or a season with a hyphen (2026-27). Regional numbers count separately for each city and season, so a second Delhi regional becomes Delhi Regionals 2. The final number is confirmed when the event is created.'),
     regionalPreview,nationals,submitBtn,
   );
   refresh();

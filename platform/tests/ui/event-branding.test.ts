@@ -21,7 +21,7 @@ it('creates national events only after all four actual logo files are read and v
  (root.querySelector('[name=city]') as HTMLInputElement).value='New Delhi';(root.querySelector('[name=year]') as HTMLInputElement).value='2027';const selector=root.querySelector<HTMLSelectElement>('[name=level]')!;selector.value='national';selector.dispatchEvent(new Event('change'));
  for(const input of root.querySelectorAll('input[type=file]'))Object.defineProperty(input,'files',{value:[{name:'logo.png',size:70,arrayBuffer:async()=>Uint8Array.from(atob(logo.base64),c=>c.charCodeAt(0)).buffer}]});
  root.querySelector('form')!.dispatchEvent(new Event('submit',{cancelable:true}));
- await vi.waitFor(()=>expect(create).toHaveBeenCalledTimes(1));expect(create.mock.calls[0][0]).toMatchObject([{level:'national',city:'New Delhi',year:2027,logos:{monoBlack:logo,monoWhite:logo,light:logo,dark:logo}}]);
+ await vi.waitFor(()=>expect(create).toHaveBeenCalledTimes(1));expect(create.mock.calls[0][0]).toMatchObject([{level:'national',city:'New Delhi',season:'2027',logos:{monoBlack:logo,monoWhite:logo,light:logo,dark:logo}}]);
  await vi.waitFor(()=>expect(location.hash).toMatch(/event/));
 });
 it('selects light/dark nationals logos and clears identity when leaving an event',()=>{

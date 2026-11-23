@@ -1,6 +1,6 @@
 import {assembleTeamBrandingProfile,type BrandingAssetFile} from './team-branding';
 import {validateEventLogos,type EventLogos,type NewEvent} from './event-branding';
-import {eventDisplayName,nextRegionalNumber,normaliseCity,validateNamedEvent,MAX_BATCH_EVENTS,type NamedEventInput,type EventNameInput,type BatchRole,type BatchOutcome} from './event-naming';
+import {eventDisplayName,nextRegionalNumber,normaliseCity,normaliseSeason,SEASON_HINT,validateNamedEvent,MAX_BATCH_EVENTS,type NamedEventInput,type EventNameInput,type BatchRole,type BatchOutcome} from './event-naming';
 import {SUBMISSION_GUIDE_VERSION,SUBMISSION_GUIDE_DURATION,type SubmissionGuideState} from './submission-guide';
 import {emptySchedule,validateSchedule,teamActivities,type ScheduleDoc,type ScheduleState} from '../scheduling';
 import {PORTFOLIOS,submissionRow,validateSubmissionRules,type SubmissionRule} from './submissions';
@@ -686,9 +686,9 @@ export class MemoryApi implements Api {
     for(const i of items){const problem=validateNamedEvent(i);if(problem)throw new ApiError('invalid',problem);if(i.level==='national')validateEventLogos(i.logos!);else if(i.logos)throw new ApiError('invalid','Regional events use the supplied regional logo.');}
     const made:EventRow[]=[];
     for(const i of items){
-      const city=normaliseCity(i.city),n=i.level==='regional'?nextRegionalNumber(this.activeEvents(),city,i.year):null;
-      const ev=await this.createEvent({name:eventDisplayName(i.level,city,i.year,n),...(i.startsOn?{startsOn:i.startsOn}:{}),competitionLevel:i.level,...(i.level==='national'?{logos:i.logos}:{})});
-      const stored=this.events.find(e=>e.id===ev.id)!;Object.assign(stored,{city,year:i.year,regionalNumber:n,customName:false});made.push(copy(stored));
+      const city=normaliseCity(i.city),season=normaliseSeason(i.season)!,n=i.level==='regional'?nextRegionalNumber(this.activeEvents(),city,season):null;
+      const ev=await this.createEvent({name:eventDisplayName(i.level,city,season,n),...(i.startsOn?{startsOn:i.startsOn}:{}),competitionLevel:i.level,...(i.level==='national'?{logos:i.logos}:{})});
+      const stored=this.events.find(e=>e.id===ev.id)!;Object.assign(stored,{city,season,regionalNumber:n,customName:false});made.push(copy(stored));
     }
     return made;
   }
@@ -699,21 +699,22 @@ export class MemoryApi implements Api {
     const custom=normaliseCity(i.customName??'');
     const city=i.city&&normaliseCity(i.city)?normaliseCity(i.city):null;
     if(city&&city.length>60)throw new ApiError('invalid','Enter the city (up to 60 characters).');
-    if(i.year!==null&&(!Number.isInteger(i.year)||i.year<2000||i.year>2100))throw new ApiError('invalid','Enter a year between 2000 and 2100.');
+    const season=i.season&&i.season.trim()?normaliseSeason(i.season):null;
+    if(i.season&&i.season.trim()&&!season)throw new ApiError('invalid',SEASON_HINT);
     if(custom){
       if(custom.length>120)throw new ApiError('invalid','Event names are up to 120 characters.');
-      Object.assign(e,{name:custom,customName:true,city,year:i.year,regionalNumber:e.competitionLevel==='regional'&&city&&i.year?i.regionalNumber??e.regionalNumber??null:null});
+      Object.assign(e,{name:custom,customName:true,city,season,regionalNumber:e.competitionLevel==='regional'&&city&&season?i.regionalNumber??e.regionalNumber??null:null});
       return copy(e);
     }
     if(!e.competitionLevel)throw new ApiError('invalid','Set a custom name: this event has no competition level.');
     if(!city)throw new ApiError('invalid','Enter the city (up to 60 characters).');
-    if(i.year===null)throw new ApiError('invalid','Enter a year between 2000 and 2100.');
+    if(!season)throw new ApiError('invalid',SEASON_HINT);
     let n:number|null=null;
     if(e.competitionLevel==='regional'){
       if(i.regionalNumber!=null&&(!Number.isInteger(i.regionalNumber)||i.regionalNumber<1||i.regionalNumber>99))throw new ApiError('invalid','Regional numbers run from 1 to 99.');
-      n=i.regionalNumber??(e.regionalNumber&&e.year===i.year&&e.city?.toLowerCase()===city.toLowerCase()?e.regionalNumber:nextRegionalNumber(this.activeEvents(),city,i.year,eventId));
+      n=i.regionalNumber??(e.regionalNumber&&e.season===season&&e.city?.toLowerCase()===city.toLowerCase()?e.regionalNumber:nextRegionalNumber(this.activeEvents(),city,season,eventId));
     }
-    Object.assign(e,{name:eventDisplayName(e.competitionLevel,city,i.year,n),customName:false,city,year:i.year,regionalNumber:n});
+    Object.assign(e,{name:eventDisplayName(e.competitionLevel,city,season,n),customName:false,city,season,regionalNumber:n});
     return copy(e);
   }
   async inviteToEvents(eventIds:string[],i:{name?:string;email:string;role:BatchRole}) {

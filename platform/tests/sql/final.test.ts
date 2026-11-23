@@ -272,7 +272,7 @@ describe('hardening across the whole schema after 0004', () => {
       'organiser_identity_visible', 'pair_race_timing', 'platform_access', 'platform_administrator', 'platform_manager', 'platform_spectator',
       'publish_schedule', 'publish_show_screen', 'queue_bulk_photo_processing', 'queue_photo_processing', 'queue_race_followup',
       'queue_reaction_races', 'race_timing_state', 'racing_state', 'record_submission_guide_progress', 'reject_team_photo', 'release_results',
-      'released_results', 'remove_event_award', 'remove_organiser', 'rename_event', 'reopen_inspection', 'reopen_scorecard',
+      'released_results', 'remove_event_award', 'remove_organiser', 'rename_event', 'rename_event', 'reopen_inspection', 'reopen_scorecard',
       'reserve_invitation_email', 'reserve_submission_email', 'reserve_team_results_email', 'resolve_team_concern',
       'restore_event', 'restore_team_photo_version', 'result_mail_state', 'save_card_review', 'save_event_award',
       'save_inspection_scope', 'save_race', 'save_racing_setup', 'save_schedule', 'save_submission_rules', 'save_team_media_details',

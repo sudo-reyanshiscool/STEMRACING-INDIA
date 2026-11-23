@@ -100,7 +100,7 @@ export type Panel = PanelId;
 export interface Session { userId: string; email: string }
 export interface EventRow { competitionLevel?:CompetitionLevel; id: string; name: string; startsOn: string | null; ruleset: Ruleset; resultsReleased: boolean;
   /** Naming parts. customName is true for names typed by hand, including every event created before automatic names. */
-  city?: string | null; year?: number | null; regionalNumber?: number | null; customName?: boolean }
+  city?: string | null; season?: string | null; regionalNumber?: number | null; customName?: boolean }
 export interface TeamRow { id: string; eventId: string; number: string; name: string; school: string }
 export interface NewTeam { number: string; name: string; school?: string; managerEmail?: string }
 export interface RoleRow { name?: string; id: string; eventId: string; userId: string; role: Role; panel: Panel | null; teamId: string | null; email: string | null }

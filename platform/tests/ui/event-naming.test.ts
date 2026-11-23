@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import {afterEach,describe,expect,it,vi} from 'vitest';
-import {previewBatchNames,eventDisplayName,nextRegionalNumber,type EventRow} from '../../src/api';
+import {previewBatchNames,eventDisplayName,nextRegionalNumber,normaliseSeason,type EventRow} from '../../src/api';
 import {eventHomeScreen} from '../../src/ui/event-home';
 import {eventsScreen} from '../../src/ui/events';
 import {EMAILS,makeCtx,text,world} from './helpers';
@@ -11,16 +11,20 @@ afterEach(()=>{document.body.replaceChildren();vi.restoreAllMocks();});
 async function signedIn(email:string=EMAILS.org){const w=await world();await w.api.signIn(email);return {...w,...makeCtx(w.api)};}
 
 describe('automatic names',()=>{
- const ev=(city:string,year:number,regionalNumber:number):EventRow=>({id:`${city}-${regionalNumber}`,name:'',startsOn:null,ruleset:{} as never,resultsReleased:false,competitionLevel:'regional',city,year,regionalNumber});
+ const ev=(city:string,season:string,regionalNumber:number):EventRow=>({id:`${city}-${season}-${regionalNumber}`,name:'',startsOn:null,ruleset:{} as never,resultsReleased:false,competitionLevel:'regional',city,season,regionalNumber});
  it('builds regional and national names',()=>{
-  expect(eventDisplayName('regional','  New   Delhi ',2027,2)).toBe('STEM Racing India New Delhi Regionals 2 2027');
-  expect(eventDisplayName('national','Delhi',2027)).toBe('STEM Racing India Delhi Nationals 2027');
+  expect(eventDisplayName('regional','  New   Delhi ','2027',2)).toBe('STEM Racing India New Delhi Regionals 2 2027');
+  expect(eventDisplayName('national','Delhi','2026–2027')).toBe('STEM Racing India Delhi Nationals 2026-27');
+ });
+ it('reads years and hyphenated seasons, rejecting non-consecutive ones',()=>{
+  expect(['2027','2026-27',' 2026–2027 ','2099-00','2026-28','2026/27','1999','27'].map(normaliseSeason)).toEqual(['2027','2026-27','2026-27','2099-00',null,null,null,null]);
+  expect(nextRegionalNumber([ev('Delhi','2026-27',1),ev('Delhi','2027',4)],'Delhi','2026-2027')).toBe(2);
  });
  it('counts each city and year separately, ignoring case',()=>{
-  const existing=[ev('Delhi',2027,1),ev('Delhi',2027,2),ev('Mumbai',2027,1),ev('Delhi',2026,7)];
-  expect(nextRegionalNumber(existing,'delhi',2027)).toBe(3);
-  expect(nextRegionalNumber(existing,'Pune',2027)).toBe(1);
-  expect(previewBatchNames(existing,[{level:'regional',city:'Delhi',year:2027},{level:'regional',city:'Pune',year:2027},{level:'regional',city:'DELHI',year:2027},{level:'regional',city:'',year:2027}]))
+  const existing=[ev('Delhi','2027',1),ev('Delhi','2027',2),ev('Mumbai','2027',1),ev('Delhi','2026',7)];
+  expect(nextRegionalNumber(existing,'delhi','2027')).toBe(3);
+  expect(nextRegionalNumber(existing,'Pune','2027')).toBe(1);
+  expect(previewBatchNames(existing,[{level:'regional',city:'Delhi',season:'2027'},{level:'regional',city:'Pune',season:'2027'},{level:'regional',city:'DELHI',season:'2027'},{level:'regional',city:'',season:'2027'}]))
    .toEqual(['STEM Racing India Delhi Regionals 3 2027','STEM Racing India Pune Regionals 1 2027','STEM Racing India DELHI Regionals 4 2027',null]);
  });
 });
@@ -28,8 +32,8 @@ describe('automatic names',()=>{
 describe('renaming an event',()=>{
  it('rebuilds the name from new parts and keeps the regional number',async()=>{
   const {api,ctx}=await signedIn();
-  const [e]=await api.createEvents([{level:'regional',city:'Delhi',year:2027}]);
-  await api.createEvents([{level:'regional',city:'Mumbai',year:2027}]);
+  const [e]=await api.createEvents([{level:'regional',city:'Delhi',season:'2027'}]);
+  await api.createEvents([{level:'regional',city:'Mumbai',season:'2027'}]);
   const el=await eventHomeScreen(ctx,e!.id);document.body.append(el);
   button(el,'Rename event').click();
   const city=el.querySelector<HTMLInputElement>('.event-rename input[name=city]')!;
@@ -40,6 +44,20 @@ describe('renaming an event',()=>{
   button(el,'Save name').click();
   await vi.waitFor(()=>expect(ctx.rerender).toHaveBeenCalled());
   expect((await api.getEvent(e!.id))!.name).toBe('STEM Racing India Mumbai Regionals 4 2027');
+ });
+ it('moves an event into a hyphenated season and rejects an invalid one',async()=>{
+  const {api,ctx}=await signedIn();
+  const [e]=await api.createEvents([{level:'regional',city:'Delhi',season:'2027'}]);
+  const el=await eventHomeScreen(ctx,e!.id);document.body.append(el);
+  button(el,'Rename event').click();
+  const season=el.querySelector<HTMLInputElement>('.event-rename input[name=year]')!;
+  expect(season.value).toBe('2027');
+  type(season,'2026-28');expect(text(el)).toContain('season such as 2026-27');
+  button(el,'Save name').click();expect(ctx.rerender).not.toHaveBeenCalled();
+  type(season,'2026-27');expect(text(el)).toContain('New name: STEM Racing India Delhi Regionals (next free number) 2026-27');
+  button(el,'Save name').click();
+  await vi.waitFor(()=>expect(ctx.rerender).toHaveBeenCalled());
+  expect(await api.getEvent(e!.id)).toMatchObject({name:'STEM Racing India Delhi Regionals 1 2026-27',season:'2026-27'});
  });
  it('offers only a custom name for events made before automatic names, and lets Chairs rename',async()=>{
   const {api,ev,ctx}=await signedIn(EMAILS.chair);
@@ -65,7 +83,7 @@ describe('renaming an event',()=>{
 describe('people across events',()=>{
  async function setup(){
   const w=await signedIn();
-  const made=await w.api.createEvents([{level:'regional',city:'Delhi',year:2027},{level:'regional',city:'Pune',year:2027}]);
+  const made=await w.api.createEvents([{level:'regional',city:'Delhi',season:'2027'},{level:'regional',city:'Pune',season:'2027'}]);
   const el=await eventsScreen(w.ctx);document.body.append(el);
   const panel=[...el.querySelectorAll('section')].find(s=>s.querySelector('h2')?.textContent==='People across events')!;
   return {...w,made,el,panel};

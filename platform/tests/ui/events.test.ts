@@ -70,6 +70,22 @@ describe('eventsScreen', () => {
       'STEM Racing India Delhi Regionals 1 2027', 'STEM Racing India Mumbai Regionals 1 2027', 'STEM Racing India delhi Regionals 2 2027']));
   });
 
+  it('accepts a hyphenated season such as 2026-27', async () => {
+    const { api } = await world();
+    await api.signIn('org@x.test');
+    const { ctx } = makeCtx(api);
+    const el = await eventsScreen(ctx);
+    fill(el, 'input[name=city]', 'Mumbai');
+    fill(el, 'input[name=year]', '2026-28');
+    expect(text(el.querySelector('.event-batch__name')!)).toContain('season such as 2026-27');
+    await submit(el);
+    expect(text(el.querySelector('[role=alert]')!)).toContain('season such as 2026-27');
+    fill(el, 'input[name=year]', '2026–2027');
+    expect(text(el)).toContain('STEM Racing India Mumbai Regionals 1 2026-27');
+    await submit(el);
+    expect((await api.listEvents()).map((e) => e.name)).toContain('STEM Racing India Mumbai Regionals 1 2026-27');
+  });
+
   it('keeps typed cities when the number of regionals changes', async () => {
     const { api } = await world();
     await api.signIn('org@x.test');

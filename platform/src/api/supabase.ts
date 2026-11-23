@@ -52,7 +52,7 @@ async function guard<T>(run: () => PromiseLike<T>): Promise<T> {
 
 // Explicit column lists, never `*`: ranking_snapshots.inputs is not readable through the table, so `select *` fails there,
 // and a list keeps every other query independent of columns the app does not use.
-const EVENT_COLS = 'id,name,starts_on,ruleset,results_released,competition_level,city,event_year,regional_number,custom_name';
+const EVENT_COLS = 'id,name,starts_on,ruleset,results_released,competition_level,city,event_year,regional_number,custom_name,season';
 const TEAM_COLS = 'id,event_id,number,name,school';
 const CARD_COLS = 'id,event_id,team_id,area_id,panel,judge_id,status,reopened_count,scorecard_scores(criterion_id,score,comment)';
 const OVERRIDE_COLS = 'event_id,team_id,area_id,value,reason';
@@ -318,11 +318,11 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
     },
     async createEvents(items) {
       for(const i of items){const problem=validateNamedEvent(i);if(problem)throw new ApiError('invalid',problem);if(i.level==='national')validateEventLogos(i.logos!);}
-      const data = ok(await guard(() => sb.rpc('create_named_events',{p_events:items.map(i=>({level:i.level,city:i.city,year:i.year,startsOn:i.startsOn||null,logos:i.level==='national'?i.logos:null})),p_ruleset:INDIA_2026})));
+      const data = ok(await guard(() => sb.rpc('create_named_events',{p_events:items.map(i=>({level:i.level,city:i.city,season:i.season,startsOn:i.startsOn||null,logos:i.level==='national'?i.logos:null})),p_ruleset:INDIA_2026})));
       return (data as never[]).map(toEventRow);
     },
     async renameEvent(eventId, i) {
-      const data = ok(await guard(() => sb.rpc('rename_event',{p_event:eventId,p_city:i.city,p_year:i.year,p_number:i.regionalNumber??null,p_custom_name:i.customName??null})));
+      const data = ok(await guard(() => sb.rpc('rename_event',{p_event:eventId,p_city:i.city,p_season:i.season,p_number:i.regionalNumber??null,p_custom_name:i.customName??null})));
       return toEventRow(firstRow(data));
     },
     async inviteToEvents(eventIds, i) {
