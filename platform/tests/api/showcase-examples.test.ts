@@ -21,7 +21,7 @@ describe('completed six-team showcase', () => {
       expect(validateScores(area, card.scores, {complete:true})).toEqual([]);
       expect(seed.feedback.find(f => f.cardId === card.id)?.overall).toBeTruthy();
     }
-    expect(seed.contacts.every(c => c.managerEmail === 'shubham@stempify.com')).toBe(true);
+    expect(seed.contacts.every(c => c.managerEmail === 'manager@showcase.invalid')).toBe(true);
     expect(seed.teams.find(t => t.name === 'SUPERCHARGED')?.number).toBe('002');
   });
 

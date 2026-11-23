@@ -7,6 +7,23 @@ const files = readdirSync(dir).filter(f => f.endsWith('.sql')).sort().map(name =
   sql: readFileSync(new URL(name, dir), 'utf8')
 }));
 
+// Installed migrations that were later edited only to take personal email addresses out of the repository.
+// Their effect on an installed database is unchanged, so the earlier checksum is accepted and replaced.
+const REDACTED = {
+  '0015_platform_organisers.sql': '4a88fd190d8b968a02a2619b496f1e841dd4fd983339c130dc78a58516b50e2e',
+  '0043_submission_guide_exemptions.sql': '9f2f44ad30a382e5076c7f272e2ed11c7ba8494074ee22e7d63735b73eb9bfaf',
+};
+
+// Addresses a brand-new database needs, kept out of the repository: PLATFORM_OWNER_EMAIL (migration 0015)
+// and SUBMISSION_GUIDE_EXEMPT_EMAILS, comma-separated (migration 0043). An existing database ignores them.
+function installerSettings() {
+  const email = /^[^@\s',$]+@[^@\s',$]+$/;
+  const owner = (process.env.PLATFORM_OWNER_EMAIL ?? '').trim();
+  const exempt = (process.env.SUBMISSION_GUIDE_EXEMPT_EMAILS ?? '').split(',').map(e => e.trim()).filter(Boolean);
+  for (const e of [owner, ...exempt]) if (e && !email.test(e)) throw new Error('Invalid email address in the installer settings');
+  return `select set_config('stem_racing.owner_email', '${owner}', true), set_config('stem_racing.guide_exempt_emails', '${exempt.join(',')}', true);`;
+}
+
 function isolatedMigrations(files, schema = 'stem_racing') {
   const identifier = /^[a-z][a-z0-9_]{0,62}$/;
   if (!identifier.test(schema) || schema === 'public' || schema.startsWith('pg_')) throw new Error('Use a dedicated application schema');
@@ -23,8 +40,9 @@ function isolatedMigrations(files, schema = 'stem_racing') {
     `;
     const tag = `$stem_migration_${index}$`;
     if (body.includes(tag)) throw new Error('Migration delimiter collision');
+    const earlier = REDACTED[name] ? `update ${schema}.schema_migrations set checksum = '${digest}' where version = '${name}' and checksum = '${REDACTED[name]}';\n  ` : '';
     return `do $apply$ begin
-  if exists (select 1 from ${schema}.schema_migrations where version = '${name}' and checksum <> '${digest}') then
+  ${earlier}if exists (select 1 from ${schema}.schema_migrations where version = '${name}' and checksum <> '${digest}') then
     raise exception 'Installed migration differs: ${name}';
   end if;
   if not exists (select 1 from ${schema}.schema_migrations where version = '${name}') then
@@ -37,6 +55,7 @@ end $apply$;`;
   return `begin;
 create schema if not exists ${schema};
 set local search_path = ${schema}, pg_temp;
+${installerSettings()}
 create table if not exists ${schema}.schema_migrations(version text primary key, checksum text not null);
 revoke all on ${schema}.schema_migrations from public, anon, authenticated;
 ${steps.join('\n')}

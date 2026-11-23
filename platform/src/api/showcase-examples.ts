@@ -97,7 +97,7 @@ export function buildShowcaseExamples(event: EventRow): ShowcaseSeed {
     nominations: [], conflicts: [], exemptions: [], overrides: [], penalties: [], inspections, races, racingSetup,
     broadcasts: [{id: 'example-announcement', eventId, senderId: null, senderEmail: 'presenter@showcase.invalid', audienceType: 'all_judges', panel: null,
       recipientCount: judges.length, subject: 'Final judging and racing complete', category: 'RESULTS', body: 'Every judging panel and race has been completed in this six-team example.', buttonText: null, buttonUrl: null, createdAt: date}],
-    contacts: teams.map(t => ({teamId: t.id, managerEmail: 'shubham@stempify.com'})),
+    contacts: teams.map(t => ({teamId: t.id, managerEmail: 'manager@showcase.invalid'})),
     mail: {confirmed: true, version: awardsVersion, snapshotId, awards, deliveries: []},
     snapshot: {id: snapshotId, eventId, createdAt: date, rulesetId: event.ruleset.id, rows: ranking.rows, released: true,
       inputHash: sha256Fallback(canonicalJson({rulesetId: event.ruleset.id, inputs, rows: ranking.rows}))},

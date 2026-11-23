@@ -1,4 +1,5 @@
 -- Permanent owner identity is resolved once from the confirmed Auth account, never from a client claim.
+-- The owner's address is not kept in the repository: the installer passes it as stem_racing.owner_email.
 create table platform_owner (
  singleton boolean primary key default true check(singleton),
  user_id uuid not null unique references auth.users(id) on delete restrict,
@@ -6,9 +7,9 @@ create table platform_owner (
 );
 insert into platform_owner(user_id,email)
  select id,lower(btrim(email)) from auth.users
- where lower(btrim(email))='reyanshg11111@gmail.com' and email_confirmed_at is not null;
+ where lower(btrim(email))=lower(btrim(current_setting('stem_racing.owner_email',true))) and email_confirmed_at is not null;
 do $$ begin
- if not exists(select 1 from platform_owner) then raise exception 'confirmed platform owner account is required'; end if;
+ if not exists(select 1 from platform_owner) then raise exception 'confirmed platform owner account is required (set PLATFORM_OWNER_EMAIL when rendering migrations)'; end if;
 end $$;
 create table platform_organisers (
  user_id uuid primary key references auth.users(id) on delete cascade,

@@ -5,7 +5,9 @@ create table submission_guide_exemptions (
 );
 alter table submission_guide_exemptions enable row level security;
 revoke all on submission_guide_exemptions from public,anon,authenticated;
-insert into submission_guide_exemptions(email) values('supercharged@british-school.org');
+-- Addresses are not kept in the repository: the installer passes them, comma-separated, as stem_racing.guide_exempt_emails.
+insert into submission_guide_exemptions(email)
+ select distinct lower(btrim(e)) from unnest(string_to_array(coalesce(current_setting('stem_racing.guide_exempt_emails',true),''),',')) e where btrim(e)<>'';
 create function submission_guide_exempt() returns boolean
 language sql stable security definer set search_path = public, pg_temp as $$
  select exists(select 1 from auth.users u join submission_guide_exemptions e on e.email=lower(btrim(u.email))

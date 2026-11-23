@@ -40,7 +40,7 @@ describe('resultSheet PDF export', () => {
       teamName: 'SUPERCHARGED',
       school: 'Delhi Public School',
       carLabel: 'A',
-      scrutineer: 'wanderlust.wired@gmail.com',
+      scrutineer: 'scrutineer@x.test',
       date: '2026-10-19',
       rulesetName: INDIA_TECHNICAL.name,
       rulesetIssued: INDIA_TECHNICAL.issued,

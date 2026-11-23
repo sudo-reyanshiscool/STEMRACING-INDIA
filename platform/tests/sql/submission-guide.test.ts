@@ -40,7 +40,7 @@ it('blocks direct portfolio uploads until all timed segments complete, then pres
 });
 
 it('exempts only the exact verified account without granting access or fabricating completion',async()=>{
- await db.query('update auth.users set email=$1 where id=$2',['SUPERCHARGED@british-school.org',ids.mgr1]);
+ await db.query('update auth.users set email=$1 where id=$2',['SUPERCHARGED@school.test',ids.mgr1]);
  expect(await state()).toMatchObject({required:false,complete:false,watchedSeconds:0});
  expect((await state('mgr2')).required).toBe(true);
  const input={kind:'design_portfolio',name:'portfolio.pdf',mime:'application/pdf',base64:btoa('%PDF-1.4\nportfolio\n%%EOF')};
@@ -50,8 +50,8 @@ it('exempts only the exact verified account without granting access or fabricati
  await expect(as(db,'mgr1',q=>q('select * from submission_guide_exemptions'))).rejects.toMatchObject({code:'42501'});
  await expect(as(db,'mgr2',q=>q('insert into submission_guide_exemptions(email) values($1)',['mgr2@x.test']))).rejects.toMatchObject({code:'42501'});
  await db.query('update auth.users set email_confirmed_at=null where id=$1',[ids.mgr1]);expect((await state()).required).toBe(true);
- await db.query('update auth.users set email=$1,email_confirmed_at=now() where id=$2',['supercharged@british-school.com',ids.mgr1]);expect((await state()).required).toBe(true);
+ await db.query('update auth.users set email=$1,email_confirmed_at=now() where id=$2',['supercharged@school.example',ids.mgr1]);expect((await state()).required).toBe(true);
  await db.query('update auth.users set email=$1 where id=$2',['mgr1@x.test',ids.mgr1]);
- await db.query('update auth.users set email=$1 where id=$2',['supercharged@british-school.org',ids.outsider]);
+ await db.query('update auth.users set email=$1 where id=$2',['supercharged@school.test',ids.outsider]);
  await expect(as(db,'outsider',q=>q('select submission_guide_state($1)',[w.eventId]))).rejects.toMatchObject({code:'42501'});
 });

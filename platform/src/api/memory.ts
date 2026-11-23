@@ -105,7 +105,7 @@ export class MemoryApi implements Api {
   async submissionGuideState(eventId: string): Promise<SubmissionGuideState> {
     this.require(eventId,'organiser','chair','team_manager');
     const progress = this.guideProgress.get(this.me!.userId);
-    return {version:SUBMISSION_GUIDE_VERSION,duration:SUBMISSION_GUIDE_DURATION,watchedSeconds:progress?.watched??0,complete:progress?.complete??false,required:!this.has(eventId,'organiser','chair')&&this.me!.email.trim().toLowerCase()!=='supercharged@british-school.org'};
+    return {version:SUBMISSION_GUIDE_VERSION,duration:SUBMISSION_GUIDE_DURATION,watchedSeconds:progress?.watched??0,complete:progress?.complete??false,required:!this.has(eventId,'organiser','chair')&&!this.guideExemptions.has(this.me!.email.trim().toLowerCase())};
   }
   async recordSubmissionGuideProgress(eventId: string, position: number): Promise<SubmissionGuideState> {
     await this.submissionGuideState(eventId);
@@ -464,6 +464,7 @@ export class MemoryApi implements Api {
   }
   async acknowledgeResultRetry(eventId:string,teamId:string,selection:ResultMailSelection) {this.require(eventId,'chair','organiser');const d=this.mailDeliveries.find(d=>d.eventId===eventId&&d.teamId===teamId&&d.snapshotId===selection.snapshotId&&d.version===selection.awardsVersion&&d.email===selection.email);if(!d||d.status!=='uncertain')throw new ApiError('locked','No unconfirmed delivery');d.status='failed';}
   private creatorAllowlist = new Set<string>();
+  private guideExemptions = new Set<string>();
   private inspectionHistory: Array<{
     id: string; inspectionId: string; changedBy: string; changedAt: string;
     previousMeasurements: Measurements; previousStatus: InspectionStatus; reason: string; revision: number;
@@ -645,6 +646,11 @@ export class MemoryApi implements Api {
   async listEvents() {
     return copy(this.events.filter((e) => !this.deletedEvents.has(e.id) && (e.resultsReleased || this.rolesOf(e.id).length > 0)));
   }
+  /** Accounts that skip the submission guide video, as submission_guide_exemptions does in the database. */
+  setGuideExemptions(emails: string[]): void {
+    this.guideExemptions = new Set(emails.map((e) => e.trim().toLowerCase()));
+  }
+
   setCreatorAllowlist(emails: string[]): void {
     this.creatorAllowlist = new Set(emails.map((e) => e.trim().toLowerCase()));
   }

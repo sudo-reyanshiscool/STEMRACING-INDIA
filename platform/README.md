@@ -24,8 +24,8 @@ returns to the shared workspace; its withdrawn results remain withdrawn.
 84 submitted scorecards covering all five judging panels, 12 submitted car
 inspections, four reaction runs per team and a completed knockout bracket
 (17 finished heats altogether). Standings, racing points and confirmed sample
-awards are calculated from those records. All six manager contacts use
-`shubham@stempify.com`; sending remains simulated. This example is regenerated
+awards are calculated from those records. All six manager contacts use a
+placeholder address; sending remains simulated. This example is regenerated
 on reload and does not add teams to the saved event. The sample knockout stage
 points are editable practice values, not a change to the competition rules.
 
@@ -308,7 +308,7 @@ Email confirmation and all event role permissions remain enforced by Supabase.
 
 ### Permanent administrator and organiser scopes
 
-Migration 0015 pins the confirmed Auth account for `reyanshg11111@gmail.com` as the permanent Platform Admin. That account must exist and be confirmed before installation; there is no open first-user bootstrap. Permissions use the stored Auth user ID, not an email supplied by the browser. The owner row cannot be updated, deleted or truncated, and authenticated clients have no direct access to global grant tables.
+Migration 0015 pins the confirmed Auth account for the owner's address as the permanent Platform Admin. The address is not stored in the repository: set `PLATFORM_OWNER_EMAIL` when running `node scripts/render-migrations.mjs` for a new database. That account must exist and be confirmed before installation; there is no open first-user bootstrap. Likewise, `SUBMISSION_GUIDE_EXEMPT_EMAILS` (comma-separated) seeds the submission guide exemptions of migration 0043. An existing database ignores both settings. Permissions use the stored Auth user ID, not an email supplied by the browser. The owner row cannot be updated, deleted or truncated, and authenticated clients have no direct access to global grant tables.
 
 On **Events → Organiser access**, the Platform Admin or another Platform Organiser can invite a **Platform Organiser** (every event) or a **Competition Organiser** (event creation plus assigned events). Invites use the existing protected SMTP delivery flow and are claimed only by the matching confirmed Auth account. Add Competition Organisers to existing events through **People → Competition Organiser**. Event organisers also receive Chair, moderation, override, ranking publication and release powers within their scope. Judges and team managers retain their existing score visibility limits.
 
@@ -411,7 +411,7 @@ by the API. Lead Judges have those same four sections plus Moderation. Separatel
 
 ### Required submission guide
 
-Team managers must complete the 13:04 submission guide before using portfolio, photograph or compulsory-media submission controls. Completion is tied to the signed-in user and `SUBMISSION_GUIDE_VERSION`, and follows the account across devices and events. Organisers and the Chair retain support access without this onboarding gate; released-result downloads remain available. The verified account `supercharged@british-school.org` also has an explicit video-only exemption. Exemptions stay private in `submission_guide_exemptions` and do not grant event access or record fake watched progress.
+Team managers must complete the 13:04 submission guide before using portfolio, photograph or compulsory-media submission controls. Completion is tied to the signed-in user and `SUBMISSION_GUIDE_VERSION`, and follows the account across devices and events. Organisers and the Chair retain support access without this onboarding gate; released-result downloads remain available. Specific verified accounts can have an explicit video-only exemption. Exemptions stay private in `submission_guide_exemptions` and do not grant event access or record fake watched progress.
 
 The player permits rewinding, limits playback to normal speed, pauses when the tab is hidden, and saves contiguous progress every ten seconds and on pause/end. Network failures pause playback and retain the last server-confirmed point. Portfolio upload acceptance is also guarded in Postgres; guide progress tables are private and heartbeats cannot jump past elapsed server time. Playback tracking establishes completion of the video, not a person's attention.
 

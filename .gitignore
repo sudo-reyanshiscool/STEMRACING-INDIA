@@ -15,3 +15,6 @@ platform/.*-preview.html
 platform/public/graphics/team-intro/assets/teams/*
 !platform/public/graphics/team-intro/assets/teams/fake/
 platform/public/graphics/concept-01/
+
+# Local handoff notes: internal, never published
+HANDOFF.md
