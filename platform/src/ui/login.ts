@@ -4,7 +4,25 @@ import type { Ctx } from './ctx';
 import { codeText, errorText, isPlausibleEmail } from './common';
 import { h } from './dom';
 
-export function loginScreen(ctx: Ctx, options: { authError?: string; showCode?: boolean } = {}): HTMLElement {
+/** Who the demo sign-in can enter as. Each opens the sample event in memory; none is a real account. */
+const DEMO_ROLES: Array<[label: string, persona: string, sees: string]> = [
+  ['Organiser', 'organiser', 'Every page of the event, as organiser and Chair of Judges.'],
+  ['Judge', 'judge', 'My scorecards, scores and results, as a Specification judge.'],
+  ['Team manager', 'team', 'The team garage, as the manager of team 002.'],
+];
+
+function demoSignIn(only: boolean): HTMLElement {
+  return h('section', { class: 'demo-login', 'aria-labelledby': 'demo-login-title' },
+    h('h3', { id: 'demo-login-title' }, 'Demo sign-in'),
+    h('p', { class: 'muted small' }, only
+      ? 'Choose who to sign in as. The demo uses sample teams and scores, and nothing you change is saved.'
+      : 'No account needed. The demo uses sample teams and scores, and nothing you change is saved.'),
+    h('ul', { class: 'demo-login__roles' }, DEMO_ROLES.map(([label, persona, sees]) =>
+      h('li', null, h('a', { class: 'demo-login__role', href: `?preview=${persona}#/` },
+        h('strong', null, `Sign in as ${label}`), h('span', null, sees))))));
+}
+
+export function loginScreen(ctx: Ctx, options: { authError?: string; showCode?: boolean; demo?: boolean; demoOnly?: boolean } = {}): HTMLElement {
   const notice = h('p', { class: 'notice', role: 'status', hidden: true });
   const error = h('p', { class: 'alert', role: 'alert', hidden: !options.authError }, options.authError ?? '');
   const email = h('input', { type: 'email', name: 'email', required: true, autocomplete: 'email', inputmode: 'email' });
@@ -94,15 +112,21 @@ export function loginScreen(ctx: Ctx, options: { authError?: string; showCode?: 
     }finally{password.value='';setBusy(false);}
   });
   const waiting = ctx.queue.status().pending;
-  return h('div', { class: 'stack stack--lg login-screen' },
-    h('p', { class: 'eyebrow' }, 'STEM Racing India · Events platform'),
-    h('h1', null, 'Sign in'),
-    h('p', { class: 'lead' }, 'Use the email address your event organiser invited.'),
-    waiting > 0
-      ? h('p', { class: 'notice' }, `${codeText('unauthenticated')}. ${waiting} score${waiting === 1 ? ' is' : 's are'} waiting on this device and will be sent once you are signed in.`)
-      : null,
-    notice, error, form, codeSection, passwordSection,
-    h('p', { class: 'muted small' }, 'Final standings are public. Detailed scores and feedback are private to signed-in team managers.'),
-    h('p', { class: 'muted small' }, 'Supports email sign-in codes and two-factor authentication via authenticator apps (TOTP).'),
+  return h('div', { class: 'login-screen' },
+    h('section', { class: 'login-hero' },
+      h('h1', null, 'Judging, racing and results.'),
+      h('p', { class: 'lead' }, 'The STEM Racing India events platform, for every Regional and National Final.')),
+    h('div', { class: 'login-panel' },
+      h('div', { class: 'stack' },
+        h('h2', null, 'Sign in'),
+        options.demoOnly ? null : h('p', { class: 'lead' }, 'Use the email address your event organiser invited.')),
+      waiting > 0
+        ? h('p', { class: 'notice' }, `${codeText('unauthenticated')}. ${waiting} score${waiting === 1 ? ' is' : 's are'} waiting on this device and will be sent once you are signed in.`)
+        : null,
+      // In the demo there is no real account to sign in to, so the role choices replace the email forms.
+      ...(options.demoOnly ? [demoSignIn(true)] : [notice, error, form, codeSection, passwordSection, options.demo ? demoSignIn(false) : null]),
+      options.demoOnly ? null : h('div', { class: 'stack' },
+        h('p', { class: 'muted small' }, 'Final standings are public. Detailed scores and feedback are private to signed-in team managers.'),
+        h('p', { class: 'muted small' }, 'Supports email sign-in codes and two-factor authentication via authenticator apps (TOTP).'))),
   );
 }

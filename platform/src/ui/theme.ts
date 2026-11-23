@@ -10,7 +10,8 @@ export function preferredTheme(): Theme {
 
 export function applyTheme(theme: Theme): void {
   document.documentElement.dataset.theme = theme;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#05000B' : '#F2F0EB');
+  // The top bar is Carbon Shadow in both themes, so the browser's own chrome matches it either way.
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#05000B');
 }
 
 function themeIcon(theme: Theme): SVGSVGElement {

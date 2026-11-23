@@ -65,8 +65,8 @@ export function notFound(message: string, backHref = '#/', backLabel = 'Back'): 
     h(
       'div',
       { class: 'off-track-nav' },
-      h('a', { class: 'back btn btn--primary off-track-btn', href: backHref }, `← ${backLabel}`),
-      h('a', { class: 'btn btn--ghost off-track-btn', href: '#/' }, 'All Events')
+      h('a', { class: 'btn btn--primary off-track-btn', href: backHref }, backLabel),
+      backHref === '#/' ? null : h('a', { class: 'btn btn--ghost off-track-btn', href: '#/' }, 'All events')
     )
   );
 }

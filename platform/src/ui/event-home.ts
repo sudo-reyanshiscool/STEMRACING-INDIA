@@ -12,6 +12,7 @@ import { parseHash, routeHref, type Route } from './router';
 import { deleteEventControl } from './delete-event';
 import { renameEventControl } from './rename-event';
 import { canShowcase, showcaseHref } from '../api/showcase';
+import { eventDate } from './shell';
 
 export async function eventHomeScreen(ctx: Ctx, eventId: string): Promise<HTMLElement> {
   const [event, roles] = await Promise.all([ctx.api.getEvent(eventId), ctx.api.myRoles(eventId)]);
@@ -44,12 +45,14 @@ export async function eventHomeScreen(ctx: Ctx, eventId: string): Promise<HTMLEl
   if(spectatorOnly(roles)) {tiles.length=0;for(const [label,name] of SPECTATOR_PAGES.filter(([,name])=>name!=='event'))tiles.push(tile(label,`View ${label.toLowerCase()} without making changes.`,{name,eventId} as Route));}
   const mine = [...new Set(roles.map((r) => (r.panel ? `${ROLE_LABEL[r.role]}: ${PANEL_LABEL[r.panel]}` : ROLE_LABEL[r.role])))];
   return h('div', { class: 'stack stack--lg' },
-    h('div', { class: 'stack' },
+    h('header', { class: 'masthead' },
       h('a', { class: 'back', href: '#/' }, 'All events'),
-      h('p', { class: 'eyebrow' }, [event.startsOn, event.resultsReleased ? 'Results released' : null].filter(Boolean).join(' · ')),
       event.competitionLevel?eventIdentity(event,await ctx.api.eventBranding(event.id)):null,
       h('h1', null, event.name),
-      mine.length > 0 ? h('p', { class: 'lead' }, `You are: ${mine.join('; ')}`) : null,
+      h('ul', { class: 'masthead__meta' },
+        event.startsOn ? h('li', null, h('time', { datetime: event.startsOn }, eventDate(event.startsOn))) : null,
+        event.resultsReleased ? h('li', null, h('strong', null, 'Results released')) : null,
+        mine.length > 0 ? h('li', null, h('span', null, 'You are: ', h('strong', null, mine.join('; ')))) : null),
     ),
     !ctx.demo && canShowcase(event, roles) ? h('section', { class: 'showcase-entry' },
       h('div', { class: 'stack' }, h('h2', null, 'Showcase Test Event'),
@@ -62,7 +65,7 @@ export async function eventHomeScreen(ctx: Ctx, eventId: string): Promise<HTMLEl
       h('h2', null, 'Media Assets & Background Removal'),
       h('p', null, 'Process team photographs with AI background removal, review transparent cutouts, and approve team assets for live arena broadcast graphics.'),
       h('div', { class: 'actions' },
-        h('a', { class: 'btn btn--secondary', href: routeHref({ name: 'media', eventId }) }, 'Open Media Assets →')
+        h('a', { class: 'btn btn--secondary', href: routeHref({ name: 'media', eventId }) }, 'Open Media Assets')
       )
     ) : null,
     has('organiser','chair') ? await inspectionScopeControl(ctx,eventId) : null,

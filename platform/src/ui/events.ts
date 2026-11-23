@@ -8,6 +8,7 @@ import type { Ctx } from './ctx';
 import { reportActionError } from './actions';
 import { h } from './dom';
 import { routeHref } from './router';
+import { eventDate } from './shell';
 import { canShowcase, showcaseHref, SHOWCASE_EVENT_ID } from '../api/showcase';
 
 
@@ -30,10 +31,10 @@ export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
       catch (e) { if (alive) { reportActionError(ctx, failure, e); } }
       finally { finish(); }
     });
-    return h('li', null, h('strong', null, event.name), h('span', { class: 'muted small' }, event.startsOn ?? ''), restore, failure);
+    return h('li', null, h('strong', null, event.name), event.startsOn ? h('time', { class: 'muted small', datetime: event.startsOn }, eventDate(event.startsOn)) : null, restore, failure);
   })));
   return h('div', { class: teamView?'garage garage-calendar stack stack--lg':'stack stack--lg' },
-    h('div', { class: 'stack' }, h('p', { class: 'eyebrow' }, 'STEM Racing India · Nationals & Regionals'), h('h1', null, 'Events'),
+    h('header', { class: 'masthead' }, h('h1', null, 'Events'),
       h('p', { class: 'lead' }, teamView?'Your competition journey starts here. Open an event to enter your team garage.':'Judging, racing and results for each event, in one place.'),
       owner ? h('p',null,ownerRoleBadge()) : access.kind ? h('p', {class:'tag tag--pass'},access.displayTitle ? `${access.displayTitle} · ${access.kind==='competition'?'assigned events':'all events'}` : access.kind==='admin'?(access.ownerId===viewer?.userId?'Platform Admin · permanent access to every event':'Platform Administrator · all events'):access.kind==='platform'?'Platform Organiser · all events':access.kind==='spectator'?'Platform Spectator · read-only':'Competition Organiser · assigned events') : null),
     h('section', { class: 'section' },
@@ -41,7 +42,7 @@ export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
         ? h('p', { class: 'muted' }, canCreate ? 'No events yet. Create one, or ask an organiser to invite you.' : 'No events yet. Ask an organiser to invite you to an event.')
         : h('ul', { class: 'list event-list' }, events.map((e) =>
             h('li', null, h('a', { href: routeHref({ name: 'event', eventId: e.id }) }, h('strong', null, e.name)),
-              h('span', { class: 'muted small' }, e.startsOn ?? ''), e.competitionLevel?h('span',{class:'tag'},COMPETITION_LEVEL_LABEL[e.competitionLevel]):null,e.resultsReleased ? h('span', { class: 'tag tag--pass' }, 'Results released') : null,
+              h('p', { class: 'event-list__meta' }, e.startsOn ? h('time', { datetime: e.startsOn }, eventDate(e.startsOn)) : null, e.competitionLevel?h('span',{class:'tag'},COMPETITION_LEVEL_LABEL[e.competitionLevel]):null,e.resultsReleased ? h('span', { class: 'tag tag--pass' }, 'Results released') : null),
               showcaseAvailable && e.id === SHOWCASE_EVENT_ID ? h('a', { class: 'btn btn--ghost btn--small', href: showcaseHref(e.id) }, 'Open showcase') : null)))),
     canCreate ? h('section', { class: 'section' }, h('h2', null, 'New events'), newEventsForm(ctx, events, () => alive)) : null,
     (canCreate || access.canManage) && access.kind !== 'spectator' && events.length > 0 && !teamView ? batchPeopleControl(ctx, events) : null,

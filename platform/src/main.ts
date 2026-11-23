@@ -75,9 +75,20 @@ window.addEventListener('vite:preloadError', (event) => {
 const url = import.meta.env.VITE_SUPABASE_URL;
 const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+/**
+ * The demo sign-in: the six-team example event in memory, entered from the sign-in screen with no account.
+ * It never reads or writes the shared backend. Always on in `npm run dev` and when no backend is configured;
+ * a build that does have a backend offers it only when VITE_DEMO_LOGIN=1.
+ */
+const demoLogin = import.meta.env.DEV || import.meta.env.VITE_DEMO_LOGIN === '1' || !url || !key;
+
 async function boot(): Promise<void> {
-  if (!url || !key) {
-    throw new Error('Supabase environment variables (VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY) are missing.');
+  const query = new URLSearchParams(location.search);
+  const preview = demoLogin ? query.get('preview') : null;
+  if ((!url || !key) && preview === null) {
+    // With no backend to sign in to, the demo is the whole site.
+    location.replace(`${location.pathname}?preview=signed-out${location.hash}`);
+    return;
   }
 
   const callback = readEmailCallback(location.hash);
@@ -86,20 +97,26 @@ async function boot(): Promise<void> {
   let authError = callback?.kind === 'invalid' ? codeText('invalid-auth') : undefined;
   if (callback && callback.kind !== 'legacy') clearEmailCallback();
   const shell = mountShell(document.getElementById('app')!);
-  const sharedApi: Api = withRequestCache(createSupabaseApi(url, key, undefined, { schema: import.meta.env.VITE_SUPABASE_DB_SCHEMA ?? 'public' }));
-  let api: Api = sharedApi;
-  const showcaseId = new URLSearchParams(location.search).get('showcase');
+  // In the demo nothing below ever holds a connection to the shared backend.
+  const sharedApi: Api | null = preview === null && url && key
+    ? withRequestCache(createSupabaseApi(url, key, undefined, { schema: import.meta.env.VITE_SUPABASE_DB_SCHEMA ?? 'public' })) : null;
+  let api = sharedApi as Api;
+  const showcaseId = preview !== null ? 'design-preview' : query.get('showcase');
   const showcase = showcaseId !== null;
   if (showcase) {
     shell.setLoading(true);shell.setBranding(null);
     try {
-      const owner = await sharedApi.getSession();
-      api = await loadShowcase(sharedApi, showcaseId, new URLSearchParams(location.search).get('examples') === '6');
-      // An expired/shared sign-in must not leave a private presentation on screen.
-      sharedApi.onAuthChange(session => {
-        if (session?.userId !== owner?.userId) location.replace(exitShowcaseHref(location.pathname));
-      });
-      mountShowcaseBar(shell.showcaseBar);
+      if (preview !== null || !sharedApi) {
+        api = await (await import('./api/design-preview')).loadDesignPreview(preview ?? 'signed-out');
+      } else {
+        const owner = await sharedApi.getSession();
+        api = await loadShowcase(sharedApi, showcaseId, query.get('examples') === '6');
+        // An expired/shared sign-in must not leave a private presentation on screen.
+        sharedApi.onAuthChange(session => {
+          if (session?.userId !== owner?.userId) location.replace(exitShowcaseHref(location.pathname));
+        });
+      }
+      mountShowcaseBar(shell.showcaseBar, preview !== null);
     } catch (e) {
       shell.main.replaceChildren(h('div', { class: 'stack' }, h('h1', null, 'Showcase unavailable'),
         h('p', { class: 'alert', role: 'alert' }, errorText(e)),
@@ -141,7 +158,7 @@ async function boot(): Promise<void> {
   };
 
   const signOut = async () => {
-    if (showcase) { location.assign(exitShowcaseHref(location.pathname)); return; }
+    if (showcase && preview === null) { location.assign(exitShowcaseHref(location.pathname)); return; }
     try {
       changingSession = true; await finishScreen();
       await api.signOut();
@@ -162,7 +179,7 @@ async function boot(): Promise<void> {
     leaves = [];
     try {
       const session = await api.getSession();
-      shell.setUser(session, () => void signOut(), showcase);
+      shell.setUser(session, () => void signOut(), showcase && preview === null);
       host.setUser(session?.userId ?? null); // idempotent; covers an auth event the adapter did not deliver
       const mfa = session ? await api.getMfaStatus().catch(() => null) : null;
       const requiresMfa = session && mfa && mfa.nextLevel === 'aal2' && mfa.currentLevel !== 'aal2';
@@ -184,10 +201,11 @@ async function boot(): Promise<void> {
         : null;
       meta?.catch(() => undefined);
       let node: HTMLElement;
+      let nav: Parameters<typeof shell.setNav>[0] = null;
       if (emailToken) node = emailConfirmScreen(ctx, emailToken, () => {
         emailToken = null; authError = undefined; void render({ name: 'home' });
       }, () => { emailToken = null; authError = undefined; showEmailCode = true; void render({ name: 'home' }); });
-      else if (!session && route.name !== 'results') node = loginScreen(ctx, { authError, showCode: showEmailCode });
+      else if (!session && route.name !== 'results') node = loginScreen(ctx, { authError, showCode: showEmailCode, demo: demoLogin, demoOnly: preview !== null });
       else if (requiresMfa && route.name !== 'results') {
         const factorId = mfa?.factors.find((f) => f.status === 'verified')?.id;
         node = mfaChallengeScreen(ctx, {
@@ -206,13 +224,15 @@ async function boot(): Promise<void> {
         if (mine !== token) return;
         if (event) {
           if (event.competitionLevel) shell.setBranding(branding);
-          if (session) node.prepend(eventNav(event, roles, route.name));
+          if (session) nav = { event, nav: eventNav(event, roles, route.name), focus: FOCUS_SCREENS.includes(route.name) };
         }
       }
+      shell.setNav(nav);
       shell.main.replaceChildren(node);
       window.scrollTo(0, 0);
     } catch (e) {
       if (mine !== token) return;
+      shell.setNav(null);
       shell.main.replaceChildren(errorScreen(ctx, e));
     } finally {
       if (mine === token) shell.setLoading(false);
@@ -221,12 +241,15 @@ async function boot(): Promise<void> {
 
   api.onAuthChange(() => {
     // Remove the outgoing account's private DOM before fetching the next account's page.
-    token++; shell.main.replaceChildren();
+    token++; shell.setNav(null); shell.main.replaceChildren();
     if (!changingSession) void render(current);
   });
   startRouter((route) => void render(route));
   warmScreens();
 }
+
+/** Screens that need the full width of the window: the event menu folds into a button above them. */
+const FOCUS_SCREENS: Route['name'][] = ['scorecard', 'inspection', 'graphics'];
 
 async function screenFor(route: Route, ctx: Ctx): Promise<HTMLElement> {
   if ('eventId' in route) {

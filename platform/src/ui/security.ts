@@ -213,7 +213,7 @@ export async function securityScreen(ctx: Ctx): Promise<HTMLElement> {
   }
 
   container.append(
-    h('a', { class: 'back', href: '#/' }, '← Back to events'),
+    h('a', { class: 'back', href: '#/' }, 'Back to events'),
     header,
     notice,
     error,

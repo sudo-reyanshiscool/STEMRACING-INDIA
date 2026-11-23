@@ -4,6 +4,16 @@ Online judging, scorecards, moderation, penalties and rankings for a STEM Racing
 (Phase 1a). Rules come from the India National Finals 2026 Competition Regulations and are plain data in
 `src/rulesets/india-2026.ts`.
 
+## Demo sign-in
+
+The sign-in screen can offer a demo: choose Organiser, Judge or Team manager and you are signed in to the
+six-team example event. It runs in memory, needs no account, and never reads or writes the shared backend;
+reloading resets it. `?preview=organiser`, `?preview=judge`, `?preview=team` and `?preview=signed-out` open
+each view directly.
+
+It is always offered in `npm run dev`, and when `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` are not set
+(the demo is then the whole site). A build that does have a backend offers it only when `VITE_DEMO_LOGIN=1`.
+
 ## Digital scorecards
 
 ### Test Event showcase

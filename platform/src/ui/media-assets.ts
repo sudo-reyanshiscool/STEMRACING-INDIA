@@ -36,7 +36,7 @@ export async function mediaAssetsScreen(ctx: Ctx, eventId: string): Promise<HTML
   const header = h(
     'div',
     { class: 'stack' },
-    h('a', { class: 'back', href: `#/event/${eventId}` }, `← ${event.name}`),
+    h('a', { class: 'back', href: `#/event/${eventId}` }, event.name),
     h('p', { class: 'eyebrow' }, 'Event Management → Media Assets → Background Removal'),
     h('h1', null, 'Team Photography Background Removal'),
     h(

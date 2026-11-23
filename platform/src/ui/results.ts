@@ -6,6 +6,7 @@ import {resultDelivery} from './result-delivery';
 import { jsonDownloads } from './json-downloads';
 import type { Ctx } from './ctx';
 import { h } from './dom';
+import { eventDate } from './shell';
 import { routeHref } from './router';
 
 const when = (iso: string) => {
@@ -70,7 +71,7 @@ export async function resultsScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
   const manager=managerOnly(roles);
   const head = h('div', { class: 'stack' },
     h('a', { class: 'back', href: eventHref }, signedIn ? event.name : 'Sign in'),
-    event.startsOn ? h('p', { class: 'eyebrow' }, event.startsOn) : null,
+    event.startsOn ? h('p', { class: 'eyebrow' }, h('time', { datetime: event.startsOn }, eventDate(event.startsOn))) : null,
     manager?garageHeader('Your team / The finish line','Results',event.name):h('h1', null, `${event.name}: results`),
     readStaff && snapshot && !releasedLive ? h('p', { class: 'notice', role: 'status' }, 'Not released. Visible only to authorised staff and spectators.') : null);
 
@@ -95,7 +96,7 @@ export async function resultsScreen(ctx: Ctx, eventId: string): Promise<HTMLElem
         h('th', { scope: 'col', class: 'num pin-end' }, 'Total'),
       ])),
       h('tbody', null, rows.map((r) => h('tr', null,
-        h('td', null, String(r.rank)),
+        h('td', { class: 'rank', 'data-rank': String(r.rank) }, String(r.rank)),
         h('th', { scope: 'row', class: 'results-team' }, `Team ${r.number} · ${r.name}`,
           r.tied ? h('span', null, ' ', tag('Tied', 'risk')) : null),
         h('td', { class: 'num pin-end' }, num(r.total)))))));

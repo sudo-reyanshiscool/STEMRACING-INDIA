@@ -12,7 +12,7 @@ describe('eventsScreen', () => {
     const el = await eventsScreen(ctx);
     const link = el.querySelector(`a[href="#/event/${ev.id}"]`)!;
     expect(text(link)).toBe('Nationals');
-    expect(text(el)).toContain('2026-11-01');
+    expect(text(el)).toContain('1 Nov 2026');
   });
 
   it('says so when there are no events, and hides creation from strangers but shows it to organisers', async () => {
