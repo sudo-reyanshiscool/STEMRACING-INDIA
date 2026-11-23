@@ -1,5 +1,6 @@
 import {assembleTeamBrandingProfile,type BrandingAssetFile} from './team-branding';
 import {validateEventLogos,type EventLogos,type NewEvent} from './event-branding';
+import {eventDisplayName,nextRegionalNumber,normaliseCity,validateNamedEvent,MAX_BATCH_EVENTS,type NamedEventInput,type EventNameInput,type BatchRole,type BatchOutcome} from './event-naming';
 import {SUBMISSION_GUIDE_VERSION,SUBMISSION_GUIDE_DURATION,type SubmissionGuideState} from './submission-guide';
 import {emptySchedule,validateSchedule,teamActivities,type ScheduleDoc,type ScheduleState} from '../scheduling';
 import {PORTFOLIOS,submissionRow,validateSubmissionRules,type SubmissionRule} from './submissions';
@@ -676,6 +677,52 @@ export class MemoryApi implements Api {
     this.events.push(ev);
     this.roles.push({ id: nid('role'), eventId: ev.id, userId: this.me.userId, role: 'organiser', panel: null, teamId: null, email: this.me.email });
     return copy(ev);
+  }
+  private activeEvents(){return this.events.filter(e=>!this.deletedEvents.has(e.id));}
+  async createEvents(items:NamedEventInput[]) {
+    if (!this.me) throw new ApiError('unauthenticated', 'Sign in first');
+    if (!(await this.canCreateEvent())) throw new ApiError('forbidden', 'Only organisers can create events');
+    if(!Array.isArray(items)||items.length<1||items.length>MAX_BATCH_EVENTS)throw new ApiError('invalid',`Create between 1 and ${MAX_BATCH_EVENTS} events at a time.`);
+    for(const i of items){const problem=validateNamedEvent(i);if(problem)throw new ApiError('invalid',problem);if(i.level==='national')validateEventLogos(i.logos!);else if(i.logos)throw new ApiError('invalid','Regional events use the supplied regional logo.');}
+    const made:EventRow[]=[];
+    for(const i of items){
+      const city=normaliseCity(i.city),n=i.level==='regional'?nextRegionalNumber(this.activeEvents(),city,i.year):null;
+      const ev=await this.createEvent({name:eventDisplayName(i.level,city,i.year,n),...(i.startsOn?{startsOn:i.startsOn}:{}),competitionLevel:i.level,...(i.level==='national'?{logos:i.logos}:{})});
+      const stored=this.events.find(e=>e.id===ev.id)!;Object.assign(stored,{city,year:i.year,regionalNumber:n,customName:false});made.push(copy(stored));
+    }
+    return made;
+  }
+  async renameEvent(eventId:string,i:EventNameInput) {
+    this.require(eventId,'chair','organiser');
+    const e=this.events.find(x=>x.id===eventId);
+    if(!e||this.deletedEvents.has(eventId))throw new ApiError('forbidden','Only organisers and Chairs can rename events');
+    const custom=normaliseCity(i.customName??'');
+    const city=i.city&&normaliseCity(i.city)?normaliseCity(i.city):null;
+    if(city&&city.length>60)throw new ApiError('invalid','Enter the city (up to 60 characters).');
+    if(i.year!==null&&(!Number.isInteger(i.year)||i.year<2000||i.year>2100))throw new ApiError('invalid','Enter a year between 2000 and 2100.');
+    if(custom){
+      if(custom.length>120)throw new ApiError('invalid','Event names are up to 120 characters.');
+      Object.assign(e,{name:custom,customName:true,city,year:i.year,regionalNumber:e.competitionLevel==='regional'&&city&&i.year?i.regionalNumber??e.regionalNumber??null:null});
+      return copy(e);
+    }
+    if(!e.competitionLevel)throw new ApiError('invalid','Set a custom name: this event has no competition level.');
+    if(!city)throw new ApiError('invalid','Enter the city (up to 60 characters).');
+    if(i.year===null)throw new ApiError('invalid','Enter a year between 2000 and 2100.');
+    let n:number|null=null;
+    if(e.competitionLevel==='regional'){
+      if(i.regionalNumber!=null&&(!Number.isInteger(i.regionalNumber)||i.regionalNumber<1||i.regionalNumber>99))throw new ApiError('invalid','Regional numbers run from 1 to 99.');
+      n=i.regionalNumber??(e.regionalNumber&&e.year===i.year&&e.city?.toLowerCase()===city.toLowerCase()?e.regionalNumber:nextRegionalNumber(this.activeEvents(),city,i.year,eventId));
+    }
+    Object.assign(e,{name:eventDisplayName(e.competitionLevel,city,i.year,n),customName:false,city,year:i.year,regionalNumber:n});
+    return copy(e);
+  }
+  async inviteToEvents(eventIds:string[],i:{name?:string;email:string;role:BatchRole}) {
+    const outcomes:BatchOutcome[]=[];
+    for(const eventId of eventIds){
+      try{await this.invite(eventId,{...(i.name?{name:i.name}:{}),email:i.email,role:i.role});outcomes.push({eventId,ok:true,message:'Invited'});}
+      catch(e){outcomes.push({eventId,ok:false,message:e instanceof ApiError&&e.code==='duplicate'?'Already invited for this role':e instanceof Error?e.message:'Could not invite'});}
+    }
+    return outcomes;
   }
   async getEvent(id: string) {
     const e = this.events.find((x) => x.id === id);

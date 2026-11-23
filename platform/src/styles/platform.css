@@ -494,3 +494,17 @@ html[data-magicui-theme-vt="active"] * { transition: none !important; }
 main:has(.graphics-screen) { max-width: 1800px; padding-block: 24px; }
 .graphics-heading { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-end; justify-content: space-between; }
 .graphics-frame { display: block; width: 100%; height: max(640px, calc(100vh - 150px)); border: 1px solid var(--rule); border-radius: 12px; background: #05000B; }
+
+/* New events builder and people across events */
+.form__wide, .event-batch { grid-column: 1 / -1; }
+.event-batch { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.event-batch__row { display: grid; grid-template-columns: minmax(0,2fr) minmax(0,1fr); gap: 12px 16px; align-items: end; padding: 16px; border: 1px solid var(--rule); border-radius: var(--radius-card); background: var(--bg-raised); }
+.event-batch__title, .event-batch__name { grid-column: 1 / -1; margin: 0; }
+.event-batch__name { font-weight: 700; color: var(--fg-strong); }
+.event-batch__row:has(.field[hidden]) { grid-template-columns: minmax(0,1fr); }
+.batch-people__fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 16px; align-items: end; }
+.batch-people__events { border: 1px solid var(--rule); border-radius: var(--radius-card); padding: 16px; min-width: 0; }
+.batch-events { max-height: 320px; overflow-y: auto; }
+.batch-events .checkbox { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.batch-results li { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+@media (max-width: 600px) { .event-batch__row { grid-template-columns: 1fr; } }

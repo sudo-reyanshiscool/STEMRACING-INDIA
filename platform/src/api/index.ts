@@ -20,6 +20,7 @@ export * from './submissions';
 
 export * from './submission-guide';
 export * from './event-branding';
+export * from './event-naming';
 export * from './team-branding';
 
 export * from "./graphics-package";

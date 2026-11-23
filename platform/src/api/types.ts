@@ -1,5 +1,6 @@
 import type {TeamBrandingProfile,BrandingAssetFile} from './team-branding';
 import type {CompetitionLevel,EventBranding,NewEvent} from './event-branding';
+import type {NamedEventInput,EventNameInput,BatchRole,BatchOutcome} from './event-naming';
 import type {ScheduleDoc,ScheduleState,TeamSchedule} from '../scheduling';
 import type {SubmissionState,SubmissionRule} from './submissions';
 import type {TeamFile,TeamFileInput} from './team-files';
@@ -97,7 +98,9 @@ export interface PlatformAccess {
 export type Role = 'organiser' | 'chair' | 'lead_judge' | 'judge' | 'scrutineer' | 'race_official' | 'team_manager' | 'spectator';
 export type Panel = PanelId;
 export interface Session { userId: string; email: string }
-export interface EventRow { competitionLevel?:CompetitionLevel; id: string; name: string; startsOn: string | null; ruleset: Ruleset; resultsReleased: boolean }
+export interface EventRow { competitionLevel?:CompetitionLevel; id: string; name: string; startsOn: string | null; ruleset: Ruleset; resultsReleased: boolean;
+  /** Naming parts. customName is true for names typed by hand, including every event created before automatic names. */
+  city?: string | null; year?: number | null; regionalNumber?: number | null; customName?: boolean }
 export interface TeamRow { id: string; eventId: string; number: string; name: string; school: string }
 export interface NewTeam { number: string; name: string; school?: string; managerEmail?: string }
 export interface RoleRow { name?: string; id: string; eventId: string; userId: string; role: Role; panel: Panel | null; teamId: string | null; email: string | null }
@@ -221,6 +224,12 @@ export interface Api {
   removeOrganiser(userId: string): Promise<void>;
   withdrawOrganiserInvitation(invitationId: string): Promise<void>;
   createEvent(i: NewEvent): Promise<EventRow>;
+  /** Creates every event or none, naming and numbering them automatically. */
+  createEvents(items: NamedEventInput[]): Promise<EventRow[]>;
+  /** Organisers and Chairs only. */
+  renameEvent(eventId: string, i: EventNameInput): Promise<EventRow>;
+  /** Invites one person to several events, sending a single email; signing in claims every invitation. */
+  inviteToEvents(eventIds: string[], i: { name?: string; email: string; role: BatchRole }): Promise<BatchOutcome[]>;
   eventBranding(eventId:string):Promise<EventBranding>;
   /** Restorable deletion; confirmation must exactly match the event's current name. Organisers only. */
   deleteEvent(eventId: string, confirmation: string): Promise<void>;

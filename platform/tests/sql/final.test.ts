@@ -263,7 +263,7 @@ describe('hardening across the whole schema after 0004', () => {
     expect(auth).toEqual([
       'acknowledge_result_email_retry', 'apply_judge_draw', 'apply_team_number_draw', 'approve_team_photo',
       'can_create_event', 'can_read_contact_audit', 'can_read_contact_broadcast', 'claim_invitations',
-      'complete_photo_processing', 'confirm_event_awards', 'create_branded_event', 'create_event', 'delete_compulsory_asset', 'delete_event', 'delete_team',
+      'complete_photo_processing', 'confirm_event_awards', 'create_branded_event', 'create_event', 'create_named_events', 'delete_compulsory_asset', 'delete_event', 'delete_team',
       'delete_team_photo', 'download_compulsory_asset', 'download_team_brand_asset', 'download_team_file', 'download_team_photo', 'draw_lots_state', 'effective_event_roles',
       'get_broadcast_team_photo', 'get_compulsory_assets', 'import_teams', 'inspection_scope', 'invite_organiser', 'invite_platform_member',
       'is_conflicted', 'is_platform_owner', 'judge_can_score', 'judges_panel_any', 'leads_panel_any',
@@ -272,7 +272,7 @@ describe('hardening across the whole schema after 0004', () => {
       'organiser_identity_visible', 'pair_race_timing', 'platform_access', 'platform_administrator', 'platform_manager', 'platform_spectator',
       'publish_schedule', 'publish_show_screen', 'queue_bulk_photo_processing', 'queue_photo_processing', 'queue_race_followup',
       'queue_reaction_races', 'race_timing_state', 'racing_state', 'record_submission_guide_progress', 'reject_team_photo', 'release_results',
-      'released_results', 'remove_event_award', 'remove_organiser', 'reopen_inspection', 'reopen_scorecard',
+      'released_results', 'remove_event_award', 'remove_organiser', 'rename_event', 'reopen_inspection', 'reopen_scorecard',
       'reserve_invitation_email', 'reserve_submission_email', 'reserve_team_results_email', 'resolve_team_concern',
       'restore_event', 'restore_team_photo_version', 'result_mail_state', 'save_card_review', 'save_event_award',
       'save_inspection_scope', 'save_race', 'save_racing_setup', 'save_schedule', 'save_submission_rules', 'save_team_media_details',

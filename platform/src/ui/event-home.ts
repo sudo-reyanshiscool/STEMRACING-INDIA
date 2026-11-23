@@ -10,6 +10,7 @@ import { h } from './dom';
 import { PANEL_LABEL, ROLE_LABEL } from './labels';
 import { parseHash, routeHref, type Route } from './router';
 import { deleteEventControl } from './delete-event';
+import { renameEventControl } from './rename-event';
 import { canShowcase, showcaseHref } from '../api/showcase';
 
 export async function eventHomeScreen(ctx: Ctx, eventId: string): Promise<HTMLElement> {
@@ -65,6 +66,7 @@ export async function eventHomeScreen(ctx: Ctx, eventId: string): Promise<HTMLEl
       )
     ) : null,
     has('organiser','chair') ? await inspectionScopeControl(ctx,eventId) : null,
+    has('organiser', 'chair') && !spectatorOnly(roles) ? renameEventControl(ctx, event) : null,
     has('organiser') ? deleteEventControl(ctx, event) : null,
   );
 }

@@ -1,5 +1,6 @@
 import {authSessionFingerprint} from './auth-events';
 import {validateEventLogos} from './event-branding';
+import {validateNamedEvent,type BatchOutcome} from './event-naming';
 import type { RaceHeat, RaceLane, TimingPair, TimingState } from '../racing';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { INDIA_2026 } from '../rulesets';
@@ -51,7 +52,7 @@ async function guard<T>(run: () => PromiseLike<T>): Promise<T> {
 
 // Explicit column lists, never `*`: ranking_snapshots.inputs is not readable through the table, so `select *` fails there,
 // and a list keeps every other query independent of columns the app does not use.
-const EVENT_COLS = 'id,name,starts_on,ruleset,results_released,competition_level';
+const EVENT_COLS = 'id,name,starts_on,ruleset,results_released,competition_level,city,event_year,regional_number,custom_name';
 const TEAM_COLS = 'id,event_id,number,name,school';
 const CARD_COLS = 'id,event_id,team_id,area_id,panel,judge_id,status,reopened_count,scorecard_scores(criterion_id,score,comment)';
 const OVERRIDE_COLS = 'event_id,team_id,area_id,value,reason';
@@ -314,6 +315,27 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
       if(i.competitionLevel==='national')validateEventLogos(i.logos!);
       const data = ok(await guard(() => i.competitionLevel?sb.rpc('create_branded_event',{p_name:i.name,p_starts_on:i.startsOn??null,p_ruleset:INDIA_2026,p_level:i.competitionLevel,p_logos:i.logos??null}):sb.rpc('create_event', { p_name: i.name, p_starts_on: i.startsOn ?? null, p_ruleset: INDIA_2026 })));
       return toEventRow(firstRow(data));
+    },
+    async createEvents(items) {
+      for(const i of items){const problem=validateNamedEvent(i);if(problem)throw new ApiError('invalid',problem);if(i.level==='national')validateEventLogos(i.logos!);}
+      const data = ok(await guard(() => sb.rpc('create_named_events',{p_events:items.map(i=>({level:i.level,city:i.city,year:i.year,startsOn:i.startsOn||null,logos:i.level==='national'?i.logos:null})),p_ruleset:INDIA_2026})));
+      return (data as never[]).map(toEventRow);
+    },
+    async renameEvent(eventId, i) {
+      const data = ok(await guard(() => sb.rpc('rename_event',{p_event:eventId,p_city:i.city,p_year:i.year,p_number:i.regionalNumber??null,p_custom_name:i.customName??null})));
+      return toEventRow(firstRow(data));
+    },
+    async inviteToEvents(eventIds, i) {
+      const outcomes:BatchOutcome[]=[];let first:string|null=null;
+      for(const eventId of eventIds){
+        try{
+          const row=firstRow(one(await guard(() => sb.from('invitations').insert({event_id:eventId,display_name:(i.name??'').trim(),email:i.email.trim().toLowerCase(),role:i.role,panel:null,team_id:null}).select('id').single())));
+          first??=row.id;outcomes.push({eventId,ok:true,message:'Invited'});
+        }catch(e){outcomes.push({eventId,ok:false,message:e instanceof ApiError&&e.code==='duplicate'?'Already invited for this role':e instanceof Error?e.message:'Could not invite'});}
+      }
+      // One email is enough: signing in claims every pending invitation for the address.
+      if(first)try{await sendInvitation(first);}catch{for(const o of outcomes)if(o.ok)o.message='Invited; the email could not be confirmed, so resend it from People';}
+      return outcomes;
     },
     async deleteEvent(eventId, confirmation) {
       ok(await guard(() => sb.rpc('delete_event', { p_event: eventId, p_confirmation: confirmation })));
