@@ -10,11 +10,17 @@ import { h } from './dom';
 import { routeHref } from './router';
 import { eventDate } from './shell';
 import { canShowcase, showcaseHref, SHOWCASE_EVENT_ID } from '../api/showcase';
+import { shownInHideMode } from './hide-mode';
 
 
 export async function eventsScreen(ctx: Ctx): Promise<HTMLElement> {
-  const [events, deleted, canCreate, access, viewer] = await Promise.all([ctx.api.listEvents(), ctx.api.listDeletedEvents(), ctx.api.canCreateEvent(), ctx.api.platformAccess(), ctx.api.getSession()]);
-  const owner=access.kind==='admin' && !!viewer && access.viewerId===viewer.userId && access.ownerId===viewer.userId;
+  const [allEvents, allDeleted, canCreateAny, fullAccess, viewer, hidden] = await Promise.all([ctx.api.listEvents(), ctx.api.listDeletedEvents(), ctx.api.canCreateEvent(), ctx.api.platformAccess(), ctx.api.getSession(), ctx.api.getOwnerHideMode()]);
+  // The owner's hide mode leaves the Test Event and nothing else: no other events, no owner badge, no organiser tools.
+  const events = hidden ? allEvents.filter(e => shownInHideMode(e.id)) : allEvents;
+  const deleted = hidden ? [] : allDeleted;
+  const canCreate = canCreateAny && !hidden;
+  const access: typeof fullAccess = hidden ? { ...fullAccess, kind: null, canManage: false } : fullAccess;
+  const owner=!hidden && access.kind==='admin' && !!viewer && access.viewerId===viewer.userId && access.ownerId===viewer.userId;
   const showcaseEvent = !ctx.demo ? events.find(e => e.id === SHOWCASE_EVENT_ID) : undefined;
   const showcaseAvailable = showcaseEvent ? canShowcase(showcaseEvent, await ctx.api.myRoles(showcaseEvent.id)) : false;
   const teamView=!canCreate&&!access.kind&&events.length>0&&(await Promise.all(events.map(e=>ctx.api.myRoles(e.id)))).some(managerOnly);

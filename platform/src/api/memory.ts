@@ -383,6 +383,12 @@ export class MemoryApi implements Api {
   private globalManager() { return this.me?.email===OWNER_EMAIL || this.globalOrganisers.some(r=>r.userId===this.me?.userId && r.scope==='platform'); }
   private visibleIdentity(userId:string,email?:string|null) {return this.me?.email===OWNER_EMAIL||(!this.globalOrganisers.some(p=>p.identityRestricted&&(p.userId===userId||p.email===email))&&!this.organiserInvites.some(i=>i.identityRestricted&&i.email===email));}
   private requireGlobal() { if(!this.globalManager()) throw new ApiError('forbidden','Only Platform Organisers can manage organiser access'); }
+  private ownerHideMode = false;
+  async getOwnerHideMode(): Promise<boolean> { return this.isOwner() && this.ownerHideMode; }
+  async setOwnerHideMode(on: boolean): Promise<void> {
+    if (!this.isOwner()) throw new ApiError('forbidden', 'Only the platform owner has hide mode');
+    this.ownerHideMode = on;
+  }
   async platformAccess(): Promise<PlatformAccess> {
     return copy({kind:this.me?.email===OWNER_EMAIL?'admin':this.globalOrganisers.find(r=>r.userId===this.me?.userId)?.scope??null,
       // The permanent owner is never listed for anyone else, exactly as the database behaves.

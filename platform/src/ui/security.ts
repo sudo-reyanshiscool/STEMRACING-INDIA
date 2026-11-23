@@ -2,6 +2,7 @@ import { buttonBusy } from './button-busy';
 import type { Ctx } from './ctx';
 import { errorText } from './common';
 import { h } from './dom';
+import { hideModeSection } from './hide-mode';
 
 export async function securityScreen(ctx: Ctx): Promise<HTMLElement> {
   const container = h('div', { class: 'stack stack--lg security-screen' });
@@ -11,7 +12,7 @@ export async function securityScreen(ctx: Ctx): Promise<HTMLElement> {
   let alive = true;
   ctx.onLeave(() => { alive = false; });
 
-  const mfa = await ctx.api.getMfaStatus();
+  const [mfa, hideMode] = await Promise.all([ctx.api.getMfaStatus(), hideModeSection(ctx)]);
 
   const header = h('div', { class: 'stack' },
     h('p', { class: 'eyebrow' }, 'STEM Racing India · Account Security'),
@@ -218,6 +219,7 @@ export async function securityScreen(ctx: Ctx): Promise<HTMLElement> {
     notice,
     error,
     statusSection,
+    ...(hideMode ? [hideMode] : []),
   );
 
   return container;

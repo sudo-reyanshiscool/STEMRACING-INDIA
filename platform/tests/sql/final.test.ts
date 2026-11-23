@@ -225,8 +225,8 @@ describe('M3: anon cannot read who created an event or a snapshot', () => {
     expect(await col('anon', 'ranking_snapshots', 'inputs')).toBe(false);
     for (const c of ['id', 'name', 'starts_on', 'ruleset', 'results_released', 'created_at']) expect(await col('anon', 'events', c), `events.${c}`).toBe(true);
     for (const c of ['id', 'event_id', 'created_at', 'ruleset_id', 'input_hash', 'rows', 'released']) expect(await col('anon', 'ranking_snapshots', c), `snapshots.${c}`).toBe(false);
-    // The signed-in roles are unchanged.
-    expect(await col('authenticated', 'events', 'created_by')).toBe(true);
+    // Since 0057 signed-in users cannot read who created an event either (the owner made the Test Event).
+    expect(await col('authenticated', 'events', 'created_by')).toBe(false);
     expect(await col('authenticated', 'ranking_snapshots', 'created_by')).toBe(true);
   });
 
@@ -239,7 +239,8 @@ describe('M3: anon cannot read who created an event or a snapshot', () => {
       const rows = await as(w.db, null, async (q) => (await q('select id, name, starts_on, ruleset, results_released, created_at from events')).rows);
       expect(rows).toHaveLength(1);
       expect(rows[0].ruleset).toBeDefined();
-      await as(w.db, 'mgr1', async (q) => (await q('select * from events where id = $1', [w.eventId])).rows);
+      await expect(as(w.db, 'mgr1', (q) => q('select * from events where id = $1', [w.eventId]))).rejects.toThrow(/permission denied/);
+      await as(w.db, 'mgr1', async (q) => (await q('select id, name from events where id = $1', [w.eventId])).rows);
     } finally {
       await setReleasedRaw(false);
     }
@@ -269,14 +270,14 @@ describe('hardening across the whole schema after 0004', () => {
       'is_conflicted', 'is_platform_owner', 'judge_can_score', 'judges_panel_any', 'leads_panel_any',
       'list_deleted_events', 'list_event_invitations', 'list_event_penalties', 'list_event_people',
       'list_team_concerns', 'list_team_files', 'list_team_photo_history', 'list_team_photos', 'my_schedule',
-      'organiser_identity_visible', 'pair_race_timing', 'platform_access', 'platform_administrator', 'platform_manager', 'platform_spectator',
+      'organiser_identity_visible', 'owner_hide_mode', 'pair_race_timing', 'platform_access', 'platform_administrator', 'platform_manager', 'platform_spectator',
       'publish_schedule', 'publish_show_screen', 'queue_bulk_photo_processing', 'queue_photo_processing', 'queue_race_followup',
       'queue_reaction_races', 'race_timing_state', 'racing_state', 'record_submission_guide_progress', 'reject_team_photo', 'release_results',
       'released_results', 'remove_event_award', 'remove_organiser', 'rename_event', 'rename_event', 'reopen_inspection', 'reopen_scorecard',
       'reserve_invitation_email', 'reserve_submission_email', 'reserve_team_results_email', 'resolve_team_concern',
       'restore_event', 'restore_team_photo_version', 'result_mail_state', 'save_card_review', 'save_event_award',
       'save_inspection_scope', 'save_race', 'save_racing_setup', 'save_schedule', 'save_submission_rules', 'save_team_media_details',
-      'scheduling_state', 'set_judge_assignment', 'set_judge_exemption', 'set_judge_name', 'set_organiser_visibility',
+      'scheduling_state', 'set_judge_assignment', 'set_judge_exemption', 'set_judge_name', 'set_organiser_visibility', 'set_owner_hide_mode',
       'set_team_contact', 'show_screen_link', 'snapshot_inputs', 'specification_visible', 'submission_guide_state', 'submission_state', 'submit_inspection',
       'submit_team_concern', 'team_branding_profile', 'team_results_packet', 'upload_compulsory_asset', 'upload_corrected_team_photo', 'upload_team_file',
       'upload_team_photo', 'withdraw_organiser_invitation', 'withdraw_results'

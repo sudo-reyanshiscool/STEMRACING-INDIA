@@ -220,6 +220,10 @@ export interface Api {
   listEvents(): Promise<EventRow[]>;
   canCreateEvent(): Promise<boolean>;
   platformAccess(): Promise<PlatformAccess>;
+  /** The permanent owner's hide mode: while on, the owner's screens show only the Test Event. False for everyone else. */
+  getOwnerHideMode(): Promise<boolean>;
+  /** Permanent owner only. */
+  setOwnerHideMode(on: boolean): Promise<void>;
   inviteOrganiser(email: string, scope: OrganiserScope, options?: {name?: string; hidden?: boolean}): Promise<void>;
   setOrganiserVisibility(userId: string, name: string, hidden: boolean): Promise<void>;
   removeOrganiser(userId: string): Promise<void>;

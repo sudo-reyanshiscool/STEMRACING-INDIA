@@ -23,6 +23,7 @@ import { QueueHost } from './ui/queuehost';
 import { mountShell } from './ui/shell';
 import { mountSyncBar } from './ui/syncbar';
 import { eventNav } from './ui/event-nav';
+import { shownInHideMode } from './ui/hide-mode';
 
 /**
  * Each screen is its own file on the network, fetched when first opened. The sign-in page no longer waits for
@@ -185,6 +186,8 @@ async function boot(): Promise<void> {
       const session = await api.getSession();
       shell.setUser(session, () => void signOut(), showcase && preview === null);
       host.setUser(session?.userId ?? null); // idempotent; covers an auth event the adapter did not deliver
+      // The owner's hide mode: event pages other than the Test Event are not shown, nor is their menu.
+      const hidden = session && !showcase ? api.getOwnerHideMode().catch(() => false) : Promise.resolve(false);
       const mfa = session ? await api.getMfaStatus().catch(() => null) : null;
       const requiresMfa = session && mfa && mfa.nextLevel === 'aal2' && mfa.currentLevel !== 'aal2';
       if (session && !requiresMfa) {
@@ -199,7 +202,8 @@ async function boot(): Promise<void> {
         void host.flush(); // a fresh sign-in releases anything that waited for a session
       }
       // Asked for alongside the screen, which needs the same event and roles; the two share one request each.
-      const meta = 'eventId' in route
+      const hiddenEvent = 'eventId' in route && !shownInHideMode(route.eventId) && await hidden;
+      const meta = 'eventId' in route && !hiddenEvent
         ? Promise.all([api.getEvent(route.eventId), api.myRoles(route.eventId)]).then(async ([event, roles]) =>
           ({ event, roles, branding: event?.competitionLevel ? await api.eventBranding(event.id) : null }))
         : null;
@@ -221,6 +225,7 @@ async function boot(): Promise<void> {
           onCancel: () => void signOut(),
         });
       }
+      else if (hiddenEvent) node = notFound('This event is hidden while hide mode is on.', '#/', 'Back to events');
       else node = await screenFor(route, ctx);
       if (mine !== token) return;
       if (meta) {

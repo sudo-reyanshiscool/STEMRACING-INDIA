@@ -296,6 +296,15 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
       if (res.error) return false;
       return Boolean(res.data);
     },
+    async getOwnerHideMode() {
+      if (!(await session())) return false;
+      const res = await guard(() => sb.rpc('owner_hide_mode'));
+      if (res.error) return false;
+      return res.data === true;
+    },
+    async setOwnerHideMode(on: boolean) {
+      ok(await guard(() => sb.rpc('set_owner_hide_mode', { p_on: on })));
+    },
     async platformAccess() {
       const before=await session();
       if (!before) return {kind:null,ownerEmail:'',canManage:false,organisers:[],invitations:[]};
