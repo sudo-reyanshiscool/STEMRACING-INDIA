@@ -57,3 +57,17 @@ it('keeps read-only platform spectators from saving or publishing a schedule',as
  expect((await as(db,'outsider',q=>q('select scheduling_state($1) as s',[w.eventId]))).rows[0].s.revision).toBe(0);
  await expect(save(base(),0,'outsider')).rejects.toMatchObject({code:'42501'});await expect(as(db,'outsider',q=>q('select publish_schedule($1,0)',[w.eventId]))).rejects.toMatchObject({code:'42501'});
 });
+it('checks a full regional of 51 teams and about 360 bookings quickly, and still finds a single clash',async()=>{
+ const teamIds=[w.team1,w.team2];for(let i=3;i<=51;i++)teamIds.push((await db.query<{id:string}>('insert into teams(event_id,number,name) values($1,$2,$3) returning id',[w.eventId,String(i),`Team ${i}`])).rows[0].id);
+ const d={...base(),...allocateStreams(teamIds)};const at=(minutes:number)=>new Date(Date.parse('2027-06-01T03:00:00Z')+minutes*60000).toISOString();
+ const book=(title:string,kind:'judging'|'racing',teamId:string,start:number,length:number,panel:Activity['panel']=null,location='')=>activity({title,kind,scope:'teams',teamIds:[teamId],streamId:d.allocations.find(a=>a.teamId===teamId)!.streamId,panel,start:at(start),end:at(start+length),location});
+ d.activities=[activity({title:'Opening',start:at(0),end:at(30)})];
+ for(const s of d.streams){const ids=d.allocations.filter(a=>a.streamId===s.id).map(a=>a.teamId);
+  ids.forEach((_,slot)=>(['verbal','design_engineering','enterprise','project_management'] as const).forEach((p,pi)=>d.activities.push(book(`${p} ${slot}`,'judging',ids[(slot+pi)%ids.length],45+15*slot,15,p,`${s.name} room ${pi}`))));}
+ teamIds.forEach((t,i)=>{d.activities.push(book(`Run 1 ${i}`,'racing',t,240+3*i,3));d.activities.push(book(`Run 2 ${i}`,'racing',t,400+3*i,3));});
+ d.activities.push(book('Clash','racing',w.team1,0,10));
+ expect(d.activities.length).toBeGreaterThan(300);
+ const started=performance.now();await save(d);const issues=(await state()).rows[0].s.issues;const took=performance.now()-started;
+ expect(issues.filter((i:any)=>i.severity==='error')).toEqual([expect.objectContaining({code:'overlap',teamId:w.team1,message:'Opening overlaps Clash for a team.'})]);
+ expect(took).toBeLessThan(3000);
+},30000);
