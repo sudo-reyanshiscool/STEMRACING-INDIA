@@ -5,7 +5,7 @@ import {errorText,notFound} from './common';
 import {PANEL_LABEL} from './labels';
 import {routeHref} from './router';
 import {garageHeader} from './team-garage';
-import {allocateStreams,generateTeamSlots,streamName,teamActivities,activityTeams,exempt,validateSchedule,localScheduleTime,scheduleTimeIso,type Activity,type ScheduleDoc,type TeamSchedule} from '../scheduling';
+import {allocateStreams,generateTeamSlots,planWindowSlots,streamName,teamActivities,activityTeams,exempt,validateSchedule,localScheduleTime,scheduleTimeIso,type Activity,type ScheduleDoc,type TeamSchedule} from '../scheduling';
 const time=(iso:string,tz:string)=>new Date(iso).toLocaleTimeString('en-IN',{timeZone:tz,hour:'2-digit',minute:'2-digit'});
 const day=(iso:string,tz:string)=>new Date(iso).toLocaleDateString('en-IN',{timeZone:tz,weekday:'short',day:'numeric',month:'long',year:'numeric'});
 const kinds={ceremony:'Shared ceremony',activity:'Activity',judging:'Judging',racing:'Racing'};
@@ -37,7 +37,7 @@ export async function schedulingScreen(ctx:Ctx,eventId:string):Promise<HTMLEleme
  const canEdit=roles.some(r=>r.role==='organiser'||r.role==='chair'),spectator=roles.some(r=>r.role==='spectator');
  if(!canEdit&&!spectator)return notFound('Scheduling is managed by event organisers.');
  const [state,teams]=await Promise.all([ctx.api.schedulingState(eventId),ctx.api.listTeams(eventId)]);
- let doc=structuredClone(state.draft),dirty=false,busy=false,editId:string|null=null,selected='streams',confirmDraw=false,confirmPublish=false,previewPublished=false;
+ let doc=structuredClone(state.draft),dirty=false,busy=false,editId:string|null=null,selected='streams',confirmDraw=false,confirmPublish=false,previewPublished=false,windowOpen=false,windowValues:Record<string,string>={};
  const root=h('div',{class:'stack stack--lg schedule-workspace'},h('h1',null,'Scheduling & Streams'),h('p',{class:'lead'},'Allocate teams, build the event timeline and publish each team’s official schedule.'));
  const status=h('p',{role:'status','aria-live':'polite'}),toolbar=h('div',{class:'schedule-toolbar'}),tabs=h('div',{class:'panel-switcher',role:'group','aria-label':'Scheduling views'}),body=h('div',{class:'stack stack--lg'}),issues=h('div',{class:'stack'});root.append(status,toolbar,tabs,issues,body);
  const run=async(action:()=>Promise<void>)=>{if(busy)return;busy=true;renderToolbar();try{await action();ctx.rerender();}catch(e){status.textContent=errorText(e);busy=false;renderToolbar();}};
@@ -101,7 +101,58 @@ export async function schedulingScreen(ctx:Ctx,eventId:string):Promise<HTMLEleme
    const slots=generateTeamSlots(doc,ordered,{kind:kind.value as 'judging'|'racing',panel:kind.value==='judging'?panel.value as Panel:null,start:scheduleTimeIso(start.value,doc.timezone),duration:Number(duration.value),gap:Number(gap.value),rounds:Number(rounds.value),streamId:stream.value||null,resourceId:resource.value||null,location:location.value});doc.activities.push(...slots);changed();status.textContent=`Preview added ${slots.length} appointments. Review conflicts and operating hours before saving or publishing.`;
   }catch(e){status.textContent=errorText(e);}}},h('p',{class:'notice small'},'Creates a draft preview only. Exempt teams are skipped for judging; racing keeps them. Existing activities are never moved. Any conflicts or slots outside event hours must be resolved before publication.'),h('div',{class:'form'},field('Activity',kind),field('Judging category',panel),field('Stream',stream),field(`First start (${doc.timezone})`,start),field('Duration (minutes)',duration),field('Gap (minutes)',gap),field('Appointments per team',rounds),field('Team order',order),field('Room, panel or track',resource),field('Location',location)),h('button',{type:'submit',class:'btn btn--primary'},'Generate slot preview'));
   kind.onchange=()=>panel.disabled=kind.value!=='judging';
-  return h('details',null,h('summary',null,'Generate team appointment slots'),form);
+  return h('details',null,h('summary',null,'Generate back-to-back appointment slots'),form);
+ }
+ function windowGenerator(){
+  const v=windowValues,pick=(key:string,fallback:string)=>v[key]??fallback;
+  const title=input('text','Area name',pick('title',PANEL_LABEL.verbal));title.required=true;title.maxLength=150;
+  const kind=h('select',{'aria-label':'Window activity type'},h('option',{value:'judging'},'Judging'),h('option',{value:'racing'},'Racing'));kind.value=pick('kind','judging');
+  const panel=h('select',{'aria-label':'Window judging category'},Object.entries(PANEL_LABEL).map(([p,l])=>h('option',{value:p},l)));panel.value=pick('panel','verbal');
+  const stream=h('select',{'aria-label':'Window streams'},h('option',{value:''},'All allocated streams'),streamOptions());stream.value=pick('stream','');
+  const lanes=h('select',{'aria-label':'Teams at the same time'},h('option',{value:'stream'},'One team per stream (a judge or panel per stream)'),h('option',{value:'single'},'One team at a time (single track or panel)'));lanes.value=pick('lanes','stream');
+  const date=input('date','Window date',pick('date',doc.days[0]?.date??'')),from=input('time','Window from',pick('from','12:00')),to=input('time','Window to',pick('to','15:00'));
+  const duration=input('number','Slot length minutes',pick('duration','20')),gap=input('number','Changeover minutes',pick('gap','0'));
+  duration.min='1';duration.max='1440';gap.min='0';gap.max='1440';for(const i of [date,from,to,duration,gap])i.required=true;for(const i of [duration,gap])i.step='1';
+  const order=h('select',{'aria-label':'Window team ordering'},h('option',{value:'number'},'Team number order'),h('option',{value:'allocation'},'Stream allocation order'));order.value=pick('order','number');
+  const location=input('text','Window location',pick('location',''));location.maxLength=150;
+  const replace=input('checkbox','Replace earlier slots for this area');replace.checked=pick('replace','true')==='true';
+  const result=h('div',{class:'stack','aria-live':'polite'});
+  const remember=()=>{windowValues={title:title.value,kind:kind.value,panel:panel.value,stream:stream.value,lanes:lanes.value,date:date.value,from:from.value,to:to.value,duration:duration.value,gap:gap.value,order:order.value,location:location.value,replace:String(replace.checked)};};
+  const sync=()=>{panel.disabled=kind.value!=='judging';};
+  // Keep the area name following the category until the organiser types their own.
+  const defaults=()=>[...Object.values(PANEL_LABEL),'Racing'];
+  kind.onchange=()=>{if(defaults().includes(title.value))title.value=kind.value==='racing'?'Racing':PANEL_LABEL[panel.value as Panel];sync();result.replaceChildren();};
+  panel.onchange=()=>{if(defaults().includes(title.value))title.value=PANEL_LABEL[panel.value as Panel];result.replaceChildren();};
+  const teamLabel=(id:string)=>{const t=teams.find(t=>t.id===id);return t?`${t.number} · ${t.name}`:'Team';};
+  const preview=()=>{try{
+   remember();
+   const ordered=order.value==='number'?[...teams].sort((a,b)=>a.number.localeCompare(b.number,'en',{numeric:true})):doc.allocations.map(a=>teams.find(t=>t.id===a.teamId)).filter((t):t is TeamRow=>!!t);
+   const plan=planWindowSlots(doc,ordered,{kind:kind.value as 'judging'|'racing',title:title.value,panel:kind.value==='judging'?panel.value as Panel:null,start:scheduleTimeIso(`${date.value}T${from.value}`,doc.timezone),end:scheduleTimeIso(`${date.value}T${to.value}`,doc.timezone),duration:Number(duration.value),gap:Number(gap.value),lanes:lanes.value as 'stream'|'single',streamId:stream.value||null,location:location.value,replace:replace.checked});
+   const placed=plan.slots.length,full=plan.leftover.filter(x=>x.reason==='full'),blocked=plan.leftover.filter(x=>x.reason==='busy');
+   const shape=`The window holds ${plan.slotTimes} slot time${plan.slotTimes===1?'':'s'}${plan.lanes.length>1?` × ${plan.lanes.length} streams in parallel = ${plan.capacity} places`:''}.`;
+   const summary=plan.leftover.length?h('div',{class:'notice schedule-error stack',role:'alert'},h('strong',null,`${placed} of ${plan.eligible} teams fit. ${plan.leftover.length} left over.`),h('p',null,shape),
+     full.length?h('p',null,`No room in the window for: ${full.map(x=>teamLabel(x.teamId)).join(', ')}.${plan.neededEnd?` To fit everyone, end at ${time(plan.neededEnd,doc.timezone)}, use shorter slots or add a stream.`:''}`):null,
+     blocked.length?h('p',null,`Already booked elsewhere for every free slot: ${blocked.map(x=>teamLabel(x.teamId)).join(', ')}.`):null)
+    :h('p',{class:'notice'},h('strong',null,`All ${placed} teams fit. `),shape);
+   const last=plan.slots.at(-1);
+   const times=[...new Set(plan.slots.map(s=>s.start))].sort();
+   const grid=h('table',{class:'schedule-window-grid'},h('thead',null,h('tr',null,h('th',{scope:'col'},'Time'),plan.lanes.map(l=>h('th',{scope:'col'},`${l.name} (${l.placed}/${l.teams})`)))),
+    h('tbody',null,times.map(at=>h('tr',null,h('th',{scope:'row'},`${time(at,doc.timezone)}–${time(new Date(Date.parse(at)+Number(duration.value)*60000).toISOString(),doc.timezone)}`),plan.lanes.map(l=>{const s=plan.slots.find(s=>s.start===at&&(l.streamId===null||s.streamId===l.streamId));return h('td',null,s?teamLabel(s.teamIds[0]):'—');})))));
+   const add=button(`Add ${placed} slots to draft`,()=>{
+    doc.activities=doc.activities.filter(a=>!plan.replaced.includes(a));doc.activities.push(...plan.slots);windowOpen=true;changed();
+    status.textContent=`Added ${placed} ${title.value.trim()} slots to the draft${plan.replaced.length?`, replacing ${plan.replaced.length} earlier ones`:''}.${plan.leftover.length?` ${plan.leftover.length} teams are still without a slot: ${plan.leftover.map(x=>teamLabel(x.teamId)).join(', ')}.`:''} Edit any appointment below, then Save draft.`;
+   },'btn btn--primary');add.disabled=!placed;
+   result.replaceChildren(h('div',{class:'stack'},summary,plan.outsideHours?h('p',{class:'notice schedule-warning'},'This window is outside the event day’s operating hours. Publication stays blocked until the hours or the window change.'):null,
+    plan.replaced.length?h('p',{class:'small muted'},`Replaces ${plan.replaced.length} earlier ${title.value.trim()} slots.`):null,
+    placed?h('p',{class:'small muted'},`Runs ${time(plan.slots[0].start,doc.timezone)}–${time(last!.end!,doc.timezone)}. Nothing changes until you add the slots to the draft.`):null,placed?grid:null,h('div',{class:'actions'},add)));
+  // Planner and timezone errors are written for organisers; only server errors go through errorText.
+  }catch(e){result.replaceChildren(h('p',{class:'notice schedule-error',role:'alert'},e instanceof Error&&e.constructor===Error?e.message:errorText(e)));}};
+  const form=h('form',{class:'stack schedule-editor','aria-label':'Generate slots from a time window',onsubmit:(e:Event)=>{e.preventDefault();preview();}},
+   h('p',{class:'notice small'},'Set when an area runs and how long each slot is. Every team gets one exact slot; streams run side by side, and nobody is booked in two places at once. Exempt teams are skipped for judging.'),
+   h('div',{class:'form'},field('Area name',title),field('Activity',kind),field('Judging category',panel),field('Streams',stream),field('Teams at the same time',lanes),field('Date',date),field(`From (${doc.timezone})`,from),field(`To (${doc.timezone})`,to),field('Slot length (minutes)',duration),field('Changeover (minutes)',gap),field('Team order',order),field('Location',location)),
+   h('label',null,replace,' Replace earlier slots for this area'),h('button',{type:'submit',class:'btn btn--primary'},'Preview slots'),result);
+  sync();
+  const box=h('details',{open:windowOpen},h('summary',null,'Generate slots from a time window'),form);box.addEventListener('toggle',()=>{windowOpen=box.open;});return box;
  }
  function renderTimeline(){
   const wrapper=h('div',{class:'stack stack--lg'}),source=previewPublished?state.published??doc:doc;
@@ -112,7 +163,7 @@ export async function schedulingScreen(ctx:Ctx,eventId:string):Promise<HTMLEleme
   const official=h('input',{type:'checkbox',checked:previewPublished,'aria-label':'Preview published schedule'});official.onchange=()=>{previewPublished=official.checked;render();};
   const list=h('div');const refresh=()=>{const shown=source.activities.filter(a=>(!filterDay.value||localScheduleTime(a.start,source.timezone).startsWith(filterDay.value))&&(!kind.value||a.kind===kind.value)&&(!stream.value||a.scope==='all'||a.streamId===stream.value||a.teamIds.some(id=>source.allocations.some(x=>x.teamId===id&&x.streamId===stream.value)))&&(!team.value||teamActivities(source,team.value).some(x=>x.id===a.id)));list.replaceChildren(timeline(source,shown,teams,canEdit&&!previewPublished?a=>{editId=a.id;render();root.querySelector('form[aria-label="Activity editor"]')?.scrollIntoView({behavior:'smooth',block:'start'});}:undefined,a=>{doc.activities=doc.activities.filter(x=>x.id!==a.id);changed();}));};
   for(const control of [filterDay,stream,team,kind])control.onchange=refresh;
-  wrapper.append(h('label',null,official,' Preview official published version'),h('div',{class:'form'},field('Day',filterDay),field('Stream',stream),field('Team',team),field('Activity',kind)),h('p',{class:'muted small'},`Times shown in ${source.timezone}. ${previewPublished?'Published version — changes here require editing the draft.':'Draft preview — teams cannot see these changes.'}`),list);refresh();if(canEdit&&!previewPublished)wrapper.append(slotGenerator(),activityEditor());return wrapper;
+  wrapper.append(h('label',null,official,' Preview official published version'),h('div',{class:'form'},field('Day',filterDay),field('Stream',stream),field('Team',team),field('Activity',kind)),h('p',{class:'muted small'},`Times shown in ${source.timezone}. ${previewPublished?'Published version — changes here require editing the draft.':'Draft preview — teams cannot see these changes.'}`),list);refresh();if(canEdit&&!previewPublished)wrapper.append(windowGenerator(),slotGenerator(),activityEditor());return wrapper;
  }
  function renderSetup(){
   const zone=input('text','Event timezone',doc.timezone);zone.required=true;

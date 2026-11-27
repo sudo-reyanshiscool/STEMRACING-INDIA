@@ -508,3 +508,6 @@ main:has(.graphics-screen) { max-width: 1800px; padding-block: 24px; }
 .batch-events .checkbox { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .batch-results li { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
 @media (max-width: 600px) { .event-batch__row { grid-template-columns: 1fr; } }
+.schedule-window-grid { display: block; overflow-x: auto; max-width: 100%; border-collapse: collapse; font-size: 14px; }
+.schedule-window-grid th, .schedule-window-grid td { padding: 6px 12px; border: 1px solid var(--rule, #ccc); text-align: start; white-space: nowrap; }
+.schedule-window-grid thead th { position: sticky; top: 0; background: var(--bg-raised, #fff); }

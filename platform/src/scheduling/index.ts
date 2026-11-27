@@ -64,3 +64,58 @@ export function generateTeamSlots(doc:ScheduleDoc,teams:Pick<TeamRow,'id'|'numbe
  for(let round=1;round<=options.rounds;round++)for(const t of eligible){slots.push({id:crypto.randomUUID(),title:`${options.kind==='racing'?'Racing':'Judging'} — Team ${t.number}${options.rounds>1?` · round ${round}`:''}`,kind:options.kind,scope:'teams',streamId:doc.allocations.find(a=>a.teamId===t.id)!.streamId,teamIds:[t.id],panel:options.kind==='judging'?options.panel:null,start:new Date(at).toISOString(),end:new Date(at+options.duration*60000).toISOString(),point:false,resourceIds:options.resourceId?[options.resourceId]:[],location:options.location});at+=(options.duration+options.gap)*60000;}
  return slots;
 }
+/** Bounds-based slot generation: a judging area or racing runs from `start` to `end` in fixed-length slots. */
+export interface WindowSlotOptions {kind:'judging'|'racing';title:string;panel:Panel|null;start:string;end:string;duration:number;gap:number;
+ /** 'stream': each stream has its own judge/panel, so every slot time holds one team per stream. 'single': one team at a time (e.g. one track). */
+ lanes:'stream'|'single';streamId:string|null;location:string;
+ /** Replace this area's earlier generated appointments (same type, category and title) instead of adding to them. */
+ replace:boolean}
+export interface WindowLane {streamId:string|null;name:string;teams:number;placed:number}
+export interface WindowSlotPlan {slots:Activity[];replaced:Activity[];leftover:Array<{teamId:string;reason:'full'|'busy'}>;eligible:number;slotTimes:number;lanes:WindowLane[];capacity:number;
+ /** Where the window would need to end for every team to fit, when it is too short. */
+ neededEnd:string|null;outsideHours:boolean}
+const generatedTitle=(title:string,number:string)=>`${title} — Team ${number}`;
+export function isWindowSlotOf(a:Activity,o:Pick<WindowSlotOptions,'kind'|'panel'|'title'>):boolean {return a.kind===o.kind&&a.scope==='teams'&&(a.panel??null)===(o.kind==='judging'?o.panel:null)&&a.title.startsWith(`${o.title.trim()} — Team `);}
+/**
+ * Gives every eligible team one exact slot inside the window, in its lane, never clashing with anything else the team
+ * is already booked for (other judging areas, racing, ceremonies). As many teams as possible are placed. Teams that cannot be placed are reported as leftover rather than overflowing the window.
+ */
+export function planWindowSlots(doc:ScheduleDoc,teams:Pick<TeamRow,'id'|'number'|'name'>[],o:WindowSlotOptions):WindowSlotPlan {
+ const title=o.title.trim(),S=Date.parse(o.start),E=Date.parse(o.end);
+ if(!title||title.length>150)throw Error('Give the area a name of up to 150 characters, such as Verbal Presentation.');
+ if(!Number.isFinite(S)||!Number.isFinite(E)||E<=S)throw Error('The window must end after it starts.');
+ if(!Number.isInteger(o.duration)||o.duration<1||o.duration>1440||!Number.isInteger(o.gap)||o.gap<0||o.gap>1440)throw Error('Choose a slot length of 1 to 1,440 minutes and a gap of 0 to 1,440 minutes.');
+ if(o.kind==='judging'&&!o.panel)throw Error('Choose a judging category.');
+ if(!doc.allocations.length)throw Error('Generate the stream allocation first. Slots are built per stream.');
+ const L=o.duration*60000,G=o.gap*60000,times:number[]=[];for(let t=S;t+L<=E&&times.length<1500;t+=L+G)times.push(t);
+ const stream=(id:string)=>doc.allocations.find(a=>a.teamId===id)?.streamId??null;
+ const eligible=teams.filter(t=>{const s=stream(t.id);return s!==null&&(!o.streamId||s===o.streamId)&&!(o.kind==='judging'&&exempt(doc,t.id,o.panel));});
+ if(!eligible.length)throw Error('No allocated, eligible teams match this selection.');
+ const replaced=o.replace?doc.activities.filter(a=>isWindowSlotOf(a,{...o,title})):[],kept=doc.activities.filter(a=>!replaced.includes(a));
+ // Same rule as validateSchedule: judging not booked per team never blocks a team.
+ const busy=new Map<string,Activity[]>();for(const t of eligible)busy.set(t.id,kept.filter(a=>!(a.kind==='judging'&&a.scope!=='teams')&&activityTeams(doc,a,[t.id]).includes(t.id)));
+ const lanes:Array<WindowLane&{members:typeof eligible}>=o.lanes==='single'?[{streamId:null,name:'All streams',teams:eligible.length,placed:0,members:eligible}]
+  :doc.streams.map(s=>{const members=eligible.filter(t=>stream(t.id)===s.id);return {streamId:s.id,name:s.name,teams:members.length,placed:0,members};}).filter(l=>l.members.length);
+ const slots:Activity[]=[],leftover:WindowSlotPlan['leftover']=[],place=o.location.trim();
+ for(const lane of lanes){
+  const location=place&&o.lanes==='stream'&&lanes.length>1?`${place} · ${lane.name}`:place;
+  const free=lane.members.map(t=>times.map(at=>!busy.get(t.id)!.some(b=>overlaps(b,{start:new Date(at).toISOString(),end:new Date(at+L).toISOString(),point:false} as Activity))));
+  // Maximum bipartite matching (augmenting paths): a team only stays unplaced if no rearrangement could fit it.
+  // Teams are tried in order and times earliest first, so the result stays close to the chosen team order.
+  const owner:number[]=times.map(()=>-1);
+  // An open slot is always taken first; earlier teams are only moved when that is the only way to fit this one.
+  const tryPlace=(u:number,seen:boolean[]):boolean=>{
+   const open=times.findIndex((_,i)=>free[u][i]&&!seen[i]&&owner[i]<0);if(open>=0){seen[open]=true;owner[open]=u;return true;}
+   for(let i=0;i<times.length;i++){if(!free[u][i]||seen[i])continue;seen[i]=true;if(tryPlace(owner[i],seen)){owner[i]=u;return true;}}return false;};
+  lane.members.forEach((_,u)=>tryPlace(u,times.map(()=>false)));
+  owner.forEach((u,i)=>{if(u<0)return;const t=lane.members[u];lane.placed++;
+   slots.push({id:crypto.randomUUID(),title:generatedTitle(title,t.number),kind:o.kind,scope:'teams',streamId:stream(t.id),teamIds:[t.id],panel:o.kind==='judging'?o.panel:null,start:new Date(times[i]).toISOString(),end:new Date(times[i]+L).toISOString(),point:false,resourceIds:[],location});});
+  const placed=new Set(owner);for(const [u,t] of lane.members.entries())if(!placed.has(u))leftover.push({teamId:t.id,reason:lane.placed>=times.length?'full':'busy'});
+ }
+ if(kept.length+slots.length>1500)throw Error('This would exceed 1,500 activities. Generate fewer slots.');
+ slots.sort((a,b)=>Date.parse(a.start)-Date.parse(b.start));
+ const most=Math.max(...lanes.map(l=>l.teams)),need=S+most*L+(most-1)*G;
+ const startLocal=localScheduleTime(o.start,doc.timezone),endLocal=localScheduleTime(o.end,doc.timezone),day=doc.days.find(d=>d.date===startLocal.slice(0,10));
+ return {slots,replaced,leftover,eligible:eligible.length,slotTimes:times.length,lanes:lanes.map(({members:_,...l})=>l),capacity:times.length*lanes.length,
+  neededEnd:leftover.length&&need>E?new Date(need).toISOString():null,outsideHours:!day||endLocal.slice(0,10)!==day.date||startLocal.slice(11)<day.opens||endLocal.slice(11)>day.closes};
+}

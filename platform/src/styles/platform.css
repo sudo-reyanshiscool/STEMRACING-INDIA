@@ -513,3 +513,6 @@ html[data-magicui-theme-vt="active"]::view-transition-new(root) { animation: non
 html[data-magicui-theme-vt="active"]::view-transition-group(root) { animation-duration: 400ms; }
 html[data-magicui-theme-vt="active"]::view-transition-new(root) { clip-path: var(--theme-reveal-start); }
 html[data-magicui-theme-vt="active"] * { transition: none !important; }
+.schedule-window-grid { display: block; overflow-x: auto; max-width: 100%; border-collapse: collapse; font-size: 14px; }
+.schedule-window-grid th, .schedule-window-grid td { padding: 6px 12px; border: 1px solid var(--rule, #ccc); text-align: start; white-space: nowrap; }
+.schedule-window-grid thead th { position: sticky; top: 0; background: var(--bg-raised, #fff); }
