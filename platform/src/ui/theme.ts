@@ -10,9 +10,8 @@ export function preferredTheme(): Theme {
 
 export function applyTheme(theme: Theme): void {
   document.documentElement.dataset.theme = theme;
-  // The new look's top bar is Carbon Shadow in both themes; the classic look's header follows the theme.
-  const classicLight = document.documentElement.dataset.look === 'classic' && theme !== 'dark';
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', classicLight ? '#F2F0EB' : '#05000B');
+  // The top bar is Carbon Shadow in both themes, so the browser's own chrome matches it either way.
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#05000B');
 }
 
 function themeIcon(theme: Theme): SVGSVGElement {

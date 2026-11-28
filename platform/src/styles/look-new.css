@@ -1,5 +1,0 @@
-/* The current look. Loaded as text by src/ui/look.ts so it can be swapped for the classic look. */
-@import './tokens.css';
-@import './base.css';
-@import './components.css';
-@import './platform.css';
