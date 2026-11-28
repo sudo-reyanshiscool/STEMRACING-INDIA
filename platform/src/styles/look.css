@@ -1,8 +1,0 @@
-/* Shared by both looks: the view switch and the one-time prompt offering the classic look. */
-.look-switch { white-space: nowrap; }
-.look-prompt { max-width: min(480px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--rule); border-radius: var(--radius-card); background: var(--bg-raised); color: var(--fg); box-shadow: 0 24px 60px #05000B55; }
-.look-prompt::backdrop { background: #05000B99; }
-.look-prompt__in { display: flex; flex-direction: column; gap: 14px; padding: 24px; }
-.look-prompt h2 { margin: 0; }
-.look-prompt p { margin: 0; }
-.look-prompt .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; }

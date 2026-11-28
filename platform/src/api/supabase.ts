@@ -93,8 +93,8 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
   };
 
   const pageSize = options.pageSize ?? PAGE_SIZE;
-  const toSession = (u: { id: string; email?: string | null; created_at?: string } | null | undefined): Session | null =>
-    u ? { userId: u.id, email: (u.email ?? '').toLowerCase(), ...(u.created_at ? { createdAt: u.created_at } : {}) } : null;
+  const toSession = (u: { id: string; email?: string | null } | null | undefined): Session | null =>
+    u ? { userId: u.id, email: (u.email ?? '').toLowerCase() } : null;
   // Closures, not `this`: the returned object can be destructured safely.
   const session = async () => toSession((await guard(() => sb.auth.getSession())).data.session?.user);
 

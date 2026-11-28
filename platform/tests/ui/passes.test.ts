@@ -129,22 +129,19 @@ describe('the Paddock Passes page', () => {
 
 describe('finding the pass pages', () => {
   const labels = (nav: Element) => [...nav.querySelectorAll('a')].map(text);
-  it('lists them in both looks for the people who can use them', async () => {
+  it('lists them in the event menu for the people who can use them', async () => {
     const w = await passWorld();
     const event = (await w.api.getEvent(w.ev.id))!;
-    for (const classic of [false, true]) {
-      await w.api.signIn(PASS_EMAILS.mgr);
-      const manager = labels(eventNav(event, await w.api.myRoles(w.ev.id), 'event', { classic }));
-      expect(manager).toContain('Paddock Passes');
-      expect(manager).not.toContain('Door check');
-      await w.api.signIn(PASS_EMAILS.chair);
-      const chair = labels(eventNav(event, await w.api.myRoles(w.ev.id), 'event', { classic }));
-      expect(chair).toEqual(expect.arrayContaining(['Paddock Passes', 'Door check']));
-      await w.api.signIn(PASS_EMAILS.judge);
-      const judge = labels(eventNav(event, await w.api.myRoles(w.ev.id), 'event', { classic }));
-      expect(judge).not.toContain('Paddock Passes');
-      expect(judge).not.toContain('Door check');
-    }
+    await w.api.signIn(PASS_EMAILS.mgr);
+    const manager = labels(eventNav(event, await w.api.myRoles(w.ev.id), 'event'));
+    expect(manager).toContain('Paddock Passes');
+    expect(manager).not.toContain('Door check');
+    await w.api.signIn(PASS_EMAILS.chair);
+    expect(labels(eventNav(event, await w.api.myRoles(w.ev.id), 'event'))).toEqual(expect.arrayContaining(['Paddock Passes', 'Door check']));
+    await w.api.signIn(PASS_EMAILS.judge);
+    const judge = labels(eventNav(event, await w.api.myRoles(w.ev.id), 'event'));
+    expect(judge).not.toContain('Paddock Passes');
+    expect(judge).not.toContain('Door check');
   });
   it('has an address for each', () => {
     expect(routeHref({ name: 'passes', eventId: 'e1' })).toBe('#/event/e1/passes');

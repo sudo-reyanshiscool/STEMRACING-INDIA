@@ -1,4 +1,4 @@
-/* Paddock Passes and Door check. Shared by both looks: everything here is drawn from the look's own tokens.
+/* Paddock Passes and Door check, drawn from the platform's tokens so both themes are covered.
    The pass card itself is styled in src/pass/card/card.css and is always carbon. */
 
 /* --- Paddock Passes --- */

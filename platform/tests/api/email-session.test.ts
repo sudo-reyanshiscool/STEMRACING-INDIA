@@ -25,27 +25,27 @@ const make = (storageKey:string, storage:Storage=localStorage) => {
 describe('email sign-in session lifecycle',()=>{
  it('persists verified code sessions and restores them on a fresh app load',async()=>{
   const first=make('code-session');expect(await first.api.getSession()).toBeNull();await first.api.verifyEmailCode(user.email,'12345678');
-  expect(await first.api.getSession()).toEqual({userId:user.id,email:user.email,createdAt:user.created_at});
+  expect(await first.api.getSession()).toEqual({userId:user.id,email:user.email});
   const saved=localStorage.getItem('code-session');expect(saved).not.toBeNull();
   // A separate browser-load storage key avoids two simultaneous SDK clients sharing a broadcast channel.
   localStorage.setItem('restored-session',saved!);const fresh=make('restored-session');
-  expect(await fresh.api.getSession()).toEqual({userId:user.id,email:user.email,createdAt:user.created_at});expect(fresh.requests).toHaveLength(0);
+  expect(await fresh.api.getSession()).toEqual({userId:user.id,email:user.email});expect(fresh.requests).toHaveLength(0);
  });
  it('creates a persistent session directly in the browser that confirms the email link',async()=>{
   const {api,requests}=make('link-session');expect(await api.getSession()).toBeNull();expect(requests).toHaveLength(0);
   await api.verifyEmailLink('a'.repeat(64));expect(requests[0]).toMatchObject({path:'/auth/v1/verify',body:{token_hash:'a'.repeat(64),type:'email'}});
-  expect(await api.getSession()).toEqual({userId:user.id,email:user.email,createdAt:user.created_at});expect(localStorage.getItem('link-session')).not.toBeNull();
+  expect(await api.getSession()).toEqual({userId:user.id,email:user.email});expect(localStorage.getItem('link-session')).not.toBeNull();
  });
  it('continues to accept older implicit email links before cleaning their fragment',async()=>{
   history.replaceState(null,'','/#access_token='+jwt()+'&refresh_token=synthetic-refresh-token&expires_in=3600&token_type=bearer&type=magiclink');
-  const {api}=make('legacy-session');expect(await api.getSession()).toEqual({userId:user.id,email:user.email,createdAt:user.created_at});expect(location.hash).toBe('');
+  const {api}=make('legacy-session');expect(await api.getSession()).toEqual({userId:user.id,email:user.email});expect(location.hash).toBe('');
  });
 });
 
 it('uses password authentication and persists the session without requesting an email',async()=>{
  const {api,requests}=make('password-session');
  await api.signInWithPassword(' School@Example.test ','synthetic-only-password');
- expect(await api.getSession()).toEqual({userId:user.id,email:user.email,createdAt:user.created_at});
+ expect(await api.getSession()).toEqual({userId:user.id,email:user.email});
  expect(requests).toHaveLength(1);
  expect(requests[0]).toMatchObject({path:'/auth/v1/token',body:{email:'school@example.test',password:'synthetic-only-password'}});
  expect(localStorage.getItem('password-session')).not.toBeNull();
