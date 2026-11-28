@@ -10,9 +10,10 @@ const TTL_MS: Record<string, number> = { myRoles: 30_000, getEvent: 5_000, event
 
 /**
  * Never shared or reused, and never treated as a write: the live session, subscriptions, large file bodies, and the
- * big-screen relay, which is sent on every step of a show and changes nothing another read returns.
+ * big-screen relay, which is sent on every step of a show and changes nothing another read returns. Pass reads carry
+ * secrets and door checks happen many times a minute, so neither is kept or allowed to clear what other screens hold.
  */
-const PASSTHROUGH = /^(getSession|onAuthChange|download[A-Z].*|showScreenLink|publishShowScreen)$/;
+const PASSTHROUGH = /^(getSession|onAuthChange|download[A-Z].*|showScreenLink|publishShowScreen|teamPasses|passLink|presentPass|checkPass|doorList|doorPortraits|recordPassChecks|passArrivals|passPulseKey)$/;
 
 const READ_NAMES = new Set([
   'submissionGuideState', 'schedulingState', 'mySchedule', 'submissionState', 'canCreateEvent', 'platformAccess',

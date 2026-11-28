@@ -799,5 +799,19 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
     async deleteCompulsoryAsset(eventId,teamId,assetKey) {
       ok(await guard(()=>sb.rpc('delete_compulsory_asset',{p_event:eventId,p_team:teamId,p_kind:assetKey})));
     },
+    async teamPasses(eventId, teamId) { return ok(await guard(() => sb.rpc('team_passes', { p_event: eventId, p_team: teamId }))); },
+    async setPassPortrait(passId, jpegBase64) { ok(await guard(() => sb.rpc('set_pass_portrait', { p_pass: passId, p_jpeg: jpegBase64 }))); },
+    async setManagerPassName(passId, name) { ok(await guard(() => sb.rpc('set_manager_pass_name', { p_pass: passId, p_name: name }))); },
+    async passLink(passId) { return ok(await guard(() => sb.rpc('pass_link', { p_pass: passId }))) as string; },
+    async resetPass(passId) { ok(await guard(() => sb.rpc('reset_pass', { p_pass: passId }))); },
+    async presentPass(passId) { return ok(await guard(() => sb.rpc('present_pass', { p_pass: passId }))) as string; },
+    async checkPass(eventId, code, options) {
+      return ok(await guard(() => sb.rpc('check_pass', { p_event: eventId, p_code: code, p_gate: options?.gate ?? '', p_check: options?.checkId ?? null, p_device: options?.device ?? '' })));
+    },
+    async doorList(eventId) { return ok(await guard(() => sb.rpc('door_list', { p_event: eventId }))); },
+    async doorPortraits(eventId, after) { return ok(await guard(() => sb.rpc('door_portraits', { p_event: eventId, p_after: after ?? null, p_limit: 40 }))) ?? []; },
+    async recordPassChecks(eventId, checks) { return Number(ok(await guard(() => sb.rpc('record_pass_checks', { p_event: eventId, p_checks: checks }))) ?? 0); },
+    async passArrivals(eventId) { return ok(await guard(() => sb.rpc('pass_arrivals', { p_event: eventId }))); },
+    async passPulseKey(eventId) { return ok(await guard(() => sb.rpc('pass_pulse_key', { p_event: eventId }))) as string; },
   };
 }

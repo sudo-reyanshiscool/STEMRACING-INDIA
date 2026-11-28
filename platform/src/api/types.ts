@@ -187,6 +187,21 @@ export interface TeamConcern {
 }
 export interface InspectionScope {revision: number; articles: string[] | null; locked: boolean}
 export interface Api {
+  /** Paddock Pass: a team's passes, creating any that are missing. */
+  teamPasses(eventId: string, teamId: string): Promise<import('./passes').TeamPasses>;
+  setPassPortrait(passId: string, jpegBase64: string): Promise<void>;
+  setManagerPassName(passId: string, name: string): Promise<void>;
+  /** A fresh single-use token for the student's link. Cancels any earlier link and the phone that held the pass. */
+  passLink(passId: string): Promise<string>;
+  resetPass(passId: string): Promise<void>;
+  /** A secret that lets this phone show the pass. */
+  presentPass(passId: string): Promise<string>;
+  checkPass(eventId: string, code: string, options?: import('./passes').CheckOptions): Promise<import('./passes').PassCheckResult>;
+  doorList(eventId: string): Promise<import('./passes').DoorList>;
+  doorPortraits(eventId: string, after?: string | null): Promise<Array<{ id: string; portrait: string }>>;
+  recordPassChecks(eventId: string, checks: import('./passes').QueuedCheck[]): Promise<number>;
+  passArrivals(eventId: string): Promise<import('./passes').PassArrivals>;
+  passPulseKey(eventId: string): Promise<string>;
   submissionGuideState(eventId: string): Promise<import('./submission-guide').SubmissionGuideState>;
   recordSubmissionGuideProgress(eventId: string, position: number): Promise<import('./submission-guide').SubmissionGuideState>;
   schedulingState(eventId:string):Promise<ScheduleState>;

@@ -22,5 +22,6 @@ export * from './submission-guide';
 export * from './event-branding';
 export * from './event-naming';
 export * from './team-branding';
+export * from './passes';
 
 export * from "./graphics-package";

@@ -1,6 +1,8 @@
 import {assembleTeamBrandingProfile,type BrandingAssetFile} from './team-branding';
 import {validateEventLogos,type EventLogos,type NewEvent} from './event-branding';
 import {eventDisplayName,nextRegionalNumber,normaliseCity,normaliseSeason,SEASON_HINT,validateNamedEvent,MAX_BATCH_EVENTS,type NamedEventInput,type EventNameInput,type BatchRole,type BatchOutcome} from './event-naming';
+import {MemoryPasses} from './passes-memory';
+import type {CheckOptions,QueuedCheck} from './passes';
 import {SUBMISSION_GUIDE_VERSION,SUBMISSION_GUIDE_DURATION,type SubmissionGuideState} from './submission-guide';
 import {emptySchedule,validateSchedule,teamActivities,type ScheduleDoc,type ScheduleState} from '../scheduling';
 import {PORTFOLIOS,submissionRow,validateSubmissionRules,type SubmissionRule} from './submissions';
@@ -78,6 +80,33 @@ export interface ShowcaseSeed {
  * Used by tests. Where several rules could fail at once, permission is checked first.
  */
 export class MemoryApi implements Api {
+  // ---- Paddock Pass. The rules live in passes-memory.ts; this only says who is asking.
+  private passDesk = new MemoryPasses({
+    userId: () => this.me?.userId ?? null,
+    staff: (e) => this.has(e, 'organiser', 'chair'),
+    manages: (e, t) => this.rolesOf(e).some((r) => r.role === 'team_manager' && r.teamId === t),
+    eventStaff: (e) => this.rolesOf(e).some((r) => r.role !== 'team_manager' && r.role !== 'spectator'),
+    event: (e) => (this.deletedEvents.has(e) ? undefined : this.events.find((x) => x.id === e)),
+    team: (e, t) => this.teams.find((x) => x.id === t && x.eventId === e),
+    members: (e, t) => this.compulsoryAssets.get(`${e}:${t}`)?.memberPortraits ?? [],
+    managers: (e, t) => [...new Set(this.roles.filter((r) => r.eventId === e && r.role === 'team_manager' && r.teamId === t).map((r) => r.userId))],
+    schedule: (e) => this.schedules.get(e)?.published ?? null,
+  });
+  teamPasses(eventId: string, teamId: string) { return this.passDesk.teamPasses(eventId, teamId); }
+  setPassPortrait(passId: string, jpegBase64: string) { return this.passDesk.setPassPortrait(passId, jpegBase64); }
+  setManagerPassName(passId: string, name: string) { return this.passDesk.setManagerPassName(passId, name); }
+  passLink(passId: string) { return this.passDesk.passLink(passId); }
+  resetPass(passId: string) { return this.passDesk.resetPass(passId); }
+  presentPass(passId: string) { return this.passDesk.presentPass(passId); }
+  checkPass(eventId: string, code: string, options?: CheckOptions) { return this.passDesk.checkPass(eventId, code, options); }
+  doorList(eventId: string) { return this.passDesk.doorList(eventId); }
+  doorPortraits(eventId: string, after?: string | null) { return this.passDesk.doorPortraits(eventId, after ?? null); }
+  recordPassChecks(eventId: string, checks: QueuedCheck[]) { return this.passDesk.recordPassChecks(eventId, checks); }
+  passArrivals(eventId: string) { return this.passDesk.passArrivals(eventId); }
+  passPulseKey(eventId: string) { return this.passDesk.passPulseKey(eventId); }
+  /** The two calls a student's phone makes without an account. Not part of Api: the pass page talks to the database itself. */
+  claimPass(passId: string, token: string) { return this.passDesk.claimPass(passId, token); }
+  passCard(passId: string, step: number, mac: string) { return this.passDesk.passCard(passId, step, mac); }
   private schedules=new Map<string,ScheduleState>();
   async schedulingState(eventId:string) {
     this.require(eventId,'organiser','chair','spectator');

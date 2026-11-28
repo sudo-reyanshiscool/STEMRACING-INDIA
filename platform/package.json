@@ -16,7 +16,9 @@
     "fflate": "^0.8.3",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
-    "jspdf-autotable": "^5.0.9"
+    "jspdf-autotable": "^5.0.9",
+    "jsqr": "^1.4.0",
+    "qrcode-generator": "^1.4.4"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
