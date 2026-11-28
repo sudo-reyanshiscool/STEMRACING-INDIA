@@ -6,7 +6,7 @@ import { verifyOffline, type SeenScan } from '../pass/verify';
 import { errorText, notFound } from './common';
 import type { Ctx } from './ctx';
 import { h } from './dom';
-import { clockOffset, pulseReference } from './pass-reference';
+import { measureClock, pulseReference } from './pass-reference';
 import { routeHref } from './router';
 import { spectatorOnly } from './spectator';
 
@@ -16,6 +16,8 @@ export interface DoorDeps {
   online?: () => boolean;
   confirm?: (question: string) => boolean;
   scanner?: typeof startScanner;
+  /** How long to wait for the server before checking from the saved list instead, in milliseconds. */
+  patience?: number;
 }
 type Shown = PassCheckOutcome | 'no-list' | 'fault';
 const HEADING: Record<Shown, string> = {
@@ -107,7 +109,9 @@ export async function doorScreen(ctx: Ctx, eventId: string, deps: DoorDeps = {})
     const note = h('p', { role: 'status' }, 'Saving the door list…');
     kit.append(note);
     try {
-      const before = Date.now(), list = await ctx.api.doorList(eventId), portraits: Record<string, string> = {};
+      // The clock is read around this one request. The portraits that follow can take a minute on a slow link.
+      const before = Date.now(), list = await ctx.api.doorList(eventId), landed = Date.now(), portraits: Record<string, string> = {};
+      const measured = (await measureClock(ctx)) ?? Math.round(Number(list.now) - (before + landed) / 2);
       let after: string | null = null;
       for (let page = 0; page < 200; page++) {
         const batch = await ctx.api.doorPortraits(eventId, after);
@@ -116,9 +120,8 @@ export async function doorScreen(ctx: Ctx, eventId: string, deps: DoorDeps = {})
         after = batch[batch.length - 1].id;
         if (alive) note.textContent = `Saving the door list… ${Object.keys(portraits).length} portraits`;
       }
-      const now = Date.now();
-      cache = { eventId, list, portraits, downloadedAt: now, offset: Math.round(Number(list.now) - (before + now) / 2) };
-      offset = cache.offset;
+      cache = { eventId, list, portraits, downloadedAt: Date.now(), offset: measured };
+      offset = measured;
       await store.save(cache);
       if (alive) { paintKit(); startReference(list.pulseKey); }
     } catch (e) { if (alive) note.textContent = `The door list could not be saved. ${errorText(e)}`; }
@@ -153,20 +156,31 @@ export async function doorScreen(ctx: Ctx, eventId: string, deps: DoorDeps = {})
 
   async function check(raw: string): Promise<void> {
     const text = raw.trim(), now = Date.now();
-    if (!text || checking || (text === last.text && now - last.at < 3000)) return;   // the camera sees the same code many times a second
+    if (!text) return;
+    // The camera sees the same code many times a second, for as long as the pass is held up. That is one check, not
+    // a new one every few seconds: only a code that has been out of sight for three seconds is checked again.
+    if (text === last.text && now - last.at < 3000) { last.at = now; return; }
+    if (checking) return;
     last = { text, at: now }; checking = true;
     try {
       let result: PassCheckResult | null = null;
+      const checkId = uuid();
       if (online()) {
-        try { result = await ctx.api.checkPass(eventId, text, { gate: gate.value.trim(), checkId: uuid(), device }); }
+        // A phone can report signal and still reach nothing. The door does not wait on it: after a few seconds the saved list answers.
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const asked = ctx.api.checkPass(eventId, text, { gate: gate.value.trim(), checkId, device });
+        asked.catch(() => undefined);
+        try { result = await Promise.race([asked, new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), deps.patience ?? 4000); })]); }
         catch (e) { if (!(e instanceof ApiError && e.code === 'network')) { if (alive) show('fault', undefined, errorText(e)); return; } }
+        finally { clearTimeout(timer); }
       }
       if (result) { if (alive) show(result.result, result); void sync(); if (result.result === 'genuine') void loadArrivals(true); return; }
       if (!cache || !store) { if (alive) show('no-list'); return; }
       const scannedAt = new Date(clock()).toISOString();
       const offline = await verifyOffline(cache, text, clock(), [...uploaded, ...await store.queued(eventId)]);
       if (offline.record) {
-        const queued: QueuedCheck = { ...offline.record, id: uuid(), gate: gate.value.trim(), device, scannedAt };
+        // The same id as the request that went unanswered: if that one did land, this upload adds nothing.
+        const queued: QueuedCheck = { ...offline.record, id: checkId, gate: gate.value.trim(), device, scannedAt };
         await store.enqueue(eventId, queued); waiting++;
       }
       if (alive) { show(offline.result.result, offline.result); paintKit(); }
@@ -228,6 +242,8 @@ export async function doorScreen(ctx: Ctx, eventId: string, deps: DoorDeps = {})
   void loadArrivals();
   void sync();
   if (cache) startReference(cache.list.pulseKey);
-  void Promise.all([ctx.api.passPulseKey(eventId), clockOffset(ctx)]).then(([key, measured]) => { if (!alive) return; if (!cache) offset = measured; startReference(key); }).catch(() => { /* offline: the saved list's key is already showing */ });
+  // With signal, the server's clock always wins over the one saved with the list.
+  void measureClock(ctx).then((measured) => { if (alive && measured !== null) offset = measured; });
+  void ctx.api.passPulseKey(eventId).then((key) => { if (alive) startReference(key); }).catch(() => { /* offline: the saved list's key is already showing */ });
   return root;
 }

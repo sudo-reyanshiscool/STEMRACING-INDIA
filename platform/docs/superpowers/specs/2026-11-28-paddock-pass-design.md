@@ -33,7 +33,7 @@ The replacement has to do the two jobs the printed card did, and it should look 
 - A pass opened once keeps working with no signal. Scanning also works with no signal and syncs later.
 - The card looks like a premium holographic credential and stays readable. It runs smoothly on a mid-range Android
   phone, falls back cleanly without WebGL, and respects reduced motion.
-- It works in the new and classic looks and in light and dark themes.
+- It works in light and dark themes.
 
 ## Non-goals
 
@@ -98,9 +98,13 @@ One row per person per team in a new `passes` table.
 - The submission page corrects a member by removing and re-adding them, which gives the member a new id. So that a
   typo fix or a new portrait does not strand a student, a pass whose member has gone is re-linked to a new member of
   the same team with the same name (ignoring case and spacing) or the same portrait. If both changed, it is a new
-  person and needs a new link.
+  person and needs a new link. This happens the moment the team's members are saved (a database trigger), not when
+  someone next opens the Paddock Passes page. While its member is missing a pass is refused everywhere. If it had
+  reached a phone or had a link out, it is kept for seven days so the correction can still find it; otherwise it is
+  removed at once.
 - A **manager pass** points at the manager's user id and team. The manager types their own name once. They may add
-  a portrait from their camera. A manager pass without a portrait shows the team logo in the photo frame.
+  a portrait from their camera. A manager pass without a portrait shows the track shape in the photo frame (team logos can be
+  megabytes and would bloat every card and the door list).
 - Each pass stores a small portrait (JPEG, about 320 px wide, at most 64 KB) made on the manager's device from the
   submitted portrait. The door list for a whole event then stays a few megabytes. The pass records a hash of the
   source portrait, worked out by the database, so a changed portrait is noticed and the small copy is remade the
@@ -121,19 +125,28 @@ A new page in the event menu, under Teams, for team managers, organisers and the
 - **Reset** (with a confirmation) cancels the pass on its current phone, for a lost or changed phone.
 - **Show this pass** opens any team member's card full screen on the manager's phone, including the scan side, for
   students without a phone. The manager's phone holds its own presenter secret for each pass it shows this way.
-- The manager's own pass is the first card. The manager's phone gets its secret through the signed-in session.
+- The manager's own pass is the first card. **Show my pass** opens it from the signed-in session. **Send to my
+  phone** puts it on the standalone pass page like a student's, so it works at the door with no signal. Only the
+  manager themself, or an organiser helping them, can send or reset a manager's pass.
+- A team manager who is removed from the team loses their pass at once, and every pass they were showing on the
+  team's behalf stops with them.
 
 ### Claiming: the student's phone
 
 The link is `https://<host>/pass/#<pass id>.<claim token>`. The token sits after the `#`, so it is never sent to the
 web host or written to a log.
 
-1. The pass page reads the fragment and calls `claim_pass`. The server compares the token's hash, checks the pass is
-   unclaimed and the event is active, creates the device secret and returns it once with the card's data.
+1. The pass page reads the fragment and asks for one tap, "Add pass to this phone", so that a manager opening the
+   link they just copied, or a link opened on the wrong phone, does not use it up. A browser that cannot keep a
+   signing key (some private windows) is told so and the link is not spent. Then it calls `claim_pass`. The server
+   compares the token's hash, checks the pass is unclaimed and the event is active, creates the device secret and
+   returns it once with the card's data.
 2. The page stores the secret as a non-exportable signing key in IndexedDB, stores the card data beside it, and
    removes the fragment from the address bar.
 3. From then on `/pass/` opens the stored pass with no network at all. One phone can hold several passes (siblings).
-4. When online, the page refreshes the card data (schedule changes, a reset) by proving it holds the secret.
+4. When online, the page first asks the server the time (`pass_now`) and then refreshes the card data (schedule
+   changes, a reset) by proving it holds the secret. Only a refusal after that says "This pass is no longer on this
+   phone", so a phone whose clock changed is never mistaken for a reset pass.
 
 A link that has been claimed, replaced or reset shows "This link has already been used. Ask your team manager for a
 new one."
@@ -182,8 +195,8 @@ controls, fixed sizes and its other two finishes (Pearl, Team colours) are not c
 - The stream band uses flat flag colours (blue, yellow, red and so on), with the stream name written on it.
 - The only brand gradient on the card is a short rule under the role. A team manager's role is a solid white label.
 - Idle motion is slow and small.
-- The card is always black carbon, like the platform's frame, in both themes and both looks. The page around it
-  follows the theme and look.
+- The card is always black carbon, like the platform's frame, in both themes. In the main app the page around it
+  follows the theme; the standalone pass page is always dark.
 
 **Motion and tilt**
 
@@ -207,7 +220,8 @@ controls, fixed sizes and its other two finishes (Pearl, Team colours) are not c
 - Format: `SRI1.<pass id>.<window>.<mac>`. The window is the Unix time divided by 30 seconds. The mac is the first 8
   bytes of HMAC-SHA256 over `SRI1|<pass id>|<window>` with the device secret.
 - A check accepts the current window and one either side, so a code is good for 30 to 90 seconds.
-- When online, the pass page keeps its clock in step with the server using the time returned by each refresh.
+- When online, the pass page keeps its clock in step with the server using `pass_now`, and the main app does the
+  same for the sync pulse reference and for codes a manager shows.
 - HMAC is written in SQL on top of Postgres's built-in `sha256`, and tested against the RFC 4231 vectors, so the
   live database and the test database behave identically without an extension.
 
@@ -216,13 +230,16 @@ controls, fixed sizes and its other two finishes (Pearl, Team colours) are not c
 A new "Door check" page in the event menu for organisers and the Chair.
 
 - It opens the camera and reads QR codes with the browser's built-in detector where there is one, and a bundled
-  decoder (loaded only on this page) where there is not.
+  decoder (loaded only on this page) where there is not. A code can also be typed or read by a handheld
+  keyboard-style scanner, for desks where the camera is blocked.
 - **Online**, each scan calls `check_pass`. The answer is one of: Genuine (with portrait, name, role, team and
   stream), Code just scanned (see below), Expired code (ask them to show the live pass), Reset or removed, Not a pass
   for this event. Each has a distinct colour and icon, and the phone
   vibrates where supported.
 - **Offline**, the page uses a door list downloaded in advance: every pass's details, portrait and secret, held in
-  IndexedDB. It verifies the code on the phone, shows the same results, and queues the check. Queued checks upload
+  IndexedDB. It verifies the code on the phone and queues the check. Without signal it never says "Reset or
+  removed" or "not genuine": a pass that is missing from the saved list, or does not match it, reads "Not on this
+  phone's list. Go online to check", because the list may be hours old and the pass sent again since. Queued checks upload
   when signal returns. The page shows how old the door list is and how many checks are waiting.
 - The page shows the current sync pulse, large, as the reference for glance checks.
 - **Arrivals**: a count and a per-team list of who has checked in, built from the recorded checks.
@@ -231,8 +248,15 @@ A new "Door check" page in the event menu for organisers and the Chair.
 - A replay is narrower: the very same code scanned again from a different scanner, or more than five seconds after
   the first scan. That reads "This code was just scanned" in amber, because it is how a passed-back screenshot looks.
   The same scanner reading the same code twice within five seconds is treated as one scan.
-- The door list is deleted from the phone on sign-out, by a "Remove from this phone" button, and automatically
-  three days after it was downloaded.
+- The door list is deleted from the phone by a "Remove from this phone" button, when the session ends or changes
+  hands in any way (Sign out, an expired sign-in, another account), and three days after it was downloaded, checked
+  each time the app starts.
+- A pass held in front of the camera is one check for as long as it stays in view, however long staff take to
+  compare the face.
+- With signal reported but nothing reachable, a check waits four seconds for the server and then answers from the
+  saved list. The queued check carries the same id as the unanswered request, so it is never counted twice.
+- The scanner's clock comes from one small request to the server, taken again whenever there is signal; it is not
+  inferred from the door-list download, which can take a minute.
 
 ### Offline
 
@@ -267,7 +291,9 @@ defence, as it was with a printed card.
 
 ### Data and functions
 
-Migration `0059_paddock_passes.sql`.
+Migrations `0059_paddock_passes.sql` and `0060_paddock_passes_follow_the_team.sql`. The second adds the triggers
+that keep passes in line with the team (on `team_media_details` and `event_roles`), the one-secret presenter rule,
+manager links, and a door list and arrivals that read each team's members once instead of once per pass.
 
 Tables
 
@@ -284,29 +310,33 @@ Functions
 | `team_passes(event, team)` | manager of the team, staff | Creates missing rows, returns the team's passes and card data |
 | `set_pass_portrait(pass, jpeg, source hash)` | same | Stores the small portrait |
 | `set_manager_pass_name(pass, name)` | the manager, staff | Sets the name on a manager pass |
-| `pass_link(pass)` | same | Makes a new single-use token, cancels the old one and any claimed phone |
+| `pass_link(pass)` | same; a manager's pass only by that manager or staff | Makes a new single-use token, cancels the old one and any claimed phone |
 | `reset_pass(pass)` | same | Cancels the token and the phone without making a new link |
-| `present_pass(pass)` | same | Returns a secret so the caller's phone can present this pass |
+| `present_pass(pass)` | same | Returns the pass's shared presenter secret, making one if there is none |
 | `claim_pass(pass, token)` | anyone with the link | Checks the token, returns the secret once and the card data |
 | `pass_card(pass, window, mac)` | the phone holding the pass | Returns fresh card data and the server time |
+| `pass_now()` | anyone | The server's clock, so a phone with a wrong clock still makes good codes |
 | `check_pass(event, code, gate, check id)` | organisers, Chair | Verifies, records the check, returns the result |
-| `door_list(event)` | organisers, Chair | Everything the scanner needs offline |
+| `door_list(event)` | organisers, Chair | Everything the scanner needs offline, except portraits |
+| `door_portraits(event, after, limit)` | organisers, Chair | The portraits for the door list, in pages |
 | `record_pass_checks(event, checks)` | organisers, Chair | Uploads checks made offline |
 | `pass_arrivals(event)` | organisers, Chair | Who has checked in, per day |
 | `pass_pulse_key(event)` | any staff role at the event | The key behind the sync pulse reference |
 
 A pass holds two secrets: the holder's (set by `claim_pass`) and the presenter's (set by `present_pass`). A code made
 with either is accepted, so a manager showing a student's pass does not take it off the student's phone. The scanner
-says "Shown by the team manager" when the presenter's secret was used. Each secret lives on one phone at a time:
-claiming or presenting again replaces it.
+says "Shown by the team manager" when the presenter's secret was used. The holder's secret lives on one phone at a
+time: claiming again replaces it. The presenter's secret is shared by everyone allowed to show that pass (the team's
+managers, organisers, the Chair), so a second person showing it, or a page reload, does not stop the first. Resetting
+the pass, or removing a team manager, replaces it.
 
 ### App structure
 
 - `src/pass/`: the standalone page's entry, storage, code generation and the fetch client.
 - `src/pass/card/`: the shared card (DOM, shader, CSS fallback, tilt), used by the standalone page and the main app.
 - `src/api/`: pass methods added to the interface in `types.ts` and to the Supabase and in-memory implementations.
-- `src/ui/passes.ts` and `src/ui/door.ts`: the two new pages, with routes `passes` and `door`, in both event menus.
-- Styles for the two pages in the new and classic stylesheets. The card's own stylesheet is shared and theme-free.
+- `src/ui/passes.ts` and `src/ui/door.ts`: the two new pages, with routes `passes` and `door`, in the event menu.
+- Styles for the two pages in `src/styles/passes.css`. The card's own stylesheet is shared and theme-free.
 - New dependencies: `qrcode-generator` (drawing QR codes) and `jsqr` (reading them where the browser cannot).
 
 ### Testing
@@ -318,7 +348,7 @@ claiming or presenting again replaces it.
 - **Unit:** the TypeScript code generator agrees with the SQL verifier on fixed inputs; pulse derivation; parsing
   bad codes; the offline queue and its retry.
 - **UI (jsdom):** the Paddock Passes page for a manager and for staff; the card without WebGL; reduced motion;
-  each Door check result; both looks.
+  each Door check result.
 - **By hand on the Test Event:** claim a pass on a real phone, scan it from another, switch the network off and
   repeat, reset it and confirm the old phone is refused.
 
@@ -344,5 +374,13 @@ claiming or presenting again replaces it.
 - The sync pulse changes every 8 seconds.
 - A pass lives on one student phone at a time, plus the team manager's phone when the manager presents it.
 - No home-screen install in this version.
-- The card is always black carbon, in every theme and look.
+- The card is always black carbon, in every theme.
 - The track shape appears twice: inside the hologram patch and as a large foil outline.
+- A replay is judged per signer: the holder's phone and the manager's phone make different codes in the same window,
+  and each is checked against its own earlier scans.
+- One tap before a claim link is spent, and a server clock function (`pass_now`), as described above.
+- Without signal the door never refuses a pass outright; it says the pass is not on the phone's list.
+- Door check also accepts a typed or handheld-scanner code.
+- A team manager who has not typed a name yet shows "Team Manager" once, not twice.
+- From the independent review: passes follow the team by trigger; an orphaned pass is kept seven days; presenters
+  share one secret; a manager can send their own pass to their phone; the door waits four seconds for the server.

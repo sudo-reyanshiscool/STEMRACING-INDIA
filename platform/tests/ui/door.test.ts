@@ -26,7 +26,7 @@ async function scan(root: Element, code: string) {
 const result = (root: Element) => root.querySelector('.door-result')!;
 const button = (root: Element, label: string) => [...root.querySelectorAll('button')].find((b) => text(b).trim() === label) as HTMLButtonElement;
 const asOrganiser = async () => { const w = await passWorld(); await w.api.signIn(PASS_EMAILS.org); return w; };
-afterEach(() => { leavers.splice(0).forEach((f) => f()); document.body.replaceChildren(); vi.restoreAllMocks(); });
+afterEach(() => { leavers.splice(0).forEach((f) => f()); document.body.replaceChildren(); vi.restoreAllMocks(); vi.useRealTimers(); });
 
 describe('Door check', () => {
   it('checks a live pass and shows who is at the door', async () => {
@@ -131,6 +131,63 @@ describe('Door check', () => {
     await scan(root, await phone.code());
     expect(text(result(root).querySelector('h2')!)).toBe('Genuine pass');
     expect(await store.queued(w.ev.id)).toHaveLength(1);
+  });
+
+  it('keeps a pass green while it is held in front of the camera', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const w = await asOrganiser();
+    const phone = await w.onPhone('Asha Rao');
+    let seen: (text: string) => void = () => undefined;
+    const root = await open(w, { scanner: async (_video, onCode) => { seen = onCode; return { stop() { /* nothing to stop */ } }; } });
+    button(root, 'Start camera').click(); await settle();
+    const check = vi.spyOn(w.api, 'checkPass'), code = await phone.code();
+    // Staff take ten seconds to compare the face: the camera reads the same code the whole time.
+    for (let second = 0; second < 10; second++) { seen(code); await settle(10); vi.setSystemTime(Date.now() + 1000); }
+    expect(text(result(root).querySelector('h2')!)).toBe('Genuine pass');
+    expect(check).toHaveBeenCalledTimes(1);
+  });
+
+  it('sets the scanner clock from the server, however long the portraits take to arrive', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const w = await asOrganiser();
+    const store = memoryDoorStore(), portraits = w.api.doorPortraits.bind(w.api);
+    vi.spyOn(w.api, 'doorPortraits').mockImplementation(async (...args) => { vi.setSystemTime(Date.now() + 20_000); return portraits(...args); });
+    const root = await open(w, { store });
+    button(root, 'Save door list on this phone').click(); await settle(12);
+    expect(Math.abs((await store.load(w.ev.id))!.offset)).toBeLessThan(1000);
+  });
+
+  it('trusts the server clock over a saved one whenever there is signal', async () => {
+    const w = await asOrganiser();
+    const phone = await w.onPhone('Asha Rao');
+    const store = memoryDoorStore();
+    // A list saved with a clock reading two minutes out, as a slow download used to leave it.
+    await store.save({ eventId: w.ev.id, list: await w.api.doorList(w.ev.id), portraits: {}, downloadedAt: Date.now(), offset: -120_000 });
+    let online = true;
+    const root = await open(w, { store, online: () => online });
+    online = false;
+    await scan(root, await phone.code());
+    expect(text(result(root).querySelector('h2')!)).toBe('Genuine pass');
+  });
+
+  it('stops waiting for a server that does not answer, and checks from the saved list', async () => {
+    const w = await asOrganiser();
+    const phone = await w.onPhone('Asha Rao'), dev = await w.onPhone('Dev Shah');
+    const store = memoryDoorStore();
+    await store.save({ eventId: w.ev.id, list: await w.api.doorList(w.ev.id), portraits: {}, downloadedAt: Date.now(), offset: 0 });
+    const root = await open(w, { store, patience: 20 });
+    let sent = '';
+    vi.spyOn(w.api, 'checkPass').mockImplementation((_event, _code, options) => { sent = options?.checkId ?? ''; return new Promise(() => undefined); });
+    await scan(root, await phone.code());
+    await new Promise((r) => setTimeout(r, 60)); await settle(10);
+    expect(text(result(root).querySelector('h2')!)).toBe('Genuine pass');
+    expect(text(result(root))).toContain('Checked on this phone');
+    // If the first request did land, the upload of this check carries the same id and is counted once.
+    expect((await store.queued(w.ev.id)).map((c) => c.id)).toEqual([sent]);
+    // The door is not stuck: the next person can be checked straight away.
+    await scan(root, await dev.code());
+    await new Promise((r) => setTimeout(r, 60)); await settle(10);
+    expect(text(result(root))).toContain('Dev Shah');
   });
 
   it('removes the saved list when asked', async () => {

@@ -6,6 +6,7 @@ import { makePortrait } from '../pass/portrait';
 import { errorText, notFound } from './common';
 import type { Ctx } from './ctx';
 import { h } from './dom';
+import { measureClock } from './pass-reference';
 import { routeHref } from './router';
 import { spectatorOnly } from './spectator';
 
@@ -90,7 +91,9 @@ export async function passesScreen(ctx: Ctx, eventId: string, deps: PassesDeps =
   }
 
   function statusLine(p: TeamPass): string {
-    if (p.kind === 'manager') return p.mine ? 'Your own pass. It opens on this phone when you press Show my pass.' : 'The team manager shows this pass from their own phone.';
+    if (p.kind === 'manager' && p.status === 'new') return p.mine
+      ? 'Your own pass. Send it to your phone so it works at the door without signal, or show it from here.'
+      : 'The team manager’s own pass. They can send it to their phone, or show it from this page.';
     if (p.status === 'claimed') return `On a phone since ${when(p.claimedAt, true)}.`;
     if (p.status === 'sent') return `Link sent at ${when(p.linkSentAt)}. Waiting to be opened.`;
     return 'Not sent yet.';
@@ -121,35 +124,41 @@ export async function passesScreen(ctx: Ctx, eventId: string, deps: PassesDeps =
           h('div', { class: 'actions' }, h('button', { type: 'submit', class: 'btn btn--secondary', disabled: busy }, 'Save name'),
             button(pass.portrait ? 'Change photo' : 'Add a photo', 'btn--ghost', () => file.click()), file)));
       }
-      parts.push(h('div', { class: 'actions' }, button(pass.mine ? 'Show my pass' : 'Show this pass', 'btn--primary', () => void show(pass))));
+      const own = pass.mine || staff;
+      parts.push(h('div', { class: 'actions' },
+        own ? button(pass.mine ? 'Send to my phone' : 'Send to their phone', 'btn--primary', () => void send(pass)) : null,
+        button(pass.mine ? 'Show my pass' : 'Show this pass', own ? 'btn--secondary' : 'btn--primary', () => void show(pass)),
+        own && pass.status !== 'new' ? button('Reset pass', 'btn--ghost', () => void reset(pass)) : null));
+      if (link?.passId === pass.id) parts.push(sendPanel(pass, link.url));
     }
     panel.replaceChildren(...parts.filter((n): n is Node => !!n));
   }
 
   function sendPanel(pass: TeamPass, url: string): HTMLElement {
-    const canvas = h('canvas', { width: '330', height: '330', 'aria-label': `Code to scan with ${pass.name}’s phone` });
+    const whose = pass.mine ? 'your' : `${pass.name || 'the team manager'}’s`, them = pass.kind === 'student' ? 'the student' : 'the manager';
+    const canvas = h('canvas', { width: '330', height: '330', 'aria-label': `Code to scan with ${whose} phone` });
     drawLinkQr(canvas, url);
     const field = h('input', { type: 'text', readonly: true, value: url, 'aria-label': 'Pass link', onfocus: () => field.select() });
     const copy = h('button', { type: 'button', class: 'btn btn--secondary', onclick: async () => {
       try { await navigator.clipboard.writeText(url); status.textContent = 'Link copied.'; } catch { field.focus(); field.select(); status.textContent = 'Select the link and copy it.'; }
     } }, 'Copy link');
-    const share = typeof navigator.share === 'function' ? h('button', { type: 'button', class: 'btn btn--secondary', onclick: () => void navigator.share({ title: 'Paddock Pass', text: `${pass.name}’s Paddock Pass for ${event!.name}`, url }).catch(() => undefined) }, 'Share') : null;
+    const share = typeof navigator.share === 'function' ? h('button', { type: 'button', class: 'btn btn--secondary', onclick: () => void navigator.share({ title: 'Paddock Pass', text: `${pass.name || 'Team manager'}’s Paddock Pass for ${event!.name}`, url }).catch(() => undefined) }, 'Share') : null;
     return h('div', { class: 'passes-send' },
       h('div', { class: 'passes-send__qr' }, canvas),
       h('div', { class: 'stack' },
-        h('p', null, h('strong', null, `Point ${pass.name}’s phone camera at this code`), ', or send them the link.'),
+        h('p', null, h('strong', null, `Point ${whose} phone camera at this code`), pass.mine ? ', or open the link on it.' : ', or send them the link.'),
         field, h('div', { class: 'actions' }, copy, share),
-        h('p', { class: 'muted small' }, 'The link works once, on one phone. Sending again cancels this one. Keep it between you and the student.')));
+        h('p', { class: 'muted small' }, pass.mine ? 'The link works once, on one phone. Sending again cancels this one.' : `The link works once, on one phone. Sending again cancels this one. Keep it between you and ${them}.`)));
   }
 
   const send = (pass: TeamPass) => act('Making a link…', async () => {
-    if (pass.status === 'claimed' && !ask(`${pass.name}’s pass is already on a phone. A new link takes it off that phone. Make a new link?`)) return;
+    if (pass.status === 'claimed' && !ask(`${pass.mine ? 'Your' : `${pass.name || 'The team manager'}’s`} pass is already on a phone. A new link takes it off that phone. Make a new link?`)) return;
     const token = await ctx.api.passLink(pass.id);
     link = { passId: pass.id, url: passLinkUrl(origin, pass.id, token) };
     await load(false);
   });
   const reset = (pass: TeamPass) => act('Resetting the pass…', async () => {
-    if (!ask(`Reset ${pass.name}’s pass? It stops working on the phone that has it, and any link you sent is cancelled.`)) return;
+    if (!ask(`Reset ${pass.mine ? 'your' : `${pass.name || 'the team manager'}’s`} pass? It stops working on the phone that has it, and any link you sent is cancelled.`)) return;
     await ctx.api.resetPass(pass.id);
     presenting.delete(pass.id); link = null;
     await load(false);
@@ -210,7 +219,10 @@ export async function passesScreen(ctx: Ctx, eventId: string, deps: PassesDeps =
     try {
       const got = await ctx.api.teamPasses(eventId, teamId());
       if (!alive || current !== request) return;
-      data = got; offset = Math.round(Number(got.now) - Date.now());
+      // The server's clock from one small round trip. The time stamped on the passes arrives late on a slow link.
+      const measured = await measureClock(ctx);
+      if (!alive || current !== request) return;
+      data = got; offset = measured ?? Math.round(Number(got.now) - Date.now());
       if (fresh) status.textContent = '';
       paintRow();
       choose(got.passes.find((p) => p.id === selected)?.id ?? got.passes[0]?.id ?? '', fresh);

@@ -18,7 +18,7 @@ async function open(w: Awaited<ReturnType<typeof passWorld>>, deps: Parameters<t
 const names = (root: Element) => [...root.querySelectorAll('.passes-row .pass-card__name')].map(text);
 const button = (root: Element, label: string) => [...root.querySelectorAll('button')].find((b) => text(b).trim() === label) as HTMLButtonElement;
 const pick = async (root: Element, name: string) => { ([...root.querySelectorAll('.passes-row__item')].find((i) => text(i).includes(name)) as HTMLElement).click(); await settle(); };
-afterEach(() => { leavers.splice(0).forEach((f) => f()); document.body.replaceChildren(); });
+afterEach(() => { leavers.splice(0).forEach((f) => f()); document.body.replaceChildren(); vi.restoreAllMocks(); });
 
 describe('the Paddock Passes page', () => {
   it('shows a manager their own team as cards, their own pass first, with no team to choose', async () => {
@@ -96,6 +96,36 @@ describe('the Paddock Passes page', () => {
     expect(names(root)[0]).toBe('Meera Iyer');
     expect(button(root, 'Show my pass')).toBeTruthy();
     expect(button(root, 'Send to phone')).toBeUndefined();
+  });
+
+  it('lets a manager send their own pass to their phone, where it works without signal', async () => {
+    const w = await passWorld();
+    const root = await open(w);
+    expect(text(root.querySelector('.passes-panel')!)).toContain('Send it to your phone');
+    button(root, 'Send to my phone').click(); await settle();
+    const link = (root.querySelector('.passes-send input') as HTMLInputElement).value;
+    expect(text(root.querySelector('.passes-send')!)).toContain('Point your phone camera at this code');
+    expect(text(root.querySelector('.passes-panel')!)).toContain('Link sent');
+    const [id, token] = link.split('#')[1].split('.');
+    expect((await w.api.claimPass(id, token)).card).toMatchObject({ kind: 'manager', role: 'Team Manager' });
+    // An organiser at the help desk can do the same for a manager; another person's pass says whose it is.
+    await w.api.signIn(PASS_EMAILS.org);
+    const desk = await open(w);
+    expect(text(desk.querySelector('.passes-panel')!)).toContain('On a phone since');
+    expect(button(desk, 'Send to their phone')).toBeTruthy();
+  });
+
+  it('keeps a shown pass in step with the server clock, not this phone’s', async () => {
+    const w = await passWorld();
+    vi.spyOn(w.api, 'passClock').mockImplementation(async () => Date.now() + 90_000);
+    const root = await open(w);
+    await pick(root, 'Asha Rao');
+    button(root, 'Show this pass').click(); await settle();
+    const show = document.querySelector('.passes-show')!;
+    (show.querySelector('.pass-card') as HTMLElement).click(); await settle();
+    const code = (show.querySelector('.pass-card__qr-tile canvas') as HTMLCanvasElement).dataset.code!;
+    expect(Number(code.split('.')[2])).toBe(Math.floor((Date.now() + 90_000) / 30_000));
+    button(show, 'Close').click();
   });
 
   it('makes the small portrait for each card from the submitted one', async () => {

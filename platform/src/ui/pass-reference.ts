@@ -32,11 +32,13 @@ export function pulseReference(keyHex: string, options: { now?: () => number } =
   return { el, destroy };
 }
 
-/** How far this device's clock is from the server's, so the reference is in step even when the device is not. */
-export async function clockOffset(ctx: Ctx): Promise<number> {
-  try { const before = Date.now(), server = await ctx.api.passClock(), after = Date.now(); return Number.isFinite(server) ? Math.round(server - (before + after) / 2) : 0; }
-  catch { return 0; }
+/** How far this device's clock is from the server's, from one small round trip. Null when the server cannot be asked. */
+export async function measureClock(ctx: Ctx): Promise<number | null> {
+  try { const before = Date.now(), server = await ctx.api.passClock(), after = Date.now(); return Number.isFinite(server) ? Math.round(server - (before + after) / 2) : null; }
+  catch { return null; }
 }
+/** The same, for where there is nothing better to fall back on than this device's own clock. */
+export async function clockOffset(ctx: Ctx): Promise<number> { return (await measureClock(ctx)) ?? 0; }
 
 /** "Pass check" on the event page, for everyone with a staff role. Null for team managers and spectators, who do not get the key. */
 export function passCheckPanel(ctx: Ctx, eventId: string, roles: RoleRow[]): HTMLElement | null {

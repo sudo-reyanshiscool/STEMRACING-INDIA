@@ -16,6 +16,8 @@ export interface DoorStore {
   save(cache: DoorCache): Promise<void>;
   /** Removes the door list for one event, or for all of them. Checks waiting to upload are kept: they hold no secrets. */
   clear(eventId?: string): Promise<void>;
+  /** Removes every list more than three days old, whichever event it is for. Says how many went. */
+  sweep(): Promise<number>;
   queued(eventId: string): Promise<QueuedCheck[]>;
   enqueue(eventId: string, check: QueuedCheck): Promise<void>;
   dequeue(eventId: string, ids: string[]): Promise<void>;
@@ -29,6 +31,7 @@ export function memoryDoorStore(now: () => number = Date.now): DoorStore {
     async load(eventId) { const c = lists.get(eventId); if (c && stale(c, now())) { lists.delete(eventId); return null; } return c ?? null; },
     async save(cache) { lists.set(cache.eventId, cache); },
     async clear(eventId) { if (eventId) lists.delete(eventId); else lists.clear(); },
+    async sweep() { let gone = 0; for (const [id, c] of lists) if (stale(c, now())) { lists.delete(id); gone++; } return gone; },
     async queued(eventId) { return checks.filter((c) => c.eventId === eventId).map(({ eventId: _e, ...check }) => check); },
     async enqueue(eventId, check) { checks.push({ ...check, eventId }); },
     async dequeue(eventId, ids) { for (let i = checks.length - 1; i >= 0; i--) if (checks[i].eventId === eventId && ids.includes(checks[i].id)) checks.splice(i, 1); },
@@ -36,6 +39,10 @@ export function memoryDoorStore(now: () => number = Date.now): DoorStore {
 }
 
 const DB = 'sri-door-check', LISTS = 'lists', CHECKS = 'checks';
+// Set while this browser may hold a door list, so the app can tidy up at start without opening storage for everyone else.
+const MARK = 'stem-racing-india-door-list';
+const mark = (on: boolean) => { try { if (on) localStorage.setItem(MARK, '1'); else localStorage.removeItem(MARK); } catch { /* storage is off: nothing is kept either */ } };
+const marked = () => { try { return localStorage.getItem(MARK) !== null; } catch { return false; } };
 const done = <T>(request: IDBRequest<T>) => new Promise<T>((resolve, reject) => { request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error ?? new Error('storage failed')); });
 const settled = (tx: IDBTransaction) => new Promise<void>((resolve, reject) => { tx.oncomplete = () => resolve(); tx.onerror = tx.onabort = () => reject(tx.error ?? new Error('storage failed')); });
 
@@ -56,8 +63,13 @@ export async function openDoorStore(factory: IDBFactory | undefined = globalThis
       if (cache && stale(cache, now())) { await write(LISTS, (s) => { s.delete(eventId); }); return null; }
       return cache ?? null;
     },
-    save: (cache) => write(LISTS, (s) => { s.put(cache); }),
+    async save(cache) { mark(true); await write(LISTS, (s) => { s.put(cache); }); },
     clear: (eventId) => write(LISTS, (s) => { if (eventId) s.delete(eventId); else s.clear(); }),
+    async sweep() {
+      const old = (await read<DoorCache[]>(LISTS, (s) => s.getAll())).filter((c) => stale(c, now())).map((c) => c.eventId);
+      if (old.length) await write(LISTS, (s) => { for (const id of old) s.delete(id); });
+      return old.length;
+    },
     async queued(eventId) {
       const rows = await read<Array<QueuedCheck & { eventId: string }>>(CHECKS, (s) => s.index('event').getAll(eventId));
       return rows.sort((a, b) => a.scannedAt.localeCompare(b.scannedAt)).map(({ eventId: _e, ...check }) => check);
@@ -69,5 +81,29 @@ export async function openDoorStore(factory: IDBFactory | undefined = globalThis
 
 /** Called on sign-out: door lists hold pass secrets, so they leave the phone with the organiser's session. */
 export async function wipeDoorLists(): Promise<void> {
-  try { await (await openDoorStore()).clear(); } catch { /* nothing stored, or storage is off */ }
+  try { await (await openDoorStore()).clear(); mark(false); } catch { /* nothing stored, or storage is off */ }
+}
+
+interface SessionSource {
+  getSession(): Promise<{ userId: string } | null>;
+  onAuthChange(cb: (session: { userId: string } | null) => void): unknown;
+}
+/**
+ * Keeps door lists from outstaying their welcome, from the moment the app starts: lists past their three days go,
+ * whichever page is open, and every list goes when the session ends or changes hands, however that happens
+ * (an expired sign-in, another tab, a different account), not only when Sign out is pressed here.
+ */
+export async function guardDoorLists(source: SessionSource, deps: { open?: () => Promise<DoorStore>; kept?: () => boolean } = {}): Promise<void> {
+  const kept = deps.kept ?? marked, open = deps.open ?? (() => openDoorStore());
+  const tidy = async (all: boolean) => {
+    if (!kept()) return;
+    try { const store = await open(); if (all) { await store.clear(); if (!deps.kept) mark(false); } else await store.sweep(); } catch { /* nothing stored, or storage is off */ }
+  };
+  let owner = (await source.getSession().catch(() => null))?.userId ?? null;
+  source.onAuthChange((session) => {
+    const next = session?.userId ?? null;
+    if (next !== owner) void tidy(true);
+    owner = next;
+  });
+  await tidy(owner === null);
 }

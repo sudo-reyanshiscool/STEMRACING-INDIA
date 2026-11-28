@@ -249,6 +249,8 @@ async function boot(): Promise<void> {
     }
   }
 
+  // A saved door list holds pass secrets. It goes when it is three days old or the session ends, however that happens.
+  void import('./pass/door-store').then((m) => m.guardDoorLists(api)).catch(() => undefined);
   api.onAuthChange(() => {
     // Remove the outgoing account's private DOM before fetching the next account's page.
     token++; shell.setNav(null); shell.main.replaceChildren();

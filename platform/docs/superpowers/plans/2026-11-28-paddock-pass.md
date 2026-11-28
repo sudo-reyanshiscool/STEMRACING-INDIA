@@ -10,6 +10,10 @@
 
 **Spec:** `docs/superpowers/specs/2026-11-28-paddock-pass-design.md`
 
+**As built:** the classic look was removed from `main` while this was being built, so there is one look and the
+page styles live in `src/styles/passes.css`. The spec's last section lists the other calls made during the build
+(`pass_now`, the tap before claiming, offline wording, typed codes).
+
 ## Global Constraints
 
 - Run everything from `platform/`. Migration file: `supabase/migrations/0059_paddock_passes.sql`. Functions use `security definer set search_path = public, pg_temp`, are revoked from `public, anon, authenticated`, then granted with a `grant execute on function … ;` statement (the installer re-applies those).
