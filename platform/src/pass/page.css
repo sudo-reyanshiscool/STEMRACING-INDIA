@@ -1,0 +1,29 @@
+/* The student's pass page. Always carbon, like the frame around the platform: the card is the only thing on it. */
+html, body { margin: 0; min-height: 100%; background: #05000B; color: #F3F3F7; -webkit-text-size-adjust: 100%; }
+body { font-family: "MachoModular", Arial, system-ui, sans-serif; font-size: 16px; line-height: 1.45; overscroll-behavior-y: none; }
+#pass { min-height: 100dvh; display: flex; justify-content: center; background: radial-gradient(120% 70% at 50% 0%, #1b1626 0%, #05000B 62%); }
+.pass-page { box-sizing: border-box; width: 100%; max-width: 460px; display: flex; flex-direction: column; align-items: center; gap: 14px;
+  padding: calc(14px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(22px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left)); }
+.pass-page__head { display: flex; align-items: center; gap: 10px; align-self: stretch; }
+.pass-page__head img { width: 26px; height: 26px; object-fit: contain; }
+.pass-page__head h1 { margin: 0; font: italic 700 18px/1 "Magistral", "MachoModular", Arial, sans-serif; letter-spacing: .06em; text-transform: uppercase; }
+.pass-page h2 { margin: 0 0 6px; font: italic 700 20px/1.15 "Magistral", "MachoModular", Arial, sans-serif; }
+.pass-page p { margin: 0; }
+.pass-page__notice { align-self: stretch; padding: 12px 14px; border-radius: 10px; background: #2a1a12; border: 1px solid #ED6D05; color: #fff; }
+.pass-page__claim, .pass-page__gone, .pass-page__empty { align-self: stretch; padding: 18px 16px; border-radius: 14px; background: #14101d; border: 1px solid #2E2347; }
+.pass-page__claim p, .pass-page__gone p, .pass-page__empty p { color: #D7D6E3; }
+.pass-page__go { margin-top: 14px; width: 100%; min-height: 48px; padding: 12px 16px; border: 0; border-radius: 10px; background: #fff; color: #05000B;
+  font: 700 16px/1.2 "MachoModular", Arial, sans-serif; cursor: pointer; }
+.pass-page__go:disabled { opacity: .6; cursor: progress; }
+.pass-page__tabs { align-self: stretch; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
+.pass-page__tabs button { flex: none; min-height: 40px; padding: 8px 14px; border-radius: 999px; border: 1px solid #5B5376; background: transparent; color: #D7D6E3;
+  font: 500 14px/1.2 "MachoModular", Arial, sans-serif; cursor: pointer; }
+.pass-page__tabs button[aria-pressed="true"] { background: #fff; border-color: #fff; color: #05000B; }
+/* As large as the screen allows while the hint under it stays in view. */
+.pass-page__stage { --pass-card-width: min(100%, 420px, calc((100dvh - 190px) * 0.625)); width: 100%; display: flex; justify-content: center; padding: 6px 0; }
+.pass-page__hint { color: #D7D6E3; font-size: 15px; text-align: center; }
+.pass-page__state, .pass-page__small { color: #A39FB8; font-size: 13px; text-align: center; }
+.pass-page__small { margin-top: 6px; max-width: 34em; }
+.pass-page__link { padding: 0; border: 0; background: none; color: #fff; font: inherit; text-decoration: underline; cursor: pointer; }
+.pass-page :is(button, a):focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+noscript { display: block; padding: 24px; color: #fff; }

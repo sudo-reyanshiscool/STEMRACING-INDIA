@@ -20,5 +20,7 @@ function screenConfig(mode: string): Plugin {
 
 export default defineConfig(({ mode }) => ({
   plugins: [screenConfig(mode)],
+  // Two pages: the platform, and the student's Paddock Pass, which loads none of the platform's code.
+  build: { rollupOptions: { input: { main: 'index.html', pass: 'pass/index.html' } } },
   test: { environment: 'node', include: ['tests/**/*.test.ts'], testTimeout: 30_000, hookTimeout: 30_000 },
 }));

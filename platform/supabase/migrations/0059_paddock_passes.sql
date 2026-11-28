@@ -264,6 +264,9 @@ begin
  return pass_card_data(p);
 end $$;
 
+-- The server's clock in milliseconds. A phone whose own clock is wrong uses it to make codes for the right window. It says nothing else.
+create function pass_now() returns bigint language sql stable set search_path = public, pg_temp as $$ select floor(extract(epoch from clock_timestamp())*1000)::bigint $$;
+
 -- The door. Checks one scanned code and records it.
 create function check_pass(p_event uuid,p_code text,p_gate text default '',p_check uuid default null,p_device text default '') returns jsonb
 language plpgsql security definer set search_path = public, pg_temp as $$
@@ -353,8 +356,8 @@ end $$;
 revoke execute on function hmac_sha256(bytea,bytea),pass_random(),pass_b64(bytea),pass_name_key(text),pass_staff(uuid),pass_team_access(uuid,uuid),pass_guard(uuid),pass_pulse(uuid),
  pass_holder(passes),pass_stream(jsonb,uuid),pass_schedule(uuid,uuid),pass_card_data(passes),pass_sync(uuid,uuid),pass_mac(bytea,uuid,bigint),pass_signer(passes,bigint,text),pass_step(),
  team_passes(uuid,uuid),set_pass_portrait(uuid,text),set_manager_pass_name(uuid,text),pass_link(uuid),reset_pass(uuid),present_pass(uuid),claim_pass(uuid,text),pass_card(uuid,bigint,text),
- check_pass(uuid,text,text,uuid,text),door_list(uuid),door_portraits(uuid,uuid,integer),record_pass_checks(uuid,jsonb),pass_arrivals(uuid),pass_pulse_key(uuid) from public,anon,authenticated;
+ check_pass(uuid,text,text,uuid,text),door_list(uuid),door_portraits(uuid,uuid,integer),record_pass_checks(uuid,jsonb),pass_arrivals(uuid),pass_pulse_key(uuid),pass_now() from public,anon,authenticated;
 grant execute on function team_passes(uuid,uuid),set_pass_portrait(uuid,text),set_manager_pass_name(uuid,text),pass_link(uuid),reset_pass(uuid),present_pass(uuid),
  check_pass(uuid,text,text,uuid,text),door_list(uuid),door_portraits(uuid,uuid,integer),record_pass_checks(uuid,jsonb),pass_arrivals(uuid),pass_pulse_key(uuid) to authenticated;
 -- The student's phone has no account.
-grant execute on function claim_pass(uuid,text),pass_card(uuid,bigint,text) to anon,authenticated;
+grant execute on function claim_pass(uuid,text),pass_card(uuid,bigint,text),pass_now() to anon,authenticated;

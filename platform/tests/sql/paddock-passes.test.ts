@@ -261,3 +261,10 @@ it('keeps the tables closed and stops everything once the event is deleted', asy
   await expect(check(code(asha.secret, asha.id))).rejects.toMatchObject(DENIED);
   await expect(call('organiser', 'door_list($1)', [w.eventId])).rejects.toMatchObject(DENIED);
 });
+
+it('tells any phone the time, so one with a wrong clock can still make codes the door accepts', async () => {
+  for (const who of [null, 'mgr1', 'judge'] as Array<Who | null>) {
+    const now = await call<number>(who, 'pass_now()');
+    expect(Math.abs(Number(now) - Date.now())).toBeLessThan(5000);
+  }
+});
