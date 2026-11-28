@@ -18,6 +18,27 @@ describe('platform layout rules', () => {
     expect(rule![1]).toMatch(/word-break:\s*break-all/);
   });
 
+  // On a phone the header's second column is capped (190px at 320px wide) and holds a 44px theme switch plus
+  // two buttons that never shrink. Without wrapping, the right-aligned buttons slide left over the switch.
+  it('drops the account buttons to their own row on a narrow phone instead of covering the theme switch', () => {
+    const phone = css.match(/@media \(max-width: 640px\)\s*\{\s*\.site-header__in[\s\S]*?\n\}/);
+    expect(phone, 'phone header rules').not.toBeNull();
+    const tools = phone![0].match(/\.header-tools\s*\{([^}]*)\}/);
+    expect(tools, 'phone .header-tools rule').not.toBeNull();
+    expect(tools![1]).toMatch(/flex-wrap:\s*wrap/);
+  });
+
+  // At 360px, the commonest Android width, the tools have 230px: 44 switch + 4 + two buttons + 6 between them.
+  // The labels are about 63px and 61px wide, so the side padding can be at most 12px for one row.
+  it('keeps the phone account buttons narrow enough to share a row with the theme switch at 360px', () => {
+    const rule = css.match(/@media \(max-width: 640px\)\s*\{\s*\.site-header__in[\s\S]*?\.who \.btn\s*\{([^}]*)\}/);
+    expect(rule, 'phone .who .btn rule').not.toBeNull();
+    const side = rule![1].match(/padding:\s*\d+px\s+(\d+)px\s*;/);
+    expect(side, 'two-value padding').not.toBeNull();
+    expect(Number(side![1])).toBeLessThanOrEqual(12);
+    expect(rule![1]).toMatch(/min-height:\s*40px/);
+  });
+
   it('stacks the moderation table on a phone so the Chair override is not off screen', () => {
     const block = css.match(/@media \(max-width: 640px\)\s*\{([\s\S]*?)\n\}/);
     expect(block, 'phone media query').not.toBeNull();

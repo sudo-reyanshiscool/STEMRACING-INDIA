@@ -484,10 +484,11 @@ main:has(.graphics-screen) { max-width: 1800px; padding-block: 24px; }
   .site-header__in { grid-template-columns: auto minmax(0, 1fr); gap: 6px 12px; }
   .site-header .brand-home img { height: 32px; max-width: 120px; }
   .sync-bar { grid-column: 1 / -1; grid-row: 2; }
-  .header-tools { gap: 4px; }
+  /* This column is capped, so the tools wrap: on the narrowest phones the buttons take their own row instead of sliding over the theme switch. */
+  .header-tools { flex-wrap: wrap; gap: 4px; }
   .who { gap: 6px; }
   .who span { display: none; }
-  .who .btn { min-height: 40px; padding: 8px 14px; font-size: 11.5px; flex-shrink: 0; }
+  .who .btn { min-height: 40px; padding: 8px 12px; font-size: 11.5px; flex-shrink: 0; }
   .actions > .btn { flex: 1 1 auto; }
   .inline-form > .field { flex: 1 1 200px; }
   .stack--lg { gap: 28px; }
