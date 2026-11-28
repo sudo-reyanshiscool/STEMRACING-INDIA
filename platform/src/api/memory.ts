@@ -93,7 +93,7 @@ export class MemoryApi implements Api {
     schedule: (e) => this.schedules.get(e)?.published ?? null,
   });
   teamPasses(eventId: string, teamId: string) { return this.passDesk.teamPasses(eventId, teamId); }
-  setPassPortrait(passId: string, jpegBase64: string) { return this.passDesk.setPassPortrait(passId, jpegBase64); }
+  setPassPortrait(passId: string, jpegBase64: string, sourceHash?: string | null) { return this.passDesk.setPassPortrait(passId, jpegBase64, sourceHash); }
   setManagerPassName(passId: string, name: string) { return this.passDesk.setManagerPassName(passId, name); }
   passLink(passId: string) { return this.passDesk.passLink(passId); }
   resetPass(passId: string) { return this.passDesk.resetPass(passId); }

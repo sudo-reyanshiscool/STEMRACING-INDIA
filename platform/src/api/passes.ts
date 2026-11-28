@@ -36,6 +36,8 @@ export interface TeamPass {
   portrait: string | null;
   /** The submitted portrait has changed (or was never copied), so the small copy needs remaking. */
   portraitStale: boolean;
+  /** A fingerprint of the member's submitted portrait as it was when the passes were read. Sent back with the small copy made from it. */
+  sourceHash: string | null;
   /** The signed-in manager's own pass. */
   mine: boolean;
 }

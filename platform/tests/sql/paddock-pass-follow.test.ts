@@ -65,6 +65,7 @@ it('clears away the pass of a member who left, once it is clear they are not com
 
 it('stops a removed team manager\'s pass at once, and the passes they were showing', async () => {
   const asha = await claimed(), own = (await teamPasses()).passes[0];
+  await call('mgr1', 'set_manager_pass_name($1,$2)', [own.id, 'Meera Nair']);
   const mine = await call<string>('mgr1', 'present_pass($1)', [own.id]), shown = await call<string>('mgr1', 'present_pass($1)', [asha.id]);
   expect((await check(code(mine, own.id))).result).toBe('genuine');
   expect(await listed(own.id)).toBe(true);

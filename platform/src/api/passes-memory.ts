@@ -34,6 +34,8 @@ const randomHex = (bytes: number) => toHex(crypto.getRandomValues(new Uint8Array
 const uuid = () => crypto.randomUUID();
 const nameKey = (n: string) => n.trim().replace(/\s+/g, ' ').toLowerCase();
 const tidy = (n: string) => n.trim().replace(/\s+/g, ' ');
+/** A short fingerprint of a picture, standing in for the database's md5. */
+const fingerprint = (text: string) => { let h = 0x811c9dc5; for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193) >>> 0; return `${text.length.toString(16)}-${h.toString(16)}`; };
 
 const ORPHAN_DAYS = 7;
 
@@ -56,6 +58,7 @@ export class MemoryPasses {
     const p = this.passes.find((x) => x.id === passId);
     if (!p) throw forbidden();
     this.teamAccess(p.eventId, p.teamId);
+    this.follow(p.eventId);
     return p;
   }
   private doorAccess(eventId: string): void {
@@ -87,11 +90,11 @@ export class MemoryPasses {
     const members = this.host.members(eventId, teamId), live = new Set(members.map((m) => m.id));
     const mine = () => this.passes.filter((p) => p.eventId === eventId && p.teamId === teamId);
     for (const m of members) {
-      const hash = m.photoBase64 ?? '', key = nameKey(m.name);
+      const hash = fingerprint(m.photoBase64 ?? ''), key = nameKey(m.name);
       const existing = mine().find((p) => p.kind === 'student' && p.memberId === m.id);
       if (existing) { existing.nameKey = key; existing.sourceHash = hash; existing.orphanedAt = null; continue; }
       const orphans = mine().filter((p) => p.kind === 'student' && !live.has(p.memberId!));
-      const hit = orphans.find((p) => hash !== '' && p.sourceHash === hash) ?? orphans.find((p) => key !== '' && p.nameKey === key);
+      const hit = orphans.find((p) => !!m.photoBase64 && p.sourceHash === hash) ?? orphans.find((p) => key !== '' && p.nameKey === key);
       if (hit) { hit.memberId = m.id; hit.nameKey = key; hit.sourceHash = hash; hit.orphanedAt = null; }
       else this.passes.push({ id: uuid(), eventId, teamId, kind: 'student', memberId: m.id, userId: null, holderName: '', nameKey: key, sourceHash: hash, portrait: null, portraitHash: null,
         token: null, holder: null, presenter: null, linkSentAt: null, claimedAt: null, created: ++this.seq, orphanedAt: null });
@@ -122,17 +125,17 @@ export class MemoryPasses {
       .sort((a, b) => a.kind.localeCompare(b.kind) || order.indexOf(a.memberId ?? '') - order.indexOf(b.memberId ?? '') || a.created - b.created);
     const passes: TeamPass[] = rows.map((p) => { const h = this.holderOf(p)!; return { id: p.id, kind: p.kind, memberId: p.memberId, name: h.name, role: h.role,
       status: p.holder ? 'claimed' : p.token ? 'sent' : 'new', claimedAt: p.claimedAt, linkSentAt: p.linkSentAt, portrait: p.portrait,
-      portraitStale: p.kind === 'student' && (p.portrait === null || p.portraitHash !== p.sourceHash), mine: p.kind === 'manager' && p.userId === this.host.userId() }; });
+      portraitStale: p.kind === 'student' && (p.portrait === null || p.portraitHash !== p.sourceHash), sourceHash: p.kind === 'student' ? p.sourceHash : null, mine: p.kind === 'manager' && p.userId === this.host.userId() }; });
     return { now: this.now(), team: { id: t.id, number: t.number, name: t.name, school: t.school }, event: { id: e.id, name: e.name, startsOn: e.startsOn, days: s.days },
       stream: s.stream, activities: s.activities, timezone: s.timezone, pulseKey: this.pulseKey(eventId), passes };
   }
-  async setPassPortrait(passId: string, jpeg: string): Promise<void> {
+  async setPassPortrait(passId: string, jpeg: string, source?: string | null): Promise<void> {
     const p = this.guard(passId);
     if (p.kind === 'manager' && p.userId !== this.host.userId() && !this.host.staff(p.eventId)) throw forbidden('A manager adds their own portrait');
     let bytes: string;
     try { bytes = atob(jpeg); } catch { throw new ApiError('invalid', 'The portrait must be a JPEG'); }
     if (bytes.length < 4 || bytes.length > 65536 || !bytes.startsWith('\xff\xd8\xff')) throw new ApiError('invalid', 'The portrait must be a JPEG of at most 64 KB');
-    p.portrait = jpeg; p.portraitHash = p.sourceHash;
+    p.portrait = jpeg; p.portraitHash = source ?? p.sourceHash;
   }
   async setManagerPassName(passId: string, name: string): Promise<void> {
     const p = this.guard(passId), n = tidy(name);
@@ -143,6 +146,7 @@ export class MemoryPasses {
   async passLink(passId: string): Promise<string> {
     const p = this.guard(passId);
     if (p.kind === 'manager' && p.userId !== this.host.userId() && !this.host.staff(p.eventId)) throw forbidden('A manager sends their own pass to their own phone');
+    if (p.kind === 'manager' && !p.holderName) throw new ApiError('invalid', 'Add the manager’s name to the pass first');
     p.token = randomHex(32); p.holder = null; p.claimedAt = null; p.linkSentAt = new Date(this.now()).toISOString();
     return p.token;
   }
@@ -152,6 +156,7 @@ export class MemoryPasses {
   }
   async presentPass(passId: string): Promise<string> {
     const p = this.guard(passId);
+    if (p.kind === 'manager' && !p.holderName) throw new ApiError('invalid', 'Add the manager’s name to the pass first');
     // Everyone allowed to show a pass shares one secret, so a second person, or a reload, does not stop the first.
     p.presenter ??= randomHex(32);
     return p.presenter;

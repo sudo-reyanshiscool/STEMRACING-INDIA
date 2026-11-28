@@ -102,13 +102,15 @@ One row per person per team in a new `passes` table.
   someone next opens the Paddock Passes page. While its member is missing a pass is refused everywhere. If it had
   reached a phone or had a link out, it is kept for seven days so the correction can still find it; otherwise it is
   removed at once.
-- A **manager pass** points at the manager's user id and team. The manager types their own name once. They may add
+- A **manager pass** points at the manager's user id and team. The manager types their own name once, and until
+  they have, the pass cannot be shown or sent: at the door it would read as genuine and belong to nobody. They may add
   a portrait from their camera. A manager pass without a portrait shows the track shape in the photo frame (team logos can be
   megabytes and would bloat every card and the door list).
 - Each pass stores a small portrait (JPEG, about 320 px wide, at most 64 KB) made on the manager's device from the
   submitted portrait. The door list for a whole event then stays a few megabytes. The pass records a hash of the
   source portrait, worked out by the database, so a changed portrait is noticed and the small copy is remade the
-  next time the team's passes are opened.
+  next time the team's passes are opened. The page sends back the hash it read with each copy it makes, so a
+  portrait replaced while the copy was being made is not mistaken for current.
 - Each pass has a **device secret** (32 random bytes). It is created when a phone claims the pass and replaced
   whenever the pass is reset.
 
@@ -175,7 +177,8 @@ One shared card module draws both the student's page and the manager's cards.
 
 - A large QR on a white tile, a bar showing the time left before it changes, and the holder's name and team.
 - The team's next activities from the published schedule, worked out on the phone so it is right offline.
-- The screen is kept awake while this side is showing, where the browser allows it.
+- The screen is kept awake while this side is showing, where the browser allows it, and again after the phone was
+  locked or the page hidden.
 
 **The look: Silver**
 
@@ -201,7 +204,8 @@ controls, fixed sizes and its other two finishes (Pearl, Team colours) are not c
 **Motion and tilt**
 
 - On a phone the card follows the phone's tilt (device orientation). iOS asks permission, so the first tap on the
-  card requests it. Without it, dragging a finger or moving the pointer tilts the card.
+  card requests it. The request is made from the completed tap (the click), which is the only moment an iPhone
+  accepts it; if the question could not be put, the next tap tries again, and a "no" is not asked twice. Without it, dragging a finger or moving the pointer tilts the card.
 - With reduced motion set, there is no idle movement and no animated transitions. The clock and pulse still change,
   because they carry information. Tilt by touch still works.
 
@@ -264,6 +268,8 @@ A new "Door check" page in the event menu for organisers and the Chair.
   database functions with plain `fetch`.
 - A worker at `/pass/sw.js`, scoped to `/pass/`, caches the page, its scripts and styles, the fonts and the event
   logo. After the first visit the page loads with no network. The main app is untouched and still has no worker.
+  The worker tells the page when the whole page is saved, and only then does the page say it works without
+  signal. Built files from versions no longer in use are dropped; the logo and fonts are checked again each visit.
 - The page asks the browser to keep its storage (`navigator.storage.persist`).
 - Known limit: iOS can clear a site's storage after seven days without a visit. A student who claims early and
   never opens the pass again may need a new link. The manager can send one in seconds, and the page says so.
@@ -294,6 +300,9 @@ defence, as it was with a printed card.
 Migrations `0059_paddock_passes.sql` and `0060_paddock_passes_follow_the_team.sql`. The second adds the triggers
 that keep passes in line with the team (on `team_media_details` and `event_roles`), the one-secret presenter rule,
 manager links, and a door list and arrivals that read each team's members once instead of once per pass.
+`0061_paddock_pass_edges.sql` holds the smaller review findings: an upload of door checks survives a malformed row,
+one check of a pass runs at a time, the portrait's source hash travels with its small copy, and a manager's pass
+needs a name.
 
 Tables
 
@@ -308,7 +317,7 @@ Functions
 | Function | Caller | Does |
 | --- | --- | --- |
 | `team_passes(event, team)` | manager of the team, staff | Creates missing rows, returns the team's passes and card data |
-| `set_pass_portrait(pass, jpeg, source hash)` | same | Stores the small portrait |
+| `set_pass_portrait(pass, jpeg, source hash)` | same | Stores the small portrait, marked with the picture it was made from |
 | `set_manager_pass_name(pass, name)` | the manager, staff | Sets the name on a manager pass |
 | `pass_link(pass)` | same; a manager's pass only by that manager or staff | Makes a new single-use token, cancels the old one and any claimed phone |
 | `reset_pass(pass)` | same | Cancels the token and the phone without making a new link |

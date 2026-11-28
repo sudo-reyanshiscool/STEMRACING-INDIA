@@ -286,7 +286,7 @@ describe('hardening across the whole schema after 0004', () => {
       'save_card_review', 'save_event_award', 'save_inspection_scope', 'save_race',
       'save_racing_setup', 'save_schedule', 'save_submission_rules', 'save_team_media_details',
       'scheduling_state', 'set_judge_assignment', 'set_judge_exemption', 'set_judge_name',
-      'set_manager_pass_name', 'set_organiser_visibility', 'set_owner_hide_mode', 'set_pass_portrait',
+      'set_manager_pass_name', 'set_organiser_visibility', 'set_owner_hide_mode', 'set_pass_portrait', 'set_pass_portrait',
       'set_team_contact', 'show_screen_link', 'snapshot_inputs', 'specification_visible',
       'submission_guide_state', 'submission_state', 'submit_inspection', 'submit_team_concern',
       'team_branding_profile', 'team_passes', 'team_results_packet', 'upload_compulsory_asset',

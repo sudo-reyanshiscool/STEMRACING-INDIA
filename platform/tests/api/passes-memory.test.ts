@@ -90,10 +90,11 @@ describe('in-memory passes follow the database rules', () => {
     const { api, ev, t1, setMembers } = await world();
     const passes = (await api.teamPasses(ev.id, t1.id)).passes, own = passes[0], asha = passes[1];
     const phone = await importSecret((await api.claimPass(asha.id, await api.passLink(asha.id))).secret);
+    await api.setManagerPassName(own.id, 'Meera Nair');
     const mine = await importSecret(await api.presentPass(own.id));
     // Removed, the page opened, then added again under a new id: still the same pass on the same phone.
     setMembers([member('m2', 'Dev Shah')]);
-    expect((await api.teamPasses(ev.id, t1.id)).passes.map((p) => p.name)).toEqual(['', 'Dev Shah']);
+    expect((await api.teamPasses(ev.id, t1.id)).passes.map((p) => p.name)).toEqual(['Meera Nair', 'Dev Shah']);
     setMembers([member('m2', 'Dev Shah'), member('m9', 'Asha Rao', 'retaken')]);
     await api.signIn(ORG);
     expect(await api.checkPass(ev.id, await codeAt(phone, asha.id, Date.now()))).toMatchObject({ result: 'genuine', holder: { name: 'Asha Rao' } });
@@ -102,6 +103,19 @@ describe('in-memory passes follow the database rules', () => {
     await api.removeRole(role.id);
     expect((await api.checkPass(ev.id, await codeAt(mine, own.id, Date.now()), { device: 'b' })).result).toBe('invalid');
     expect((await api.doorList(ev.id)).passes.some((p) => p.id === own.id)).toBe(false);
+  });
+
+  it('keeps a small portrait marked out of date when the member\'s picture changed while it was being made', async () => {
+    const { api, ev, t1, setMembers } = await world();
+    const seen = (await api.teamPasses(ev.id, t1.id)).passes[1];
+    expect(seen.sourceHash).toBeTruthy();
+    expect(seen.sourceHash!.length).toBeLessThan(40);   // a fingerprint of the picture, not the picture
+    setMembers([member('m1', 'Asha Rao', 'retaken'), member('m2', 'Dev Shah')]);
+    await api.setPassPortrait(seen.id, JPEG, seen.sourceHash);
+    const after = (await api.teamPasses(ev.id, t1.id)).passes[1];
+    expect(after).toMatchObject({ portrait: JPEG, portraitStale: true });
+    await api.setPassPortrait(seen.id, JPEG, after.sourceHash);
+    expect((await api.teamPasses(ev.id, t1.id)).passes[1].portraitStale).toBe(false);
   });
 
   it('shares one presenter secret, and lets a manager send their own pass to their phone', async () => {
@@ -114,6 +128,10 @@ describe('in-memory passes follow the database rules', () => {
     await api.signIn(MGR);
     await api.resetPass(asha.id);
     expect(await api.presentPass(asha.id)).not.toBe(first);
+    // A manager's pass has nothing to show or send until it carries their name.
+    expect(await refused(api.presentPass(own.id))).toBe('invalid');
+    expect(await refused(api.passLink(own.id))).toBe('invalid');
+    await api.setManagerPassName(own.id, 'Meera Nair');
     const token = await api.passLink(own.id);
     expect((await api.teamPasses(ev.id, t1.id)).passes[0]).toMatchObject({ kind: 'manager', status: 'sent' });
     const got = await api.claimPass(own.id, token);

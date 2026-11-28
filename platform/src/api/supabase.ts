@@ -800,7 +800,7 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
       ok(await guard(()=>sb.rpc('delete_compulsory_asset',{p_event:eventId,p_team:teamId,p_kind:assetKey})));
     },
     async teamPasses(eventId, teamId) { return ok(await guard(() => sb.rpc('team_passes', { p_event: eventId, p_team: teamId }))); },
-    async setPassPortrait(passId, jpegBase64) { ok(await guard(() => sb.rpc('set_pass_portrait', { p_pass: passId, p_jpeg: jpegBase64 }))); },
+    async setPassPortrait(passId, jpegBase64, sourceHash) { ok(await guard(() => sb.rpc('set_pass_portrait', { p_pass: passId, p_jpeg: jpegBase64, p_source: sourceHash ?? null }))); },
     async setManagerPassName(passId, name) { ok(await guard(() => sb.rpc('set_manager_pass_name', { p_pass: passId, p_name: name }))); },
     async passLink(passId) { return ok(await guard(() => sb.rpc('pass_link', { p_pass: passId }))) as string; },
     async resetPass(passId) { ok(await guard(() => sb.rpc('reset_pass', { p_pass: passId }))); },

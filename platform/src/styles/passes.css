@@ -15,6 +15,7 @@
 .passes-panel[hidden] { display: none; }
 .passes-panel h2 { margin: 0; }
 .passes-name { display: flex; flex-direction: column; gap: 12px; max-width: 520px; }
+.passes-hint { margin: 0; max-width: 520px; padding: 10px 14px; border-left: 3px solid var(--warning, currentColor); font-weight: 600; }
 .passes-send { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 20px; align-items: start; padding-top: 16px; border-top: 1px solid var(--rule); }
 .passes-send__qr { padding: 10px; background: #fff; border: 1px solid var(--rule); border-radius: 8px; line-height: 0; }
 .passes-send__qr canvas { width: 180px; height: 180px; image-rendering: pixelated; }

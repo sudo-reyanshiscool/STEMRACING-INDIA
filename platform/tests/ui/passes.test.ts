@@ -98,8 +98,38 @@ describe('the Paddock Passes page', () => {
     expect(button(root, 'Send to phone')).toBeUndefined();
   });
 
+  it('asks a manager for their name before their pass can be shown or sent', async () => {
+    const w = await passWorld();
+    const root = await open(w);
+    expect(button(root, 'Show my pass').disabled).toBe(true);
+    expect(button(root, 'Send to my phone').disabled).toBe(true);
+    expect(text(root.querySelector('.passes-panel')!)).toContain('Add your name first');
+    const input = root.querySelector('.passes-panel input[type="text"]') as HTMLInputElement;
+    input.value = 'Meera Iyer';
+    button(root, 'Save name').click(); await settle();
+    expect(button(root, 'Show my pass').disabled).toBe(false);
+    expect(button(root, 'Send to my phone').disabled).toBe(false);
+    expect(text(root.querySelector('.passes-panel')!)).not.toContain('Add your name first');
+  });
+
+  it('does not call a card\'s portrait up to date if the member\'s picture changed while it was being made', async () => {
+    const w = await passWorld();
+    const key = `${w.ev.id}:${w.t1.id}`, assets = (w.api as unknown as { compulsoryAssets: Map<string, { memberPortraits: Array<Record<string, string>> }> }).compulsoryAssets;
+    // While the page is shrinking Asha's portrait, the team replaces it on the submission page.
+    const makePortrait = vi.fn(async () => {
+      const list = assets.get(key)!.memberPortraits;
+      assets.set(key, { memberPortraits: list.map((m) => (m.id === 'm1' ? { ...m, photoBase64: btoa('retaken') } : m)) });
+      return JPEG;
+    });
+    await open(w, { makePortrait });
+    const asha = (await w.api.teamPasses(w.ev.id, w.t1.id)).passes.find((p) => p.name === 'Asha Rao')!;
+    expect(asha.portrait).toBe(JPEG);
+    expect(asha.portraitStale).toBe(true);   // so it is made again, from the new picture, next time the page opens
+  });
+
   it('lets a manager send their own pass to their phone, where it works without signal', async () => {
     const w = await passWorld();
+    await w.api.setManagerPassName((await w.api.teamPasses(w.ev.id, w.t1.id)).passes[0].id, 'Meera Iyer');
     const root = await open(w);
     expect(text(root.querySelector('.passes-panel')!)).toContain('Send it to your phone');
     button(root, 'Send to my phone').click(); await settle();

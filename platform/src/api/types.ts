@@ -188,7 +188,8 @@ export interface InspectionScope {revision: number; articles: string[] | null; l
 export interface Api {
   /** Paddock Pass: a team's passes, creating any that are missing. */
   teamPasses(eventId: string, teamId: string): Promise<import('./passes').TeamPasses>;
-  setPassPortrait(passId: string, jpegBase64: string): Promise<void>;
+  /** `sourceHash` is the pass's `sourceHash` as read before the copy was made, so a picture changed meanwhile is noticed. */
+  setPassPortrait(passId: string, jpegBase64: string, sourceHash?: string | null): Promise<void>;
   setManagerPassName(passId: string, name: string): Promise<void>;
   /** A fresh single-use token for the student's link. Cancels any earlier link and the phone that held the pass. */
   passLink(passId: string): Promise<string>;

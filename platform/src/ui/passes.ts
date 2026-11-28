@@ -124,10 +124,14 @@ export async function passesScreen(ctx: Ctx, eventId: string, deps: PassesDeps =
           h('div', { class: 'actions' }, h('button', { type: 'submit', class: 'btn btn--secondary', disabled: busy }, 'Save name'),
             button(pass.portrait ? 'Change photo' : 'Add a photo', 'btn--ghost', () => file.click()), file)));
       }
-      const own = pass.mine || staff;
+      // A pass with no name on it would read as genuine at the door and belong to nobody in particular.
+      const own = pass.mine || staff, named = pass.name !== '';
+      const needsName = (b: HTMLButtonElement) => { if (!named) b.disabled = true; return b; };
+      if (!named) parts.push(h('p', { class: 'passes-hint' }, pass.mine ? 'Add your name first. Your pass can be shown or sent once it has your name on it.'
+        : own ? 'Add the manager’s name first. The pass can be shown or sent once it has a name on it.' : 'This manager has not put their name on their pass yet, so it cannot be shown.'));
       parts.push(h('div', { class: 'actions' },
-        own ? button(pass.mine ? 'Send to my phone' : 'Send to their phone', 'btn--primary', () => void send(pass)) : null,
-        button(pass.mine ? 'Show my pass' : 'Show this pass', own ? 'btn--secondary' : 'btn--primary', () => void show(pass)),
+        own ? needsName(button(pass.mine ? 'Send to my phone' : 'Send to their phone', 'btn--primary', () => void send(pass))) : null,
+        needsName(button(pass.mine ? 'Show my pass' : 'Show this pass', own ? 'btn--secondary' : 'btn--primary', () => void show(pass))),
         own && pass.status !== 'new' ? button('Reset pass', 'btn--ghost', () => void reset(pass)) : null));
       if (link?.passId === pass.id) parts.push(sendPanel(pass, link.url));
     }
@@ -208,7 +212,9 @@ export async function passesScreen(ctx: Ctx, eventId: string, deps: PassesDeps =
       if (!member?.photoBase64) continue;
       const jpeg = await make(member.photoBase64, member.photoMime ?? 'image/jpeg');
       if (!jpeg) continue;
-      try { await ctx.api.setPassPortrait(pass.id, jpeg); changed = true; } catch { /* the card simply keeps its placeholder */ }
+      // Sent with the picture's fingerprint as it was when the passes were read, before the picture itself was
+      // fetched: if the team has replaced it since, the copy stays marked out of date and is made again.
+      try { await ctx.api.setPassPortrait(pass.id, jpeg, pass.sourceHash); changed = true; } catch { /* the card simply keeps its placeholder */ }
     }
     if (changed && alive && current === request) await load(false);
   }
