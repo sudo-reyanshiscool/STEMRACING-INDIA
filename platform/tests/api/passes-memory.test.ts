@@ -75,7 +75,6 @@ describe('in-memory passes follow the database rules', () => {
     const own = (await api.teamPasses(ev.id, t1.id)).passes[0];
     await api.setManagerPassName(own.id, '  Meera   Nair ');
     expect(await refused(api.setManagerPassName(asha.id, 'x'))).toBe('invalid');
-    expect(await refused(api.passLink(own.id))).toBe('invalid');
     const shown = await importSecret(await api.presentPass(asha.id)), mineKey = await importSecret(await api.presentPass(own.id));
     await api.signIn(ORG);
     expect(await api.checkPass(ev.id, await codeAt(shown, asha.id, Date.now()))).toMatchObject({ result: 'genuine', presenter: true });
@@ -85,5 +84,40 @@ describe('in-memory passes follow the database rules', () => {
     expect(await refused(api.passPulseKey(ev.id))).toBe('forbidden');
     await api.signIn(JUDGE);
     expect(await api.passPulseKey(ev.id)).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it('follows the team: a corrected member keeps the pass, a removed manager loses theirs', async () => {
+    const { api, ev, t1, setMembers } = await world();
+    const passes = (await api.teamPasses(ev.id, t1.id)).passes, own = passes[0], asha = passes[1];
+    const phone = await importSecret((await api.claimPass(asha.id, await api.passLink(asha.id))).secret);
+    const mine = await importSecret(await api.presentPass(own.id));
+    // Removed, the page opened, then added again under a new id: still the same pass on the same phone.
+    setMembers([member('m2', 'Dev Shah')]);
+    expect((await api.teamPasses(ev.id, t1.id)).passes.map((p) => p.name)).toEqual(['', 'Dev Shah']);
+    setMembers([member('m2', 'Dev Shah'), member('m9', 'Asha Rao', 'retaken')]);
+    await api.signIn(ORG);
+    expect(await api.checkPass(ev.id, await codeAt(phone, asha.id, Date.now()))).toMatchObject({ result: 'genuine', holder: { name: 'Asha Rao' } });
+    expect((await api.checkPass(ev.id, await codeAt(mine, own.id, Date.now()))).result).toBe('genuine');
+    const role = (await api.listRoles(ev.id)).find((r) => r.role === 'team_manager')!;
+    await api.removeRole(role.id);
+    expect((await api.checkPass(ev.id, await codeAt(mine, own.id, Date.now()), { device: 'b' })).result).toBe('invalid');
+    expect((await api.doorList(ev.id)).passes.some((p) => p.id === own.id)).toBe(false);
+  });
+
+  it('shares one presenter secret, and lets a manager send their own pass to their phone', async () => {
+    const { api, ev, t1 } = await world();
+    const passes = (await api.teamPasses(ev.id, t1.id)).passes, own = passes[0], asha = passes[1];
+    const first = await api.presentPass(asha.id);
+    expect(await api.presentPass(asha.id)).toBe(first);
+    await api.signIn(ORG);
+    expect(await api.presentPass(asha.id)).toBe(first);
+    await api.signIn(MGR);
+    await api.resetPass(asha.id);
+    expect(await api.presentPass(asha.id)).not.toBe(first);
+    const token = await api.passLink(own.id);
+    expect((await api.teamPasses(ev.id, t1.id)).passes[0]).toMatchObject({ kind: 'manager', status: 'sent' });
+    const got = await api.claimPass(own.id, token);
+    expect(got.card).toMatchObject({ kind: 'manager', role: 'Team Manager' });
+    expect((await api.teamPasses(ev.id, t1.id)).passes[0]).toMatchObject({ status: 'claimed' });
   });
 });

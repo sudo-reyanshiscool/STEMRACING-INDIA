@@ -69,12 +69,12 @@ it('keeps a pass when a member is corrected, and drops it when the member leaves
   await setMembers([member('m10', '  asha   RAO-iyer ', 'Design Engineer', 'new-picture'), member('m2', 'Dev Shah')]);
   const relinked = (await teamPasses()).passes.find((p: any) => p.id === asha.id);
   expect(relinked).toMatchObject({ memberId: 'm10', status: 'claimed', portraitStale: true });
-  // Both changed: a different person, who needs their own link. The old pass is gone.
+  // Both changed: a different person, who needs their own link. The old pass is off the list and refused at the door.
   await setMembers([member('m11', 'Someone Else', 'Design Engineer', 'other'), member('m2', 'Dev Shah')]);
   const now = await teamPasses();
   expect(now.passes.find((p: any) => p.id === asha.id)).toBeUndefined();
   expect(now.passes.find((p: any) => p.name === 'Someone Else')).toMatchObject({ status: 'new' });
-  expect(await check(code(asha.secret, asha.id))).toEqual({ result: 'unknown' });
+  expect(await check(code(asha.secret, asha.id))).toEqual({ result: 'invalid' });
 });
 
 it('hands a pass to the first phone that opens the link, once', async () => {
@@ -120,14 +120,13 @@ it('lets the manager show a pass without taking it off the student\'s phone', as
   expect(shown).toMatch(/^[0-9a-f]{64}$/);
   expect(await check(code(asha.secret, asha.id))).toMatchObject({ result: 'genuine', presenter: false });
   expect(await check(code(shown, asha.id), { device: 'phone-b' })).toMatchObject({ result: 'genuine', presenter: true });
-  // The manager's own pass lives on the phone they are signed in on.
+  // The manager's own pass can be shown from the phone they are signed in on.
   const own = (await teamPasses()).passes[0];
   await call('mgr1', 'set_manager_pass_name($1,$2)', [own.id, '  Meera Nair ']);
   for (const bad of ['', '   ', 'x'.repeat(101)]) await expect(call('mgr1', 'set_manager_pass_name($1,$2)', [own.id, bad])).rejects.toMatchObject({ code: '22023' });
   await expect(call('mgr1', 'set_manager_pass_name($1,$2)', [asha.id, 'Nope'])).rejects.toMatchObject({ code: '22023' });
   const key = await call<string>('mgr1', 'present_pass($1)', [own.id]);
   expect(await check(code(key, own.id))).toMatchObject({ result: 'genuine', presenter: false, holder: { name: 'Meera Nair', role: 'Team Manager', kind: 'manager' } });
-  await expect(call('mgr1', 'pass_link($1)', [own.id])).rejects.toMatchObject({ code: '22023' });
 });
 
 it('stores a small JPEG portrait and nothing else', async () => {

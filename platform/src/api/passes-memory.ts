@@ -24,6 +24,8 @@ interface Pass {
   id: string; eventId: string; teamId: string; kind: 'student' | 'manager'; memberId: string | null; userId: string | null; holderName: string;
   nameKey: string; sourceHash: string; portrait: string | null; portraitHash: string | null; token: string | null; holder: string | null; presenter: string | null;
   linkSentAt: string | null; claimedAt: string | null; created: number;
+  /** When a student pass was first found without its member. Kept a week in case the member is being corrected. */
+  orphanedAt: number | null;
 }
 interface Check extends QueuedCheck { eventId: string }
 
@@ -33,7 +35,9 @@ const uuid = () => crypto.randomUUID();
 const nameKey = (n: string) => n.trim().replace(/\s+/g, ' ').toLowerCase();
 const tidy = (n: string) => n.trim().replace(/\s+/g, ' ');
 
-/** An in-memory copy of migration 0059's rules, for tests and the offline showcase. */
+const ORPHAN_DAYS = 7;
+
+/** An in-memory copy of the rules in migrations 0059 and 0060, for tests and the offline showcase. */
 export class MemoryPasses {
   private passes: Pass[] = [];
   private checks: Check[] = [];
@@ -58,7 +62,7 @@ export class MemoryPasses {
     if (!this.host.userId() || !this.host.event(eventId) || !this.host.staff(eventId)) throw forbidden('Door checks are for event organisers');
   }
   private holderOf(p: Pass): { name: string; role: string } | null {
-    if (p.kind === 'manager') return { name: p.holderName, role: 'Team Manager' };
+    if (p.kind === 'manager') return this.host.managers(p.eventId, p.teamId).includes(p.userId!) ? { name: p.holderName, role: 'Team Manager' } : null;
     const m = this.host.members(p.eventId, p.teamId).find((x) => x.id === p.memberId);
     return m ? { name: tidy(m.name), role: m.role.trim() } : null;
   }
@@ -79,35 +83,45 @@ export class MemoryPasses {
     return { passId: p.id, kind: p.kind, name: h.name, role: h.role, team: { number: t.number, name: t.name, school: t.school }, event: { id: e.id, name: e.name, startsOn: e.startsOn, days: s.days },
       stream: s.stream, activities: s.activities, timezone: s.timezone, portrait: p.portrait, pulseKey: this.pulseKey(p.eventId), now: this.now() };
   }
-  private sync(eventId: string, teamId: string): void {
+  private sync(eventId: string, teamId: string, opened = true): void {
     const members = this.host.members(eventId, teamId), live = new Set(members.map((m) => m.id));
     const mine = () => this.passes.filter((p) => p.eventId === eventId && p.teamId === teamId);
     for (const m of members) {
       const hash = m.photoBase64 ?? '', key = nameKey(m.name);
       const existing = mine().find((p) => p.kind === 'student' && p.memberId === m.id);
-      if (existing) { existing.nameKey = key; existing.sourceHash = hash; continue; }
+      if (existing) { existing.nameKey = key; existing.sourceHash = hash; existing.orphanedAt = null; continue; }
       const orphans = mine().filter((p) => p.kind === 'student' && !live.has(p.memberId!));
       const hit = orphans.find((p) => hash !== '' && p.sourceHash === hash) ?? orphans.find((p) => key !== '' && p.nameKey === key);
-      if (hit) { hit.memberId = m.id; hit.nameKey = key; hit.sourceHash = hash; }
+      if (hit) { hit.memberId = m.id; hit.nameKey = key; hit.sourceHash = hash; hit.orphanedAt = null; }
       else this.passes.push({ id: uuid(), eventId, teamId, kind: 'student', memberId: m.id, userId: null, holderName: '', nameKey: key, sourceHash: hash, portrait: null, portraitHash: null,
-        token: null, holder: null, presenter: null, linkSentAt: null, claimedAt: null, created: ++this.seq });
+        token: null, holder: null, presenter: null, linkSentAt: null, claimedAt: null, created: ++this.seq, orphanedAt: null });
     }
     const managers = this.host.managers(eventId, teamId);
     for (const userId of managers) if (!mine().some((p) => p.kind === 'manager' && p.userId === userId))
       this.passes.push({ id: uuid(), eventId, teamId, kind: 'manager', memberId: null, userId, holderName: '', nameKey: '', sourceHash: '', portrait: null, portraitHash: null,
-        token: null, holder: null, presenter: null, linkSentAt: null, claimedAt: null, created: ++this.seq });
-    const gone = new Set(mine().filter((p) => (p.kind === 'student' ? !live.has(p.memberId!) : !managers.includes(p.userId!))).map((p) => p.id));
+        token: null, holder: null, presenter: null, linkSentAt: null, claimedAt: null, created: ++this.seq, orphanedAt: null });
+    // A pass whose member has gone is refused from now on. One that reached a phone, or has a link out, is kept a week.
+    const now = this.now(), orphan = (p: Pass) => p.kind === 'student' && !live.has(p.memberId!);
+    for (const p of mine()) if (orphan(p) && p.orphanedAt === null) p.orphanedAt = now;
+    // A manager who is removed takes with them whatever they were showing on the team's behalf.
+    if (mine().some((p) => p.kind === 'manager' && !managers.includes(p.userId!))) for (const p of mine()) if (p.kind === 'student') p.presenter = null;
+    const gone = new Set(mine().filter((p) => (p.kind === 'student'
+      ? orphan(p) && ((p.holder === null && p.token === null) || now - p.orphanedAt! > ORPHAN_DAYS * 86_400_000) : opened && !managers.includes(p.userId!))).map((p) => p.id));
     this.passes = this.passes.filter((p) => !gone.has(p.id));
     this.checks = this.checks.filter((c) => !gone.has(c.passId));
+  }
+  /** The database brings passes in line whenever a team's members or managers change. Here that happens on the way in. */
+  private follow(eventId: string): void {
+    for (const key of new Set(this.passes.filter((p) => p.eventId === eventId).map((p) => p.teamId))) if (this.host.team(eventId, key)) this.sync(eventId, key, false);
   }
 
   async teamPasses(eventId: string, teamId: string): Promise<TeamPasses> {
     this.teamAccess(eventId, teamId); this.sync(eventId, teamId);
     const e = this.host.event(eventId)!, t = this.host.team(eventId, teamId)!, s = this.schedule(eventId, teamId), order = this.host.members(eventId, teamId).map((m) => m.id);
-    const rows = this.passes.filter((p) => p.eventId === eventId && p.teamId === teamId)
+    const rows = this.passes.filter((p) => p.eventId === eventId && p.teamId === teamId && this.holderOf(p))
       .sort((a, b) => a.kind.localeCompare(b.kind) || order.indexOf(a.memberId ?? '') - order.indexOf(b.memberId ?? '') || a.created - b.created);
     const passes: TeamPass[] = rows.map((p) => { const h = this.holderOf(p)!; return { id: p.id, kind: p.kind, memberId: p.memberId, name: h.name, role: h.role,
-      status: p.kind === 'manager' ? (p.presenter ? 'claimed' : 'new') : p.holder ? 'claimed' : p.token ? 'sent' : 'new', claimedAt: p.claimedAt, linkSentAt: p.linkSentAt, portrait: p.portrait,
+      status: p.holder ? 'claimed' : p.token ? 'sent' : 'new', claimedAt: p.claimedAt, linkSentAt: p.linkSentAt, portrait: p.portrait,
       portraitStale: p.kind === 'student' && (p.portrait === null || p.portraitHash !== p.sourceHash), mine: p.kind === 'manager' && p.userId === this.host.userId() }; });
     return { now: this.now(), team: { id: t.id, number: t.number, name: t.name, school: t.school }, event: { id: e.id, name: e.name, startsOn: e.startsOn, days: s.days },
       stream: s.stream, activities: s.activities, timezone: s.timezone, pulseKey: this.pulseKey(eventId), passes };
@@ -128,7 +142,7 @@ export class MemoryPasses {
   }
   async passLink(passId: string): Promise<string> {
     const p = this.guard(passId);
-    if (p.kind !== 'student') throw new ApiError('invalid', 'A manager’s pass opens when the manager signs in');
+    if (p.kind === 'manager' && p.userId !== this.host.userId() && !this.host.staff(p.eventId)) throw forbidden('A manager sends their own pass to their own phone');
     p.token = randomHex(32); p.holder = null; p.claimedAt = null; p.linkSentAt = new Date(this.now()).toISOString();
     return p.token;
   }
@@ -138,11 +152,14 @@ export class MemoryPasses {
   }
   async presentPass(passId: string): Promise<string> {
     const p = this.guard(passId);
-    p.presenter = randomHex(32);
+    // Everyone allowed to show a pass shares one secret, so a second person, or a reload, does not stop the first.
+    p.presenter ??= randomHex(32);
     return p.presenter;
   }
   /** What the student's phone does with its link. No account is involved. */
   async claimPass(passId: string, token: string): Promise<{ secret: string; card: PassCardData }> {
+    const found = this.passes.find((x) => x.id === passId);
+    if (found) this.follow(found.eventId);
     const p = this.passes.find((x) => x.id === passId && x.token !== null && x.token === token);
     if (!p || !this.host.event(p.eventId) || !this.holderOf(p)) throw new ApiError('forbidden', 'pass link not valid');
     p.holder = randomHex(32); p.token = null; p.claimedAt = new Date(this.now()).toISOString();
@@ -153,6 +170,8 @@ export class MemoryPasses {
     return null;
   }
   async passCard(passId: string, step: number, mac: string): Promise<PassCardData> {
+    const found = this.passes.find((x) => x.id === passId);
+    if (found) this.follow(found.eventId);
     const p = this.passes.find((x) => x.id === passId);
     if (!p || Math.abs(step - currentStep(this.now())) > 1 || !this.host.event(p.eventId) || !this.holderOf(p) || !(await this.signer(p, step, mac))) throw new ApiError('forbidden', 'pass not valid');
     return this.card(p);
@@ -165,7 +184,7 @@ export class MemoryPasses {
     return new Intl.DateTimeFormat('en-CA', { timeZone: this.host.schedule(eventId)?.timezone ?? 'Asia/Kolkata' }).format(new Date(at));
   }
   async checkPass(eventId: string, code: string, options: CheckOptions = {}): Promise<PassCheckResult> {
-    this.doorAccess(eventId);
+    this.doorAccess(eventId); this.follow(eventId);
     const parsed = parsePassCode(code);
     const p = parsed && this.passes.find((x) => x.id === parsed.passId);
     if (!parsed || !p) return { result: 'unknown' };
@@ -185,7 +204,7 @@ export class MemoryPasses {
     return this.passes.filter((p) => p.eventId === eventId && this.holderOf(p)).sort((a, b) => this.host.team(eventId, a.teamId)!.number.localeCompare(this.host.team(eventId, b.teamId)!.number) || a.kind.localeCompare(b.kind) || a.created - b.created);
   }
   async doorList(eventId: string): Promise<DoorList> {
-    this.doorAccess(eventId);
+    this.doorAccess(eventId); this.follow(eventId);
     return { now: this.now(), timezone: this.host.schedule(eventId)?.timezone ?? 'Asia/Kolkata', pulseKey: this.pulseKey(eventId),
       passes: this.listed(eventId).map((p) => { const h = this.holder(p); return { id: p.id, kind: p.kind, name: h.name, role: h.role, team: h.team, stream: h.stream, holder: p.holder, presenter: p.presenter, hasPortrait: p.portrait !== null }; }) };
   }
@@ -204,7 +223,7 @@ export class MemoryPasses {
     return added;
   }
   async passArrivals(eventId: string): Promise<PassArrivals> {
-    this.doorAccess(eventId);
+    this.doorAccess(eventId); this.follow(eventId);
     const day = this.today(eventId, this.now()), listed = this.listed(eventId);
     const arrived = listed.flatMap((p) => {
       const first = this.checks.filter((c) => c.passId === p.id && c.result === 'genuine' && this.today(eventId, Date.parse(c.scannedAt)) === day).sort((a, b) => a.scannedAt.localeCompare(b.scannedAt))[0];
