@@ -18,6 +18,20 @@ describe('platform layout rules', () => {
     expect(rule![1]).toMatch(/word-break:\s*break-all/);
   });
 
+  // Beside the tools (theme switch, email, two buttons: about 444px) the save status gets only what is left:
+  // nothing at 641px, and a warning such as "2 scores waiting to send…" broke one word per line up to about 860px.
+  it('gives the save status its own header row up to 1000px, so a warning is never squeezed beside the tools', () => {
+    const compact = css.match(/@media \(max-width: 1000px\)\s*\{\s*\.site-header \{[\s\S]*?\n\}/);
+    expect(compact, 'compact frame rules').not.toBeNull();
+    const grid = compact![0].match(/\.site-header__in\s*\{([^}]*)\}/);
+    expect(grid, 'compact .site-header__in rule').not.toBeNull();
+    expect(grid![1]).toMatch(/grid-template-columns:\s*auto minmax\(0, 1fr\)\s*;/);
+    const bar = compact![0].match(/\.sync-bar\s*\{([^}]*)\}/);
+    expect(bar, 'compact .sync-bar rule').not.toBeNull();
+    expect(bar![1]).toMatch(/grid-column:\s*1 \/ -1/);
+    expect(bar![1]).toMatch(/grid-row:\s*2/);
+  });
+
   // On a phone the header's second column is capped (190px at 320px wide) and holds a 44px theme switch plus
   // two buttons that never shrink. Without wrapping, the right-aligned buttons slide left over the switch.
   it('drops the account buttons to their own row on a narrow phone instead of covering the theme switch', () => {

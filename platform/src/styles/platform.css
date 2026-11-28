@@ -118,6 +118,9 @@ main code { overflow-wrap: anywhere; word-break: break-all; }
 .event-rail__toggle[aria-expanded="true"] .event-rail__toggle-hint::after { transform: translateY(2px) rotate(-135deg); }
 @media (max-width: 1000px) {
   .site-header { position: static; }
+  /* The save status takes its own row. Beside the tools it gets only what they leave: nothing at 641px, and a warning broke one word per line. */
+  .site-header__in { grid-template-columns: auto minmax(0, 1fr); row-gap: 6px; }
+  .sync-bar { grid-column: 1 / -1; grid-row: 2; }
   .workspace--event { grid-template-columns: minmax(0, 1fr); }
   .event-rail { position: sticky; top: 0; z-index: 25; height: auto; overflow: visible; border-inline-end: 0; border-bottom: 1px solid var(--chrome-rule); }
   .event-rail__event { display: none; }
@@ -481,9 +484,8 @@ main:has(.graphics-screen) { max-width: 1800px; padding-block: 24px; }
 
 /* ---------- Small screens and accessibility ---------- */
 @media (max-width: 640px) {
-  .site-header__in { grid-template-columns: auto minmax(0, 1fr); gap: 6px 12px; }
+  .site-header__in { gap: 6px 12px; }
   .site-header .brand-home img { height: 32px; max-width: 120px; }
-  .sync-bar { grid-column: 1 / -1; grid-row: 2; }
   /* This column is capped, so the tools wrap: on the narrowest phones the buttons take their own row instead of sliding over the theme switch. */
   .header-tools { flex-wrap: wrap; gap: 4px; }
   .who { gap: 6px; }
