@@ -1,6 +1,6 @@
 # Paddock Pass: digital ID cards for regional events
 
-Status: draft for approval · 28 November 2026
+Status: approved by the user · 28 November 2026
 
 ## Why
 
@@ -59,7 +59,7 @@ The replacement has to do the two jobs the printed card did, and it should look 
 | How it is checked | Scan at the entrance; glance checks elsewhere, still holographic |
 | Connectivity | Assume patchy. Passes and scanning must work offline |
 | How students get a pass | A personal link from the team manager, plus the manager can show any of the team's passes |
-| Look | The prototype's direction, toned down: keep the foil and hologram, calm the line work and motion |
+| Look | Silver: black carbon, white type, silver foil, no neon. The STEM Racing track shape must feature |
 
 ## Approaches considered
 
@@ -164,20 +164,26 @@ One shared card module draws both the student's page and the manager's cards.
 - The team's next activities from the published schedule, worked out on the phone so it is right offline.
 - The screen is kept awake while this side is showing, where the browser allows it.
 
-**The look (the prototype's calmer cut)**
+**The look: Silver**
 
-The approved reference is the second version of the throwaway prototype (a private page, not in this repository).
-Its shader and layout are the starting point: the build ports them into the card module and trims further where
-needed for speed. The prototype's fake data, controls and fixed sizes are not carried over.
+The user rejected the first two prototype cuts as too neon ("too GTA 6") and chose the Silver finish from the third
+version of the throwaway prototype (a private page, not in this repository), with one addition: the STEM Racing
+track shape must feature on the card. That prototype's shader and layout are the starting point. Its fake data,
+controls, fixed sizes and its other two finishes (Pearl, Team colours) are not carried over.
 
-- Kept: carbon weave that shifts with tilt, the prismatic foil team number with glitter facets, the two-image
-  hologram patch (chequered flag one way, the holder's ghost portrait the other), the stream band, the clock.
-- Calmed: the banknote line work drops to a faint band behind the hologram patch and stays clear of all text. The
-  chevron sweep across the whole card goes; the pulse is the glyph plus a thin line along the stream band. The
-  moving edge light becomes a steady thin iridescent border that only shifts with tilt. The track watermark is
-  fainter. Idle motion is slower and smaller.
-- The card is always carbon, like the platform's frame, in both themes and both looks. The page around it follows
-  the theme and look.
+- Black carbon weave that shifts with tilt. White type. No pink, purple or rainbow glow anywhere.
+- The team number is cut from silver holographic foil with glitter facets. It is silver face-on and shows a faint
+  spectral fringe only at an angle.
+- The round hologram patch holds two images chosen by the angle: the **STEM Racing track shape** one way and the
+  holder's ghost portrait the other.
+- The track shape also sits large behind the lower half of the card as a fine silver foil outline.
+- A faint single-colour halo of banknote-style line work sits behind the hologram patch, clear of all text.
+- A steady silver hairline border that shifts with tilt.
+- The stream band uses flat flag colours (blue, yellow, red and so on), with the stream name written on it.
+- The only brand gradient on the card is a short rule under the role. A team manager's role is a solid white label.
+- Idle motion is slow and small.
+- The card is always black carbon, like the platform's frame, in both themes and both looks. The page around it
+  follows the theme and look.
 
 **Motion and tilt**
 
@@ -338,4 +344,5 @@ claiming or presenting again replaces it.
 - The sync pulse changes every 8 seconds.
 - A pass lives on one student phone at a time, plus the team manager's phone when the manager presents it.
 - No home-screen install in this version.
-- The card is always carbon, in every theme and look.
+- The card is always black carbon, in every theme and look.
+- The track shape appears twice: inside the hologram patch and as a large foil outline.
