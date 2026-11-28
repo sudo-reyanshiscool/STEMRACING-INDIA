@@ -23,12 +23,12 @@ const refused = () => new RpcError('pass link not valid', { code: '42501', statu
 const noSignal = () => new RpcError('Failed to fetch', { offline: true });
 
 const pages: PassPage[] = [];
-async function open(opts: { store?: PassStore; hash?: string; rpc?: (name: string, args: Record<string, unknown>) => unknown; now?: () => number }) {
+async function open(opts: { store?: PassStore; hash?: string; rpc?: (name: string, args: Record<string, unknown>) => unknown; now?: () => number; offline?: () => Promise<'ready' | 'saving' | 'never'> }) {
   const root = document.createElement('div'); document.body.append(root);
   const rpc = vi.fn(async (name: string, args: Record<string, unknown> = {}) => (opts.rpc ?? (() => { throw noSignal(); }))(name, args));
   const clearHash = vi.fn();
   const store = opts.store ?? memoryPassStore();
-  const page = await startPassPage(root, { store, rpc: rpc as never, hash: opts.hash ?? '', clearHash, now: opts.now ?? (() => DEVICE), shader: false, confirm: () => true });
+  const page = await startPassPage(root, { store, rpc: rpc as never, hash: opts.hash ?? '', clearHash, now: opts.now ?? (() => DEVICE), shader: false, confirm: () => true, offline: opts.offline });
   pages.push(page);
   return { root, rpc, clearHash, store, page };
 }
@@ -86,6 +86,27 @@ describe('the pass page', () => {
     expect(text(root.querySelector('.pass-card__name')!)).toBe('Asha Rao');
     expect(text(root)).toContain('No signal');
     expect(root.querySelector('.pass-page__gone')).toBeNull();
+  });
+
+  it('only promises to work without signal once the page itself is saved on the phone', async () => {
+    const store = memoryPassStore(); await store.put(await record());
+    let settle: (state: 'ready' | 'saving' | 'never') => void = () => undefined;
+    const { root, page } = await open({ store, rpc: (name) => (name === 'pass_now' ? DEVICE : card()), offline: () => new Promise((resolve) => { settle = resolve; }) });
+    await page.idle();
+    // The pass is saved, but the page that shows it is still being saved: with no signal it would not open yet.
+    expect(text(root.querySelector('.pass-page__state')!)).toContain('Up to date');
+    expect(text(root.querySelector('.pass-page__state')!)).toContain('Still saving');
+    expect(text(root)).not.toContain('works without signal');
+    settle('ready'); await Promise.resolve(); await Promise.resolve();
+    expect(text(root.querySelector('.pass-page__state')!)).toContain('works without signal');
+  });
+
+  it('says so where the browser can never open the pass without signal', async () => {
+    const store = memoryPassStore(); await store.put(await record());
+    const { root, page } = await open({ store, rpc: (name) => (name === 'pass_now' ? DEVICE : card()), offline: async () => 'never' });
+    await page.idle(); await Promise.resolve();
+    expect(text(root.querySelector('.pass-page__state')!)).toContain('needs signal to open');
+    expect(text(root)).not.toContain('works without signal');
   });
 
   it('lets a phone that holds several passes switch between them', async () => {

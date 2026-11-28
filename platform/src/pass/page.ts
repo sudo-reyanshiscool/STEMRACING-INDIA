@@ -16,7 +16,13 @@ export interface PassPageDeps {
   now?: () => number;
   shader?: boolean;
   confirm?: (question: string) => boolean;
+  /**
+   * Whether the page itself (not the pass, which is kept separately) is saved on the phone, so it opens with no
+   * signal: 'ready', 'saving' while that is still under way, or 'never' in a browser that cannot. Assumed ready if not given.
+   */
+  offline?: () => Promise<OfflineState>;
 }
+export type OfflineState = 'ready' | 'saving' | 'never';
 export interface PassPage {
   /** Checks each saved pass with the server: fresh details, the right time, and whether it is still on this phone. */
   refresh(): Promise<void>;
@@ -29,9 +35,15 @@ const REFUSED = '42501', DAY = 86_400_000, CHOSEN = 'sri-pass-selected';
 type Signal = 'checking' | 'ok' | 'none' | 'fault';
 const SIGNAL_TEXT: Record<Signal, string> = {
   checking: 'Checking for updates…',
-  ok: 'Up to date. Saved on this phone, so it works without signal.',
+  ok: 'Up to date.',
   none: 'No signal. Your saved pass still works.',
   fault: 'Could not check for updates just now. Your saved pass still works.',
+};
+
+const OFFLINE_TEXT: Record<OfflineState, string> = {
+  ready: 'Saved on this phone, so it works without signal.',
+  saving: 'Still saving to this phone: keep this page open a little longer, with signal.',
+  never: 'In this browser the pass needs signal to open. Your phone’s own browser (Safari or Chrome) keeps it for use without.',
 };
 
 function finished(card: PassCardData, nowMs: number): boolean {
@@ -44,6 +56,8 @@ export async function startPassPage(root: HTMLElement, deps: PassPageDeps): Prom
   const { store, rpc } = deps, now = deps.now ?? Date.now, ask = deps.confirm ?? ((q: string) => window.confirm(q));
   let records: PassRecord[] = store ? await store.all().catch(() => []) : [];
   let link = parsePassLink(deps.hash ?? ''), notice: string | null = null, signal: Signal = records.length ? 'checking' : 'ok', adding = false, destroyed = false;
+  // Nothing is promised about working without signal until the page itself is known to be saved.
+  let offline: OfflineState = deps.offline ? 'saving' : 'ready';
   let selected: string | null = null;
   try { selected = localStorage.getItem(CHOSEN); } catch { /* storage is off: start on the first pass */ }
   let view: PassCard | null = null, viewOf: string | null = null;
@@ -81,7 +95,7 @@ export async function startPassPage(root: HTMLElement, deps: PassPageDeps): Prom
       records.map((r) => h('button', { type: 'button', 'aria-pressed': String(r === current), onclick: () => { choose(r.passId); render(); } }, r.card.name || 'Pass'))));
     const cardEl = showCard(current);
     if (cardEl) {
-      parts.push(h('div', { class: 'pass-page__stage' }, cardEl), h('p', { class: 'pass-page__hint' }, 'Tap the card to show your entry code.'), h('p', { class: 'pass-page__state', role: 'status' }, SIGNAL_TEXT[signal]));
+      parts.push(h('div', { class: 'pass-page__stage' }, cardEl), h('p', { class: 'pass-page__hint' }, 'Tap the card to show your entry code.'), h('p', { class: 'pass-page__state', role: 'status' }, signal === 'ok' ? `${SIGNAL_TEXT.ok} ${OFFLINE_TEXT[offline]}` : SIGNAL_TEXT[signal]));
       if (current && finished(current.card, now() + current.offset)) parts.push(h('p', { class: 'pass-page__state' }, 'This event has finished. ', h('button', { type: 'button', class: 'pass-page__link', onclick: () => remove(current) }, 'Remove this pass')));
     } else if (current) {
       parts.push(h('section', { class: 'pass-page__gone' },
@@ -147,6 +161,7 @@ export async function startPassPage(root: HTMLElement, deps: PassPageDeps): Prom
   }
 
   render();
+  void deps.offline?.().then((state) => { offline = state; render(); }, () => { offline = 'never'; render(); });
   if (records.length) void run(refresh);
   return {
     refresh: () => run(refresh),
