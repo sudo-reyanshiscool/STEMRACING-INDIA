@@ -238,6 +238,15 @@ export function createPassCard(initial: PassCardData, options: PassCardOptions =
   }
 
   function releaseWake(): void { void wake?.release().catch(() => { /* already released */ }); wake = null; }
+  /** Keeps the screen on while someone is holding the code up to a scanner. */
+  function holdWake(): void {
+    if (wake || !back || destroyed || document.hidden) return;
+    const lock = (navigator as { wakeLock?: { request(type: 'screen'): Promise<{ release(): Promise<void> }> } }).wakeLock;
+    lock?.request('screen').then((held) => { if (back && !destroyed && !wake) wake = held; else void held.release(); }).catch(() => { /* not allowed here: the phone's own timeout applies */ });
+  }
+  // The browser lets go of the screen by itself whenever the page is hidden or the phone locked, so it is asked again on return.
+  const onVisibility = () => { if (document.hidden) wake = null; else holdWake(); };
+  document.addEventListener('visibilitychange', onVisibility);
   function flip(to: boolean = !back): void {
     if (to === back) return;
     back = to;
@@ -246,14 +255,13 @@ export function createPassCard(initial: PassCardData, options: PassCardOptions =
     front.setAttribute('aria-hidden', String(back)); backFace.setAttribute('aria-hidden', String(!back));
     if (back) {
       void paintCode(true);
-      // Keep the screen on while someone is holding the code up to a scanner.
-      const lock = (navigator as { wakeLock?: { request(type: 'screen'): Promise<{ release(): Promise<void> }> } }).wakeLock;
-      lock?.request('screen').then((held) => { if (back && !destroyed) wake = held; else void held.release(); }).catch(() => { /* not allowed here: the phone's own timeout applies */ });
+      holdWake();
     } else releaseWake();
   }
 
-  el.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; tilt.arm(); });
+  el.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; });
   el.addEventListener('click', (e) => {
+    tilt.arm();
     const moved = downAt ? Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) : 0;
     downAt = null;
     if (options.tapToFlip !== false && moved < 8) flip();
@@ -270,6 +278,6 @@ export function createPassCard(initial: PassCardData, options: PassCardOptions =
     flip,
     get back() { return back; },
     setActive,
-    destroy() { if (destroyed) return; setActive(false); destroyed = true; tilt.destroy(); },
+    destroy() { if (destroyed) return; setActive(false); destroyed = true; tilt.destroy(); document.removeEventListener('visibilitychange', onVisibility); },
   };
 }

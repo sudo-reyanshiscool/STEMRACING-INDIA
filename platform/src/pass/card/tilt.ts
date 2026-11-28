@@ -8,7 +8,10 @@ export interface Tilt {
   readonly y: number;
   /** Moves towards the target. Returns true when the tilt changed enough to be worth drawing again. */
   step(seconds: number): boolean;
-  /** Call from a tap. iOS only hands over the phone's orientation after being asked from a touch. */
+  /**
+   * Call from a completed tap (a click), not from the finger landing: an iPhone only puts the question when asked
+   * from inside a tap, and does not count the moment of touching down as one.
+   */
   arm(): void;
   destroy(): void;
 }
@@ -17,7 +20,7 @@ const clamp = (v: number) => Math.max(-1, Math.min(1, v));
 type OrientationCtor = { requestPermission?: () => Promise<'granted' | 'denied'> };
 
 export function createTilt(target: HTMLElement, options: { reduce: boolean }): Tilt {
-  let x = 0, y = 0, px = 0, py = 0, pointerAt = -99, gx = 0, gy = 0, gyro = false, beta0: number | null = null, gamma0 = 0, listening = false, asked = false, last = 0;
+  let x = 0, y = 0, px = 0, py = 0, pointerAt = -99, gx = 0, gy = 0, gyro = false, beta0: number | null = null, gamma0 = 0, listening = false, asked = false, asking = false, last = 0;
 
   const onPointer = (e: PointerEvent) => {
     const r = target.getBoundingClientRect();
@@ -53,9 +56,12 @@ export function createTilt(target: HTMLElement, options: { reduce: boolean }): T
       return Math.abs(dx) + Math.abs(dy) > 0.0015;
     },
     arm() {
-      if (asked || listening || !Orientation || typeof Orientation.requestPermission !== 'function') return;
-      asked = true;
-      Orientation.requestPermission().then((answer) => { if (answer === 'granted') listen(); }).catch(() => { /* refused: touch still tilts the card */ });
+      if (asked || asking || listening || !Orientation || typeof Orientation.requestPermission !== 'function') return;
+      asking = true;
+      // Only a real answer settles it. If the phone would not put the question this time, the next tap tries again.
+      Orientation.requestPermission().then((answer) => { asked = true; if (answer === 'granted') listen(); })
+        .catch(() => { /* not asked: touch still tilts the card meanwhile */ })
+        .finally(() => { asking = false; });
     },
     destroy() {
       window.removeEventListener('deviceorientation', onOrientation);
