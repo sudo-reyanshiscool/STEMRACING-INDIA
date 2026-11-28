@@ -13,11 +13,11 @@ const tiles = async (email: string | null) => {
 
 describe('eventHomeScreen', () => {
   it('shows each role the tiles it can use', async () => {
-    expect(await tiles(EMAILS.org)).toEqual(['Scheduling & Streams', 'Teams', 'Graphics', 'Media Assets', 'Team branding', 'People', 'Draw lots', 'Judge', 'Scores', 'Race control', 'Moderation', 'Rankings', 'Submissions', 'Team files', 'Team feedback', 'Results']);
-    expect(await tiles(EMAILS.chair)).toEqual(['Scheduling & Streams', 'Teams', 'Graphics', 'Media Assets', 'Team branding', 'People', 'Draw lots', 'Judge', 'Scores', 'Race control', 'Moderation', 'Rankings', 'Submissions', 'Team files', 'Team feedback', 'Results']);
+    expect(await tiles(EMAILS.org)).toEqual(['Scheduling & Streams', 'Teams', 'Graphics', 'Media Assets', 'Team branding', 'People', 'Draw lots', 'Judge', 'Scores', 'Race control', 'Moderation', 'Rankings', 'Submissions', 'Team files', 'Paddock Passes', 'Door check', 'Team feedback', 'Results']);
+    expect(await tiles(EMAILS.chair)).toEqual(['Scheduling & Streams', 'Teams', 'Graphics', 'Media Assets', 'Team branding', 'People', 'Draw lots', 'Judge', 'Scores', 'Race control', 'Moderation', 'Rankings', 'Submissions', 'Team files', 'Paddock Passes', 'Door check', 'Team feedback', 'Results']);
     expect(await tiles(EMAILS.judge)).toEqual(['My scorecards', 'Scores', 'Results']);
     expect(await tiles(EMAILS.lead)).toEqual(['My scorecards', 'Scores', 'Moderation', 'Results']);
-    expect(await tiles(EMAILS.mgr)).toEqual(['My Schedule', 'Submissions', 'Team files', 'Team feedback', 'Results', 'Team branding']);
+    expect(await tiles(EMAILS.mgr)).toEqual(['My Schedule', 'Submissions', 'Team files', 'Team feedback', 'Results', 'Team branding', 'Paddock Passes']);
   });
 
   it('shows anonymous visitors only the results tile for released events', async () => {
@@ -46,7 +46,7 @@ describe('eventHomeScreen', () => {
     const { ctx } = makeCtx(api);
     const el = await eventHomeScreen(ctx, ev.id);
     const hrefs = [...el.querySelectorAll('a.tile')].map((a) => a.getAttribute('href'));
-    expect(hrefs).toEqual(['schedule', 'teams', 'graphics', 'media', 'branding', 'people', 'draw', 'score', 'scores', 'racing', 'moderate', 'rankings', 'submissions', 'team-files', 'team-feedback', 'results'].map((s) => `#/event/${ev.id}/${s}`));
+    expect(hrefs).toEqual(['schedule', 'teams', 'graphics', 'media', 'branding', 'people', 'draw', 'score', 'scores', 'racing', 'moderate', 'rankings', 'submissions', 'team-files', 'passes', 'door', 'team-feedback', 'results'].map((s) => `#/event/${ev.id}/${s}`));
     expect(text(el)).toContain('Not released yet');
     await releaseResults(api, ev.id);
     expect(text(await eventHomeScreen(ctx, ev.id))).toContain('Results released');

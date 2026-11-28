@@ -18,6 +18,8 @@ export interface PassCardOptions {
   reducedMotion?: boolean;
   /** Turn the card over when it is tapped. On by default. */
   tapToFlip?: boolean;
+  /** false builds the card at rest: no timers and no graphics context until setActive(true). */
+  active?: boolean;
   /** Shown in place of the QR when there is no code to show. */
   noCodeText?: string;
 }
@@ -103,8 +105,8 @@ export function createPassCard(initial: PassCardData, options: PassCardOptions =
     h('div', { class: 'pass-card__carbon' }), h('div', { class: 'pass-card__back-top' }, h('strong', null, 'Entry scan'), kind),
     h('div', { class: 'pass-card__qr' }, qrTile, h('div', { class: 'pass-card__qr-bar' }, qrBar), h('p', { class: 'pass-card__qr-note' }, 'New code every 30 seconds. A screenshot stops working.')),
     h('div', { class: 'pass-card__back-who' }, backName, backLine, next), h('div', { class: 'pass-card__glare' }));
-  const body = h('div', { class: 'pass-card__body' }, h('div', { class: 'pass-card__shadow' }), front, backFace);
-  const el = h('div', { class: `pass-card pass-card--basic${still ? ' pass-card--still' : ''}`, tabindex: '0', role: 'group' }, body);
+  const body = h('div', { class: 'pass-card__body' }, front, backFace);
+  const el = h('div', { class: `pass-card pass-card--basic${still ? ' pass-card--still' : ''}`, tabindex: '0', role: 'group' }, h('div', { class: 'pass-card__shadow' }), body);
   const tilt = createTilt(el, { reduce: still });
 
   function paintNext(): void {
@@ -121,9 +123,10 @@ export function createPassCard(initial: PassCardData, options: PassCardOptions =
     el.style.setProperty('--pc-stream', colour.fill); el.style.setProperty('--pc-stream-ink', colour.ink);
     el.setAttribute('aria-label', `${holder}, ${data.role}, team ${data.team.number} ${data.team.name}. Press Enter to turn the card over.`);
     number.textContent = data.team.number; number.classList.toggle('is-long', data.team.number.length > 3);
-    eventName.textContent = data.event.name;
+    eventName.textContent = data.event.name; eventName.title = data.event.name;
     name.textContent = holder; name.classList.toggle('is-long', holder.length > 22);
     role.textContent = data.role; role.classList.toggle('is-manager', manager);
+    role.hidden = manager && !data.name;   // an unnamed manager's card already says Team Manager where the name goes
     label.textContent = `Team ${data.team.number}`; team.textContent = data.team.name; school.textContent = data.team.school;
     live.replaceChildren(h('b', null, '● '), dates ? `Live · valid ${dates}` : 'Live');
     stream.textContent = data.stream?.name ?? 'Stream to be announced'; stream.classList.toggle('is-long', !data.stream || data.stream.name.length > 10);
@@ -259,7 +262,7 @@ export function createPassCard(initial: PassCardData, options: PassCardOptions =
 
   front.setAttribute('aria-hidden', 'false');
   paint();
-  setActive(true);
+  if (options.active !== false) setActive(true);
 
   return {
     el,

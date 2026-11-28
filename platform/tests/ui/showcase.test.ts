@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+import { passesScreen } from '../../src/ui/passes';
+import { doorScreen } from '../../src/ui/door';
 import { describe, expect, it, vi } from 'vitest';
 import { MemoryApi } from '../../src/api/memory';
 import { SHOWCASE_EVENT_ID, exitShowcaseHref } from '../../src/api/showcase';
@@ -40,9 +42,9 @@ describe('showcase navigation and presentation', () => {
     const seed = makeSeed();
     const api = MemoryApi.forShowcase(seed);
     const nav = eventNav((await api.getEvent(SHOWCASE_EVENT_ID))!, await api.myRoles(SHOWCASE_EVENT_ID), 'event');
-    expect([...nav.querySelectorAll('a')].map(text)).toEqual(['Event', 'Scheduling & Streams', 'People', 'Draw lots', 'Communications', 'Teams', 'Submissions', 'Team files', 'Team branding', 'Media Assets', 'Team feedback', 'Judge', 'Scores', 'Moderation', 'Race control', 'Graphics', 'Rankings', 'Results']);
+    expect([...nav.querySelectorAll('a')].map(text)).toEqual(['Event', 'Scheduling & Streams', 'People', 'Draw lots', 'Communications', 'Teams', 'Paddock Passes', 'Submissions', 'Team files', 'Team branding', 'Media Assets', 'Team feedback', 'Judge', 'Scores', 'Moderation', 'Race control', 'Graphics', 'Door check', 'Rankings', 'Results']);
     for (const screen of [eventHomeScreen, teamsScreen, peopleScreen, drawLotsScreen, communicationsScreen,
-      scoringScreen, scoresScreen, moderationScreen, rankingsScreen, resultsScreen, racingScreen, teamFeedbackScreen, teamFilesScreen]) {
+      scoringScreen, scoresScreen, moderationScreen, rankingsScreen, resultsScreen, racingScreen, teamFeedbackScreen, teamFilesScreen, passesScreen, doorScreen]) {
       const {ctx, leaves} = makeCtx(api);
       ctx.demo = true;
       const node = await screen(ctx, SHOWCASE_EVENT_ID);

@@ -813,5 +813,6 @@ export function createApiFromClient(sb: SupabaseClient<any, any, any>, options: 
     async recordPassChecks(eventId, checks) { return Number(ok(await guard(() => sb.rpc('record_pass_checks', { p_event: eventId, p_checks: checks }))) ?? 0); },
     async passArrivals(eventId) { return ok(await guard(() => sb.rpc('pass_arrivals', { p_event: eventId }))); },
     async passPulseKey(eventId) { return ok(await guard(() => sb.rpc('pass_pulse_key', { p_event: eventId }))) as string; },
+    async passClock() { return Number(ok(await guard(() => sb.rpc('pass_now')))); },
   };
 }

@@ -104,6 +104,7 @@ export class MemoryApi implements Api {
   recordPassChecks(eventId: string, checks: QueuedCheck[]) { return this.passDesk.recordPassChecks(eventId, checks); }
   passArrivals(eventId: string) { return this.passDesk.passArrivals(eventId); }
   passPulseKey(eventId: string) { return this.passDesk.passPulseKey(eventId); }
+  async passClock() { return Date.now(); }
   /** The two calls a student's phone makes without an account. Not part of Api: the pass page talks to the database itself. */
   claimPass(passId: string, token: string) { return this.passDesk.claimPass(passId, token); }
   passCard(passId: string, step: number, mac: string) { return this.passDesk.passCard(passId, step, mac); }

@@ -52,6 +52,8 @@ const SCREENS = {
   moderation: () => import('./ui/moderation'),
   rankings: () => import('./ui/rankings'),
   results: () => import('./ui/results'),
+  passes: () => import('./ui/passes'),
+  door: () => import('./ui/door'),
 };
 
 /** Once the first page is up, fetch the rest quietly so later pages open instantly, including on a dropped connection. */
@@ -166,6 +168,8 @@ async function boot(): Promise<void> {
     if (showcase && preview === null) { location.assign(exitShowcaseHref(location.pathname)); return; }
     try {
       changingSession = true; await finishScreen();
+      // A saved door list holds pass secrets, so it leaves this device with the session.
+      await import('./pass/door-store').then((m) => m.wipeDoorLists()).catch(() => undefined);
       await api.signOut();
       location.hash = '#/';
       await render({ name: 'home' });
@@ -297,6 +301,8 @@ async function screenFor(route: Route, ctx: Ctx): Promise<HTMLElement> {
     case 'moderate': return (await SCREENS.moderation()).moderationScreen(ctx, route.eventId);
     case 'rankings': return (await SCREENS.rankings()).rankingsScreen(ctx, route.eventId);
     case 'results': return (await SCREENS.results()).resultsScreen(ctx, route.eventId);
+    case 'passes': return (await SCREENS.passes()).passesScreen(ctx, route.eventId);
+    case 'door': return (await SCREENS.door()).doorScreen(ctx, route.eventId);
     default: return notFound('This screen is not built yet.', '#/', 'Back to events');
   }
 }

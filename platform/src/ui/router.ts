@@ -21,10 +21,12 @@ export type Route =
   | { name: 'branding'; eventId: string }
   | { name: 'media'; eventId: string }
   | { name: 'team-feedback'; eventId: string }
-  | { name: 'communications'; eventId: string };
+  | { name: 'communications'; eventId: string }
+  | { name: 'passes'; eventId: string }
+  | { name: 'door'; eventId: string };
 
 const HOME: Route = { name: 'home' };
-const SECTIONS = ['branding','schedule','my-schedule','submissions', 'team-files', 'media', 'team-feedback', 'teams', 'people', 'draw', 'communications', 'score', 'scores', 'moderate', 'rankings', 'results', 'racing', 'graphics'] as const;
+const SECTIONS = ['branding','schedule','my-schedule','submissions', 'team-files', 'media', 'team-feedback', 'teams', 'people', 'draw', 'communications', 'score', 'scores', 'moderate', 'rankings', 'results', 'racing', 'graphics', 'passes', 'door'] as const;
 
 export function parseHash(hash: string): Route {
   const parts = hash.replace(/^#\/?/, '').split('/');

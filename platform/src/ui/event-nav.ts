@@ -31,6 +31,7 @@ export function eventNav(event: EventRow, roles: RoleRow[], current: Route['name
     ['Teams', [
       staff && ['Teams', to('teams')],
       has('team_manager') && ['My Schedule', to('my-schedule')],
+      (staff || has('team_manager')) && ['Paddock Passes', to('passes')],
       (staff || has('team_manager')) && ['Submissions', to('submissions')],
       roles.length > 0 && ['Team files', to('team-files')],
       (staff || has('team_manager')) && ['Team branding', to('branding')],
@@ -45,6 +46,7 @@ export function eventNav(event: EventRow, roles: RoleRow[], current: Route['name
     ['Race day', [
       seesScores && ['Race control', to('racing')],
       staff && ['Graphics', to('graphics')],
+      staff && ['Door check', to('door')],
     ]],
     ['Results', [
       staff && ['Rankings', to('rankings')],
@@ -83,6 +85,8 @@ function classicEventNav(event: EventRow, roles: RoleRow[], current: Route['name
   if (has('chair', 'lead_judge')) items.push(['Moderation', { name: 'moderate', eventId: event.id }]);
   if (has('organiser', 'chair')) items.push(['Rankings', { name: 'rankings', eventId: event.id }]);
   if(has('team_manager'))items.push(['My Schedule',{name:'my-schedule',eventId:event.id}]);
+  if (has('organiser', 'chair', 'team_manager')) items.push(['Paddock Passes', { name: 'passes', eventId: event.id }]);
+  if (has('organiser', 'chair')) items.push(['Door check', { name: 'door', eventId: event.id }]);
   if(has('organiser','chair','team_manager'))items.push(['Submissions',{name:'submissions',eventId:event.id}]);
   if(has('organiser','chair','team_manager'))items.push(['Team branding',{name:'branding',eventId:event.id}]);
   if (roles.length) items.push(['Team files', {name:'team-files', eventId:event.id}]);

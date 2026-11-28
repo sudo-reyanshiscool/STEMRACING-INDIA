@@ -6,3 +6,4 @@
 @import './components.css';
 @import './platform.css';
 @import './compat.css';
+@import '../passes.css';

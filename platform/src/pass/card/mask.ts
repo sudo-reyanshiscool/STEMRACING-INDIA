@@ -25,7 +25,7 @@ export function drawMask(number: string, portrait: CanvasImageSource | null): HT
 
   // The team number, shrunk to fit beside the portrait however long it is.
   ctx.font = FONT; ctx.textAlign = 'right'; ctx.fillStyle = '#f00';
-  const room = MASK_W * 0.46, wide = ctx.measureText(number).width || 1, scale = Math.min(1, room / wide);
+  const room = MASK_W * 0.43, wide = ctx.measureText(number).width || 1, scale = Math.min(1, room / wide);
   ctx.save(); ctx.translate(MASK_W * 0.945, MASK_H * 0.30); ctx.scale(scale, scale); ctx.fillText(number, 0, 0); ctx.restore();
 
   // The track shape as a large outline, running off the right-hand edge behind the lower half of the card.

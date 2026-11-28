@@ -9,7 +9,8 @@
 .pass-card:focus-visible .pass-card__body { box-shadow: 0 0 0 3px #B9B2FF; }
 .pass-card__body { position: absolute; inset: 0; border-radius: 5.2cqw; transform-style: preserve-3d; transform: rotateX(var(--pc-rx)) rotateY(var(--pc-ry)); }
 .pass-card.is-flipped .pass-card__body { transform: rotateX(var(--pc-rx)) rotateY(calc(var(--pc-ry) + 180deg)); }
-.pass-card__shadow { position: absolute; inset: 6% 4% -3%; border-radius: 8cqw; background: #000; filter: blur(5cqw); opacity: .55; transform: translateZ(-40px); }
+/* Outside the turning body: inside it, a shadow set behind the front would land in front of the entry side once the card is turned over. */
+.pass-card__shadow { position: absolute; inset: 7% 5% -3%; border-radius: 8cqw; background: #000; filter: blur(5cqw); opacity: .55; pointer-events: none; }
 .pass-card__face { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; backface-visibility: hidden; -webkit-backface-visibility: hidden; background: var(--pc-face); box-shadow: inset 0 0 0 1px var(--pc-edge); }
 .pass-card__face--back { transform: rotateY(180deg); display: grid; grid-template-rows: auto 1fr auto; padding: 6.5% 7% 5.5%; gap: 3cqw; }
 .pass-card__fx-host { position: absolute; inset: 0; }
@@ -35,9 +36,9 @@
   background: #15161a; box-shadow: 0 0 0 .6cqw #c9ccd4; }
 .pass-card__patch i { width: 66%; height: 66%; background: conic-gradient(from calc(var(--pc-tilt) * 160deg), #f4f5f7, #8f96a3, #e9e4f2, #f4f5f7); }
 
-.pass-card__head { position: absolute; left: 7%; top: 4.4%; width: 50%; display: grid; gap: 1.4cqw; }
-.pass-card__logo { display: block; width: 62%; height: auto; }
-.pass-card__event { margin: 0; font-size: 2.7cqw; letter-spacing: .1em; text-transform: uppercase; color: var(--pc-soft); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.pass-card__head { position: absolute; left: 7%; top: 4.4%; width: 62%; display: grid; gap: 1.4cqw; }
+.pass-card__logo { display: block; width: 50%; height: auto; }
+.pass-card__event { margin: 0; font-size: 2.7cqw; letter-spacing: .1em; text-transform: uppercase; color: var(--pc-soft); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .pass-card__pulse { position: absolute; right: 6.5%; top: 4.4%; width: 10.5cqw; height: 10.5cqw; display: grid; place-items: center; }
 .pass-card__pulse svg { width: 100%; height: 100%; display: block; }
 .pass-card__pulse-label { position: absolute; right: 19%; top: 6.2%; margin: 0; font-size: 2.3cqw; letter-spacing: .16em; text-transform: uppercase; color: var(--pc-muted); text-align: right; line-height: 1.25; }
@@ -50,6 +51,7 @@
 .pass-card__name { font: italic 700 8.4cqw/0.98 "Magistral", "Arial Narrow", Arial, sans-serif; text-transform: uppercase; text-wrap: balance; overflow-wrap: anywhere; }
 .pass-card__name.is-long { font-size: 6.4cqw; }
 .pass-card__role { font-weight: 700; font-size: 3.5cqw; letter-spacing: .14em; text-transform: uppercase; color: var(--pc-soft); }
+.pass-card__role[hidden] { display: none; }
 .pass-card__role.is-manager { background: var(--pc-ink); color: var(--pc-face); padding: .9cqw 2.2cqw .7cqw; transform: skewX(-12deg); }
 .pass-card__rule { height: 2px; background: var(--pc-speed); margin: 1.6cqw 0 1cqw; width: 22%; transform: skewX(-12deg); }
 .pass-card__label { font-size: 2.5cqw; letter-spacing: .18em; text-transform: uppercase; color: var(--pc-muted); }
@@ -67,7 +69,7 @@
 .pass-card__back-top { display: flex; justify-content: space-between; align-items: baseline; gap: 3cqw; border-bottom: 1px solid var(--pc-muted); padding-bottom: 2.4cqw; }
 .pass-card__back-top strong { font: italic 700 6cqw/1 "Magistral", "Arial Narrow", Arial, sans-serif; text-transform: uppercase; }
 .pass-card__back-top span { font-size: 2.6cqw; letter-spacing: .16em; text-transform: uppercase; color: var(--pc-muted); }
-.pass-card__qr { align-self: center; justify-self: center; width: 74%; display: grid; gap: 2.4cqw; }
+.pass-card__qr { align-self: center; justify-self: center; width: 86%; display: grid; gap: 2.4cqw; }
 .pass-card__qr-tile { background: #fff; border-radius: 3cqw; padding: 5%; aspect-ratio: 1; display: grid; place-items: center; }
 .pass-card__qr-tile canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; }
 .pass-card__qr-tile p { margin: 0; color: #121317; font-size: 3.4cqw; text-align: center; padding: 0 4cqw; }

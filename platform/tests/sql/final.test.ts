@@ -259,28 +259,39 @@ describe('hardening across the whole schema after 0004', () => {
       expect(f.pub, `${f.proname} public`).toBe(false);
     }
     const anon = fns.rows.filter((f) => f.anon).map((f) => f.proname);
-    expect(anon).toEqual(['event_active', 'event_branding', 'event_released', 'has_role', 'ingest_denford', 'is_chair_or_organiser', 'is_member', 'judges_panel', 'leads_panel', 'manages_team', 'public_standings', 'sees_all_teams', 'show_screen_picture', 'show_screen_state']);
+    expect(anon).toEqual(['claim_pass', 'event_active', 'event_branding', 'event_released', 'has_role', 'ingest_denford', 'is_chair_or_organiser', 'is_member', 'judges_panel', 'leads_panel', 'manages_team', 'pass_card', 'pass_now', 'public_standings', 'sees_all_teams', 'show_screen_picture', 'show_screen_state']);
     const auth = fns.rows.filter((f) => f.auth && !f.anon).map((f) => f.proname);
     expect(auth).toEqual([
       'acknowledge_result_email_retry', 'apply_judge_draw', 'apply_team_number_draw', 'approve_team_photo',
-      'can_create_event', 'can_read_contact_audit', 'can_read_contact_broadcast', 'claim_invitations',
-      'complete_photo_processing', 'confirm_event_awards', 'create_branded_event', 'create_event', 'create_named_events', 'delete_compulsory_asset', 'delete_event', 'delete_team',
-      'delete_team_photo', 'download_compulsory_asset', 'download_team_brand_asset', 'download_team_file', 'download_team_photo', 'draw_lots_state', 'effective_event_roles',
-      'get_broadcast_team_photo', 'get_compulsory_assets', 'import_teams', 'inspection_scope', 'invite_organiser', 'invite_platform_member',
-      'is_conflicted', 'is_platform_owner', 'judge_can_score', 'judges_panel_any', 'leads_panel_any',
-      'list_deleted_events', 'list_event_invitations', 'list_event_penalties', 'list_event_people',
-      'list_team_concerns', 'list_team_files', 'list_team_photo_history', 'list_team_photos', 'my_schedule',
-      'organiser_identity_visible', 'owner_hide_mode', 'pair_race_timing', 'platform_access', 'platform_administrator', 'platform_manager', 'platform_spectator',
-      'publish_schedule', 'publish_show_screen', 'queue_bulk_photo_processing', 'queue_photo_processing', 'queue_race_followup',
-      'queue_reaction_races', 'race_timing_state', 'racing_state', 'record_submission_guide_progress', 'reject_team_photo', 'release_results',
-      'released_results', 'remove_event_award', 'remove_organiser', 'rename_event', 'rename_event', 'reopen_inspection', 'reopen_scorecard',
-      'reserve_invitation_email', 'reserve_submission_email', 'reserve_team_results_email', 'resolve_team_concern',
-      'restore_event', 'restore_team_photo_version', 'result_mail_state', 'save_card_review', 'save_event_award',
-      'save_inspection_scope', 'save_race', 'save_racing_setup', 'save_schedule', 'save_submission_rules', 'save_team_media_details',
-      'scheduling_state', 'set_judge_assignment', 'set_judge_exemption', 'set_judge_name', 'set_organiser_visibility', 'set_owner_hide_mode',
-      'set_team_contact', 'show_screen_link', 'snapshot_inputs', 'specification_visible', 'submission_guide_state', 'submission_state', 'submit_inspection',
-      'submit_team_concern', 'team_branding_profile', 'team_results_packet', 'upload_compulsory_asset', 'upload_corrected_team_photo', 'upload_team_file',
-      'upload_team_photo', 'withdraw_organiser_invitation', 'withdraw_results'
+      'can_create_event', 'can_read_contact_audit', 'can_read_contact_broadcast', 'check_pass',
+      'claim_invitations', 'complete_photo_processing', 'confirm_event_awards', 'create_branded_event',
+      'create_event', 'create_named_events', 'delete_compulsory_asset', 'delete_event',
+      'delete_team', 'delete_team_photo', 'door_list', 'door_portraits',
+      'download_compulsory_asset', 'download_team_brand_asset', 'download_team_file', 'download_team_photo',
+      'draw_lots_state', 'effective_event_roles', 'get_broadcast_team_photo', 'get_compulsory_assets',
+      'import_teams', 'inspection_scope', 'invite_organiser', 'invite_platform_member',
+      'is_conflicted', 'is_platform_owner', 'judge_can_score', 'judges_panel_any',
+      'leads_panel_any', 'list_deleted_events', 'list_event_invitations', 'list_event_penalties',
+      'list_event_people', 'list_team_concerns', 'list_team_files', 'list_team_photo_history',
+      'list_team_photos', 'my_schedule', 'organiser_identity_visible', 'owner_hide_mode',
+      'pair_race_timing', 'pass_arrivals', 'pass_link', 'pass_pulse_key',
+      'platform_access', 'platform_administrator', 'platform_manager', 'platform_spectator',
+      'present_pass', 'publish_schedule', 'publish_show_screen', 'queue_bulk_photo_processing',
+      'queue_photo_processing', 'queue_race_followup', 'queue_reaction_races', 'race_timing_state',
+      'racing_state', 'record_pass_checks', 'record_submission_guide_progress', 'reject_team_photo',
+      'release_results', 'released_results', 'remove_event_award', 'remove_organiser',
+      'rename_event', 'rename_event', 'reopen_inspection', 'reopen_scorecard',
+      'reserve_invitation_email', 'reserve_submission_email', 'reserve_team_results_email', 'reset_pass',
+      'resolve_team_concern', 'restore_event', 'restore_team_photo_version', 'result_mail_state',
+      'save_card_review', 'save_event_award', 'save_inspection_scope', 'save_race',
+      'save_racing_setup', 'save_schedule', 'save_submission_rules', 'save_team_media_details',
+      'scheduling_state', 'set_judge_assignment', 'set_judge_exemption', 'set_judge_name',
+      'set_manager_pass_name', 'set_organiser_visibility', 'set_owner_hide_mode', 'set_pass_portrait',
+      'set_team_contact', 'show_screen_link', 'snapshot_inputs', 'specification_visible',
+      'submission_guide_state', 'submission_state', 'submit_inspection', 'submit_team_concern',
+      'team_branding_profile', 'team_passes', 'team_results_packet', 'upload_compulsory_asset',
+      'upload_corrected_team_photo', 'upload_team_file', 'upload_team_photo', 'withdraw_organiser_invitation',
+      'withdraw_results',
     ]);
     for (const hidden of ['conflicts_guard', 'event_released_locked', 'protect_invitation_role', 'protect_organiser_removal', 'snapshots_guard']) {
       const f = fns.rows.find((x) => x.proname === hidden)!;

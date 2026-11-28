@@ -13,6 +13,7 @@ import { deleteEventControl } from './delete-event';
 import { renameEventControl } from './rename-event';
 import { canShowcase, showcaseHref } from '../api/showcase';
 import { eventDate } from './shell';
+import { passCheckPanel } from './pass-reference';
 
 export async function eventHomeScreen(ctx: Ctx, eventId: string): Promise<HTMLElement> {
   const [event, roles] = await Promise.all([ctx.api.getEvent(eventId), ctx.api.myRoles(eventId)]);
@@ -39,6 +40,8 @@ export async function eventHomeScreen(ctx: Ctx, eventId: string): Promise<HTMLEl
   if (has('organiser', 'chair')) tiles.push(tile('Rankings', 'Combine scores, add penalties, publish and release.', { name: 'rankings', eventId }));
   if(has('organiser','chair','team_manager'))tiles.push(tile('Submissions','Submit portfolios, check deadlines and track late penalties.',{name:'submissions',eventId}));
   if (roles.length) tiles.push(tile('Team files', 'Upload logos and portfolios or download assigned team submissions.', {name:'team-files', eventId}));
+  if (has('organiser', 'chair')) tiles.push(tile('Paddock Passes', 'Digital ID cards for every team. Send, reset or show a pass as a help desk.', { name: 'passes', eventId }));
+  if (has('organiser', 'chair')) tiles.push(tile('Door check', 'Scan Paddock Passes at the entrance, with or without signal, and follow arrivals.', { name: 'door', eventId }));
   if (has('organiser', 'chair', 'team_manager')) tiles.push(tile('Team feedback', 'Report judging concerns and follow organiser responses.', {name:'team-feedback', eventId}));
   tiles.push(tile('Results', ctx.demo ? 'Explore the populated standings, awards and team PDFs.' : event.resultsReleased ? 'Results released.' : 'Not released yet.', { name: 'results', eventId }));
 
@@ -68,6 +71,7 @@ export async function eventHomeScreen(ctx: Ctx, eventId: string): Promise<HTMLEl
         h('a', { class: 'btn btn--secondary', href: routeHref({ name: 'media', eventId }) }, 'Open Media Assets')
       )
     ) : null,
+    spectatorOnly(roles) ? null : passCheckPanel(ctx, eventId, roles),
     has('organiser','chair') ? await inspectionScopeControl(ctx,eventId) : null,
     has('organiser', 'chair') && !spectatorOnly(roles) ? renameEventControl(ctx, event) : null,
     has('organiser') ? deleteEventControl(ctx, event) : null,

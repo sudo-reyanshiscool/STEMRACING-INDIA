@@ -1,0 +1,80 @@
+/* Paddock Passes and Door check. Shared by both looks: everything here is drawn from the look's own tokens.
+   The pass card itself is styled in src/pass/card/card.css and is always carbon. */
+
+/* --- Paddock Passes --- */
+.passes-page { width: 100%; max-width: 1100px; margin-inline: auto; }
+.passes-status:empty { display: none; }
+.passes-page > * { min-width: 0; }
+.passes-row { display: flex; gap: 20px; overflow-x: auto; min-width: 0; max-width: 100%; box-sizing: border-box; padding: 22px max(16px, calc(50% - min(34vw, 140px)));
+  scroll-snap-type: x mandatory; scrollbar-width: thin; background: var(--carbon-shadow, #05000B); border-radius: var(--radius-card, 8px); }
+.passes-row[hidden] { display: none; }
+.passes-row__item { flex: none; scroll-snap-align: center; width: min(68vw, 280px); --pass-card-width: 100%; cursor: pointer; border-radius: 18px; opacity: .55; transform: scale(.94);
+  transition: opacity .2s ease, transform .2s ease; }
+.passes-row__item[aria-current="true"] { opacity: 1; transform: none; cursor: default; }
+.passes-row__item:focus-visible { outline: 3px solid var(--white, #fff); outline-offset: 4px; }
+.passes-panel[hidden] { display: none; }
+.passes-panel h2 { margin: 0; }
+.passes-name { display: flex; flex-direction: column; gap: 12px; max-width: 520px; }
+.passes-send { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 20px; align-items: start; padding-top: 16px; border-top: 1px solid var(--rule); }
+.passes-send__qr { padding: 10px; background: #fff; border: 1px solid var(--rule); border-radius: 8px; line-height: 0; }
+.passes-send__qr canvas { width: 180px; height: 180px; image-rendering: pixelated; }
+.passes-send input { width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid var(--input-border); border-radius: 6px; background: var(--input-bg); color: var(--fg);
+  font: 13px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.passes-show { position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  padding: calc(14px + env(safe-area-inset-top)) 16px calc(18px + env(safe-area-inset-bottom)); background: radial-gradient(120% 70% at 50% 0%, #1b1626 0%, #05000B 62%); color: #fff; overflow: auto; }
+.passes-show__close { position: absolute; top: calc(12px + env(safe-area-inset-top)); right: 14px; min-height: 44px; padding: 8px 20px; border: 1px solid #ffffff80; border-radius: 999px;
+  background: #ffffff14; color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+.passes-show__close:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+.passes-show__stage { --pass-card-width: min(88vw, 420px, calc((100dvh - 170px) * 0.625)); display: flex; justify-content: center; width: 100%; }
+.passes-show__hint { margin: 0; max-width: 30em; text-align: center; color: #D7D6E3; font-size: 14px; }
+@media (max-width: 640px) { .passes-send { grid-template-columns: 1fr; justify-items: start; } }
+@media (prefers-reduced-motion: reduce) { .passes-row__item { transition: none; } }
+
+/* --- The sync pulse reference --- */
+.pass-ref { display: inline-flex; align-items: center; gap: 18px; max-width: 100%; box-sizing: border-box; padding: 16px 22px; border-radius: 12px; background: var(--carbon-shadow, #05000B); color: #fff; }
+.pass-ref__mark { flex: none; width: 72px; height: 72px; }
+.pass-ref__mark svg { width: 100%; height: 100%; display: block; }
+.pass-ref__text { display: flex; flex-direction: column; gap: 10px; flex: 1 1 150px; min-width: 0; }
+.pass-ref__name { margin: 0; font-size: 20px; font-weight: 700; text-transform: capitalize; color: #fff; }
+.pass-ref__bar { height: 4px; border-radius: 2px; background: #ffffff33; overflow: hidden; }
+.pass-ref__bar i { display: block; height: 100%; background: #fff; transform-origin: left center; }
+.pass-check__body:empty { min-height: 104px; }
+.door-reference .pass-ref__mark { width: min(120px, 28vw); height: min(120px, 28vw); }
+.door-reference .pass-ref__name { font-size: clamp(20px, 5.5vw, 26px); }
+
+/* --- Door check --- */
+.door-page { width: 100%; max-width: 1100px; margin-inline: auto; }
+.door-page > * { min-width: 0; }
+.door-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.door-camera { border-radius: 8px; overflow: hidden; background: #05000B; line-height: 0; }
+.door-camera:has(video[hidden]) { display: none; }
+.door-camera__video { width: 100%; max-height: 52vh; object-fit: cover; }
+.door-manual { display: flex; gap: 10px; }
+.door-manual input { flex: 1; min-width: 0; min-height: 44px; padding: 8px 12px; border: 1px solid var(--input-border); border-radius: 6px; background: var(--input-bg); color: var(--fg); font: inherit; }
+.door-result { display: flex; flex-direction: column; gap: 12px; min-height: 260px; padding: 22px; border-radius: var(--radius-card, 8px); border: 3px solid var(--rule); background: var(--bg-raised); color: var(--fg); }
+.door-result h2 { margin: 0; font-size: clamp(1.5rem, 3.4vw, 2.1rem); line-height: 1.1; color: inherit; }
+.door-result p { margin: 0; }
+.door-result__mark { width: 56px; height: 56px; display: grid; place-items: center; border-radius: 50%; font-size: 32px; line-height: 1; font-weight: 700; background: var(--bg-subtle); color: var(--fg-strong); }
+.door-result__who { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 16px; align-items: start; }
+.door-result__who img, .door-result__no-photo { width: 112px; aspect-ratio: 320 / 460; object-fit: cover; border-radius: 6px; background: #2a2b31; }
+.door-result__no-photo { display: grid; place-items: center; color: #D7D6E3; font-size: 12px; text-align: center; }
+.door-result__who .stack { gap: 4px; }
+.door-result__name { font-size: 1.35rem; line-height: 1.15; }
+.door-result__stream { align-self: flex-start; margin-top: 6px; padding: 4px 12px; border-radius: 4px; font-weight: 700; }
+.door-result__note { font-weight: 700; }
+/* Each outcome has its own colour and its own mark, so it reads at arm's length and without colour. */
+.door-result--genuine { border-color: #167047; background: #E6F4EC; color: #0B2F1E; }
+.door-result--genuine .door-result__mark { background: #167047; color: #fff; }
+.door-result--replay, .door-result--expired { border-color: #B26A00; background: #FFF3DC; color: #3D2500; }
+.door-result--replay .door-result__mark, .door-result--expired .door-result__mark { background: #B26A00; color: #fff; }
+.door-result--expired { border-style: dashed; }
+.door-result--invalid, .door-result--wrong_event, .door-result--unknown { border-color: #B52936; background: #FBE9EB; color: #4A0E15; }
+.door-result--invalid .door-result__mark, .door-result--wrong_event .door-result__mark, .door-result--unknown .door-result__mark { background: #B52936; color: #fff; }
+.door-result--wrong_event { border-style: double; border-width: 6px; }
+.door-result--unknown { border-style: dotted; }
+.door-result--unlisted, .door-result--no-list, .door-result--fault { border-color: #5B5376; border-style: dashed; background: var(--bg-subtle); color: var(--fg-strong); }
+.door-kit__waiting { font-weight: 700; }
+.door-arrivals__count strong { font-size: 1.6rem; }
+.door-arrivals__list { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+.door-arrivals__list ul { margin: 4px 0 0; padding-left: 18px; }
+@media (max-width: 760px) { .door-grid { grid-template-columns: 1fr; } .door-result { min-height: 0; } }

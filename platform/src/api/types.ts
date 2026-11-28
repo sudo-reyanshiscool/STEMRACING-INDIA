@@ -202,6 +202,8 @@ export interface Api {
   recordPassChecks(eventId: string, checks: import('./passes').QueuedCheck[]): Promise<number>;
   passArrivals(eventId: string): Promise<import('./passes').PassArrivals>;
   passPulseKey(eventId: string): Promise<string>;
+  /** The server's clock in milliseconds, so codes and the sync pulse stay right on a device whose own clock is wrong. */
+  passClock(): Promise<number>;
   submissionGuideState(eventId: string): Promise<import('./submission-guide').SubmissionGuideState>;
   recordSubmissionGuideProgress(eventId: string, position: number): Promise<import('./submission-guide').SubmissionGuideState>;
   schedulingState(eventId:string):Promise<ScheduleState>;
